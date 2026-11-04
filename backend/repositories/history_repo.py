@@ -8,10 +8,23 @@ from pathlib import Path
 
 from backend.core.errors import NotFoundError
 from backend.repositories.db import connect
-from backend.schemas.analysis import AnalysisResponse, Conversation, ConversationSummary
+from backend.schemas.analysis import (
+    AnalysisResponse,
+    Conversation,
+    ConversationSummary,
+    RecentAnalysis,
+)
 from backend.schemas.llm_outputs import HistoryTurn
 
 MAX_TITLE_CHARS = 80
+_SUMMARY_SELECT = (
+    "SELECT c.*, "
+    "(SELECT COUNT(*) FROM analyses a WHERE a.conversation_id = c.id) AS analysis_count, "
+    "(SELECT a.question FROM analyses a WHERE a.conversation_id = c.id "
+    "ORDER BY a.created_at DESC, a.rowid DESC LIMIT 1) AS last_question, "
+    "(SELECT MAX(a.created_at) FROM analyses a WHERE a.conversation_id = c.id) "
+    "AS last_activity_at FROM conversations c"
+)
 
 
 class HistoryRepository:
@@ -36,11 +49,7 @@ class HistoryRepository:
 
     def get_summary(self, conversation_id: str) -> ConversationSummary:
         with connect(self._db_path) as conn:
-            row = conn.execute(
-                "SELECT c.*, (SELECT COUNT(*) FROM analyses a WHERE a.conversation_id = c.id) "
-                "AS analysis_count FROM conversations c WHERE c.id = ?",
-                (conversation_id,),
-            ).fetchone()
+            row = conn.execute(f"{_SUMMARY_SELECT} WHERE c.id = ?", (conversation_id,)).fetchone()
         if row is None:
             raise NotFoundError("This conversation was not found.")
         return ConversationSummary.model_validate(dict(row))
@@ -62,15 +71,35 @@ class HistoryRepository:
                 ),
             )
 
-    def list_conversations(self, dataset_id: str) -> list[ConversationSummary]:
+    def list_conversations(self, dataset_id: str | None = None) -> list[ConversationSummary]:
+        """Conversations newest first; all datasets when ``dataset_id`` is None."""
+        where, params = ("WHERE c.dataset_id = ? ", (dataset_id,)) if dataset_id else ("", ())
         with connect(self._db_path) as conn:
             rows = conn.execute(
-                "SELECT c.*, (SELECT COUNT(*) FROM analyses a WHERE a.conversation_id = c.id) "
-                "AS analysis_count FROM conversations c WHERE c.dataset_id = ? "
-                "ORDER BY c.created_at DESC, c.rowid DESC",
-                (dataset_id,),
+                f"{_SUMMARY_SELECT} {where}ORDER BY c.created_at DESC, c.rowid DESC", params
             ).fetchall()
         return [ConversationSummary.model_validate(dict(r)) for r in rows]
+
+    def get_analysis(self, analysis_id: str) -> AnalysisResponse:
+        with connect(self._db_path) as conn:
+            row = conn.execute(
+                "SELECT response_json FROM analyses WHERE id = ?", (analysis_id,)
+            ).fetchone()
+        if row is None:
+            raise NotFoundError("This analysis was not found.")
+        return AnalysisResponse.model_validate_json(row["response_json"])
+
+    def recent_analyses(self, limit: int = 5) -> list[RecentAnalysis]:
+        """Newest analyses across all datasets, without their results."""
+        with connect(self._db_path) as conn:
+            rows = conn.execute(
+                "SELECT a.id AS analysis_id, a.conversation_id, a.dataset_id, "
+                "d.name AS dataset_name, a.question, a.status, a.created_at "
+                "FROM analyses a JOIN datasets d ON d.id = a.dataset_id "
+                "ORDER BY a.created_at DESC, a.rowid DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [RecentAnalysis.model_validate(dict(r)) for r in rows]
 
     def get_conversation(self, conversation_id: str) -> Conversation:
         summary = self.get_summary(conversation_id)

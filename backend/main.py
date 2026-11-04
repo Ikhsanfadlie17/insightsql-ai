@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.api import analyses, client_analytics, datasets, health, usage
+from backend.api import analyses, client_analytics, conversations, datasets, health, usage
 from backend.core.config import Settings, get_settings
 from backend.core.errors import register_error_handlers
 from backend.core.logging import setup_logging
@@ -105,6 +105,7 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     app.include_router(usage.router)
     app.include_router(client_analytics.router)
     app.include_router(analyses.router)
+    app.include_router(conversations.router)
     return app
 
 

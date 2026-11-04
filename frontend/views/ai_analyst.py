@@ -14,26 +14,29 @@ from frontend.api_client import ApiClient, ApiError
 from frontend.components.chat import render_analysis
 from frontend.components.layout import empty_state, md_escape, page_header, show_api_error
 from frontend.components.suggested_questions import suggested_questions
-from frontend.state import get_client, resolve_active, set_active_dataset_id
+from frontend.state import (
+    AA_CONVERSATIONS,
+    AA_SELECT,
+    get_client,
+    open_in_ai_analyst,
+    resolve_active,
+    set_active_dataset_id,
+)
 
-_CONVERSATIONS = "aa_conversation_by_dataset"
 _PENDING = "aa_pending_question"
-_SELECT = "aa_select_conversation"  # (dataset_id, conversation_id) to show on the next run
 
 
 def _conversation_for(dataset_id: str) -> str | None:
-    return st.session_state.setdefault(_CONVERSATIONS, {}).get(dataset_id)
+    return st.session_state.setdefault(AA_CONVERSATIONS, {}).get(dataset_id)
 
 
 def _set_conversation(dataset_id: str, conversation_id: str | None) -> None:
-    st.session_state.setdefault(_CONVERSATIONS, {})[dataset_id] = conversation_id
+    st.session_state.setdefault(AA_CONVERSATIONS, {})[dataset_id] = conversation_id
 
 
 def _select_next_run(dataset_id: str, conversation_id: str | None) -> None:
-    """Show this conversation after the rerun. A keyed selectbox keeps the browser's value,
-    so the choice is written to Session State before the widget is created."""
-    _set_conversation(dataset_id, conversation_id)
-    st.session_state[_SELECT] = (dataset_id, conversation_id)
+    """Show this conversation after the rerun (see ``open_in_ai_analyst``)."""
+    open_in_ai_analyst(dataset_id, conversation_id)
 
 
 def _dataset(api: ApiClient) -> dict[str, Any] | None:
@@ -76,7 +79,7 @@ def _conversation_picker(api: ApiClient, dataset_id: str) -> str | None:
             f"· #{c['id'][:6]}"
             for c in conversations
         }
-        selected = st.session_state.pop(_SELECT, None)
+        selected = st.session_state.pop(AA_SELECT, None)
         if selected is not None and selected[0] == dataset_id:
             st.session_state[widget] = selected[1] if selected[1] in options else None
         elif st.session_state.get(widget, current) not in options:

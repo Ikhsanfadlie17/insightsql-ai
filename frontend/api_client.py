@@ -191,9 +191,18 @@ class ApiClient:
         # A question can take several LLM calls plus query execution.
         return self._request("POST", "/analyses/ask", json=body, timeout=180.0)
 
-    def list_conversations(self, dataset_id: str) -> list[dict[str, Any]]:
-        """``GET /conversations?dataset_id=``."""
-        return self._request("GET", "/conversations", params={"dataset_id": dataset_id})
+    def list_conversations(self, dataset_id: str | None = None) -> list[dict[str, Any]]:
+        """``GET /conversations?dataset_id=`` (all datasets when ``dataset_id`` is None)."""
+        params = {"dataset_id": dataset_id} if dataset_id else None
+        return self._request("GET", "/conversations", params=params)
+
+    def recent_analyses(self, limit: int = 5) -> list[dict[str, Any]]:
+        """``GET /analyses/recent``: newest questions across datasets."""
+        return self._request("GET", "/analyses/recent", params={"limit": limit})
+
+    def get_analysis(self, analysis_id: str) -> dict[str, Any]:
+        """``GET /analyses/{id}``."""
+        return self._request("GET", f"/analyses/{analysis_id}")
 
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
         """``GET /conversations/{id}``."""

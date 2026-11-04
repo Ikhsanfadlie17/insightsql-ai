@@ -50,7 +50,7 @@ def test_data_sources_shows_preview_and_conversion_warning() -> None:
 
 
 def test_unbuilt_pages_do_not_show_fake_numbers() -> None:
-    at = _run("query_history", FakeApi())
+    at = _run("settings", FakeApi())
 
     assert len(at.metric) == 0
     assert any("Phase" in i.value for i in at.info)

@@ -78,6 +78,20 @@ class ConversationSummary(BaseModel):
     title: str
     created_at: datetime
     analysis_count: int = 0
+    last_question: str | None = None
+    last_activity_at: datetime | None = None  # time of the newest analysis
+
+
+class RecentAnalysis(BaseModel):
+    """One line of recent activity (no SQL, result, or insight)."""
+
+    analysis_id: str
+    conversation_id: str
+    dataset_id: str
+    dataset_name: str
+    question: str
+    status: AnalysisStatus
+    created_at: datetime
 
 
 class Conversation(ConversationSummary):

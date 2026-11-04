@@ -13,6 +13,10 @@ from frontend.api_client import ApiClient
 _CLIENT_KEY = "api_client"
 _ACTIVE_KEY = "active_dataset_id"
 DEFAULT_BACKEND_URL = "http://localhost:8000"
+# AI Analyst: the open conversation per dataset, and the one to select on the next run.
+AA_CONVERSATIONS = "aa_conversation_by_dataset"
+AA_SELECT = "aa_select_conversation"
+AI_ANALYST_PAGE = "views/ai_analyst.py"  # relative to the entrypoint (frontend/app.py)
 
 
 def get_client() -> ApiClient:
@@ -32,6 +36,17 @@ def get_active_dataset_id() -> str | None:
 def set_active_dataset_id(dataset_id: str | None) -> None:
     """Remember the dataset the user is working with."""
     st.session_state[_ACTIVE_KEY] = dataset_id
+
+
+def open_in_ai_analyst(dataset_id: str, conversation_id: str | None) -> None:
+    """Make the AI Analyst show this dataset and conversation on its next run.
+
+    A keyed selectbox keeps the browser's value, so the choice is written to Session
+    State before the AI Analyst creates its widget.
+    """
+    set_active_dataset_id(dataset_id)
+    st.session_state.setdefault(AA_CONVERSATIONS, {})[dataset_id] = conversation_id
+    st.session_state[AA_SELECT] = (dataset_id, conversation_id)
 
 
 def resolve_active(datasets: list[dict[str, Any]]) -> dict[str, Any] | None:

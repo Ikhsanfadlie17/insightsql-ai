@@ -125,6 +125,10 @@ class FakeApi:
         self._check("list_datasets")
         return self.datasets
 
+    def recent_analyses(self, limit: int = 5) -> list[dict[str, Any]]:
+        self._check("recent_analyses")
+        return []
+
     def get_dataset(self, dataset_id: str) -> dict[str, Any]:
         self._check("get_dataset")
         return next(d for d in self.datasets if d["id"] == dataset_id)
@@ -365,6 +369,7 @@ class AnalystFakeApi(AnalyticsFakeApi):
         self.ask_calls: list[tuple[str, str, str | None]] = []
         self.conversations: dict[str, dict[str, Any]] = {}
         self.next_answer: dict[str, Any] | None = None
+        self.delete_calls: list[str] = []
 
     def health(self) -> dict[str, Any]:
         self._check("health")
@@ -387,13 +392,29 @@ class AnalystFakeApi(AnalyticsFakeApi):
         conversation["analysis_count"] += 1
         return answer
 
-    def list_conversations(self, dataset_id: str) -> list[dict[str, Any]]:
+    def list_conversations(self, dataset_id: str | None = None) -> list[dict[str, Any]]:
+        """Newest first, like the backend."""
         self._check("list_conversations")
         return [
-            {k: v for k, v in c.items() if k != "analyses"}
-            for c in self.conversations.values()
-            if c["dataset_id"] == dataset_id
+            {
+                **{k: v for k, v in c.items() if k != "analyses"},
+                "last_question": c["analyses"][-1]["question"] if c["analyses"] else None,
+                "last_activity_at": c["analyses"][-1]["created_at"] if c["analyses"] else None,
+            }
+            for c in reversed(self.conversations.values())
+            if dataset_id is None or c["dataset_id"] == dataset_id
         ]
+
+    def recent_analyses(self, limit: int = 5) -> list[dict[str, Any]]:
+        self._check("recent_analyses")
+        names = {d["id"]: d["name"] for d in self.datasets}
+        items = [
+            {"analysis_id": a["analysis_id"], "conversation_id": c["id"],
+             "dataset_id": c["dataset_id"], "dataset_name": names.get(c["dataset_id"], "?"),
+             "question": a["question"], "status": a["status"], "created_at": a["created_at"]}
+            for c in self.conversations.values() for a in c["analyses"]
+        ]  # fmt: skip
+        return items[::-1][:limit]
 
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
         self._check("get_conversation")
@@ -402,4 +423,6 @@ class AnalystFakeApi(AnalyticsFakeApi):
         return copy.deepcopy(self.conversations[conversation_id])
 
     def delete_conversation(self, conversation_id: str) -> None:
+        self._check("delete_conversation")
+        self.delete_calls.append(conversation_id)
         self.conversations.pop(conversation_id, None)

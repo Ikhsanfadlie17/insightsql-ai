@@ -8,7 +8,6 @@ import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.layout import (
-    coming_soon,
     empty_state,
     fmt_count,
     md_escape,
@@ -72,6 +71,34 @@ def _active_panel(api: ApiClient, active: dict[str, Any]) -> None:
         )
 
 
+STATUS_ICONS = {
+    "answered": ":green[:material/check_circle:]",
+    "clarification": ":blue[:material/help:]",
+    "unsupported": ":orange[:material/block:]",
+    "error": ":red[:material/error:]",
+}
+
+
+def _recent_activity(api: ApiClient) -> None:
+    """The last five questions across all datasets (no results, just what was asked)."""
+    st.subheader("Recent activity")
+    recent, error = _optional(api.recent_analyses, 5)
+    if error is not None:
+        st.caption(f"Recent activity is unavailable: {md_escape(error.message)}")
+        return
+    if not recent:
+        st.caption("No questions asked yet. Questions asked in AI Analyst appear here.")
+        return
+    with st.container(border=True):
+        for item in recent:
+            when = str(item["created_at"])[:16].replace("T", " ")
+            st.markdown(
+                f"{STATUS_ICONS.get(item['status'], '')} {md_escape(item['question'])}  \n"
+                f":gray[{md_escape(item['dataset_name'])} · {when} UTC]"
+            )
+        st.caption("Open Query History to reopen or continue a conversation.")
+
+
 def main() -> None:
     """Render the page."""
     page_header("Overview", "Your datasets and the data quality of the active dataset.")
@@ -102,7 +129,7 @@ def main() -> None:
         with st.container(border=True):
             st.markdown(f"#### {md_escape(active['name'])}")
             _active_panel(api, active)
-    coming_soon("Analysis counts and recent activity", 6)
+    _recent_activity(api)
 
 
 main()
