@@ -11,7 +11,7 @@ venv/
 !.env.example
 
 # Data & runtime artifacts
-data/uploads/
+/data/
 *.duckdb
 *.duckdb.wal
 
