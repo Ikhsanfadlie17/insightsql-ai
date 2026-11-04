@@ -59,3 +59,49 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 - **Diterima:** fungsi skalar difilter denylist (bukan allowlist); watchdog RSS hanya Linux;
   self-join equality dibatasi oleh worker.
 - **Keterbatasan:** API OpenAI sungguhan **belum diuji** (jaringan diblokir, belum ada key).
+
+## Phase 5 — Analytics (Task 14–18)
+
+- **Tujuan:** retensi klien deterministik (fokus utama: kebenaran angka), dashboard Client
+  Analytics, visualisasi, insight yang terverifikasi, AI Analyst end-to-end.
+- **Commit:** `4975caf`..(akhir fase, lihat git log).
+- **Komponen baru:** `analytics_service.py` (template SQL tetap → validator → worker
+  sandbox, cache per dataset+mapping), `visualization_service.py`, `insight_generator.py`,
+  `analysis_orchestrator.py`, `history_repo.py`, API `client-analytics/*`, `/analyses/ask`,
+  `/conversations`; halaman Client Analytics & AI Analyst; format angka Indonesia.
+- **Keputusan:** D12–D17 (ARCHITECTURE §10). Definisi metrik, rumus, denominator, asumsi,
+  dan keterbatasan: ARCHITECTURE §8 & §8.1. Alur AI Analyst: §5.2. Verifikasi insight: §7.4.
+- **Test:** 725 lulus sebelum review → **757 lulus, 0 gagal** setelah perbaikan
+  (`.venv/bin/python -m pytest -q`, ±2 menit). Ruff check + format bersih.
+- **Bukti kebenaran angka:**
+  - Fixture kecil yang dihitung manual (fixture dari plan dan 20+ kasus tepi: batas tanggal,
+    datetime 23:59:59, ID kosong/berspasi/NBSP/ZWSP, duplikat, tanggal invalid, periode tidak
+    bersebelahan, YTD 29 Feb, histori mulai di tengah aktivitas).
+  - Implementasi pandas independen (`tests/ground_truth.py`) untuk setiap pasangan tahun
+    2023–2026 dan YTD pada dataset sampel.
+  - Mutation check template SQL: mutan non-ekuivalen tertangkap test.
+  - Rekalkulasi independen dari CSV mentah: 0 selisih
+    ([experiments/2026-11-04-phase5-retention-recompute.md](experiments/2026-11-04-phase5-retention-recompute.md)).
+- **E2E (LLM: mock):** backend + Streamlit + DuckDB sungguhan dengan LLM palsu berskrip
+  ([experiments/2026-11-04-phase5-e2e-fake-llm.md](experiments/2026-11-04-phase5-e2e-fake-llm.md),
+  `scripts/e2e/`). Saat e2e diulang, ditemukan bug yang tidak terlihat di AppTest:
+  Streamlit mencocokkan nilai selectbox berdasarkan label, sehingga follow-up masuk ke
+  percakapan lama yang judulnya sama. Diperbaiki (label unik + pilihan via Session State)
+  dan ditambah regression test.
+- **Review independen:** 1 Critical, 2 High, 8 Medium, 10 Low; seluruh Critical/High/Medium
+  diperbaiki, Low sebagian besar diperbaiki (rincian di plan, "Phase 5 independent review").
+  | Temuan | Sebelum | Sesudah |
+  |---|---|---|
+  | C1 | Contoh NIK di catatan kolom identitas ikut ke prompt insight | Hanya teks tetap per kode warning; test memastikan NIK tidak terkirim |
+  | H1 | LLM bisa menulis rate N/A sebagai "0%" | Persen hanya cocok dengan sumber persentase nyata; fakta retensi selalu dari template |
+  | H2 | "naik 20%" lolos untuk penurunan | Perubahan menyimpan tanda; kata naik/turun dicek |
+  | M1–M8 | bilangan kecil sebagai %, kata kausal berimbuhan, ID numerik panjang, pembulatan chart, garis tidak urut, heuristik KPI, flag YTD diabaikan, ZWSP/BOM | Diperbaiki + test |
+- **Pengukuran (bukan benchmark):** satu `compare_periods` pada sampel ±276 ms (didominasi
+  start proses worker). Reviewer mengukur 3 juta baris: compare ±4,9 s, halaman klien ±8,6 s
+  (sebelum perbaikan window count) — masih di bawah timeout 10 s.
+- **Token/biaya:** tidak ada data nyata. E2E memakai LLM palsu dengan token tetap; harga di
+  `config/pricing.json` kosong, sehingga biaya tercatat "tidak tersedia".
+- **Keterbatasan:** API OpenAI sungguhan belum diuji; grounding membuktikan angka *dapat
+  diturunkan* dari hasil, bukan bahwa angka melekat pada metrik yang benar; angka dalam
+  bentuk kata tidak dicek; tabel hasil (`st.dataframe`) belum berformat Indonesia; duplikat
+  terdeteksi setelah konversi tipe.

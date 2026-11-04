@@ -495,6 +495,33 @@ Accepted / follow-up:
   the OpenAI API), and an independent recomputation from the raw CSV.
 - Real OpenAI API: still **not tested** (network blocked, no key).
 
+**Phase 5 independent review — outcome:** 1 Critical, 2 High, 8 Medium, 10 Low. Retention
+logic, partitions, SQL-template safety, conversation isolation, and cache keys were found
+correct; an independent recomputation from the raw CSV matched every number.
+Fixed: C1 (example IDs inside identity-column warnings reached the insight prompt → fixed
+texts per warning code), H1 (an N/A rate could be written as "0%" → percentages need a real
+percentage source; retention facts always from the template), H2 (direction of a change
+not checked → signed changes + direction words), M1 (small integers accepted as
+percentages), M2 (Indonesian affixed causal verbs), M3 (long numeric IDs / `dob` /
+`whatsapp` sent), M4 (chart rounding of decimals), M5 (unsorted / long-format lines),
+M6 (KPI percent heuristic), M7 (`ytd` flag ignored → comparable YTD periods rebuilt),
+M8 (zero-width space / BOM in IDs), L1 (failed insight requests missing from usage),
+L2 (unexpected errors lost the analysis; out-of-range plan dates crashed), L3 (typo years:
+warning, years from data, bounded zero-fill), L6 (cache lock), L7 (trend ignored the dedupe
+toggle), L8 (year KPI shown as 2.026), L9 (literal "(no department)"), L10 (window count).
+Accepted / follow-up:
+- L4 (rounding tolerance with large scale words) and L5 (numbers written as words) are
+  documented limits of the grounding check (ARCHITECTURE §7.4).
+- L8 (part): result tables (`st.dataframe`) still use the browser's number format; KPI
+  cards, charts, captions, and insights use the Indonesian format. Revisit with export
+  formatting in Phase 6.
+- Duplicate rows are detected after type conversion (Phase 3 L1): rows that differ only in
+  values that failed conversion are counted once in transaction counts. Client counts are
+  not affected, and unconverted client IDs raise a visible warning.
+- Performance on very large files (3 M rows: compare ≈ 4.9 s, client page ≈ 8.6 s before
+  the window-count fix, measured by the reviewer) is within the 10 s timeout; the 50 MB
+  upload limit keeps typical files far smaller. Phase 7 performance work.
+
 **Phase 5 report.**
 
 ---

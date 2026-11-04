@@ -121,3 +121,28 @@ def test_suggested_question_button_asks_it() -> None:
     at.button(key="aa_suggest_0").click().run()
 
     assert api.ask_calls and api.ask_calls[0][1].startswith("Bandingkan klien")
+
+
+def test_follow_up_with_existing_conversations_reuses_the_new_one() -> None:
+    """E2E regression: with older conversations listed, a follow-up must stay in the
+    conversation that the first question created."""
+    api = AnalystFakeApi()
+    api.ask("d1", "Lama?", None)  # an older conversation c1
+    api.ask_calls.clear()
+    at = _run(api)
+
+    at.chat_input(key="aa_input").set_value("Pertama?").run()
+    at.chat_input(key="aa_input").set_value("Lanjutan?").run()
+
+    assert [c[2] for c in api.ask_calls] == [None, "c2"]
+    assert "Pertama?" in _text(at) and "Lanjutan?" in _text(at)
+
+
+def test_conversation_labels_are_unique_for_identical_titles() -> None:
+    api = AnalystFakeApi()
+    api.ask("d1", "Sama?", None)
+    api.ask("d1", "Sama?", None)
+    at = _run(api)
+
+    options = at.selectbox(key="aa_conversation_d1").options
+    assert len(set(options)) == len(options) == 3

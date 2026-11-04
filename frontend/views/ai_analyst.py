@@ -18,6 +18,7 @@ from frontend.state import get_client, resolve_active, set_active_dataset_id
 
 _CONVERSATIONS = "aa_conversation_by_dataset"
 _PENDING = "aa_pending_question"
+_SELECT = "aa_select_conversation"  # (dataset_id, conversation_id) to show on the next run
 
 
 def _conversation_for(dataset_id: str) -> str | None:
@@ -26,6 +27,13 @@ def _conversation_for(dataset_id: str) -> str | None:
 
 def _set_conversation(dataset_id: str, conversation_id: str | None) -> None:
     st.session_state.setdefault(_CONVERSATIONS, {})[dataset_id] = conversation_id
+
+
+def _select_next_run(dataset_id: str, conversation_id: str | None) -> None:
+    """Show this conversation after the rerun. A keyed selectbox keeps the browser's value,
+    so the choice is written to Session State before the widget is created."""
+    _set_conversation(dataset_id, conversation_id)
+    st.session_state[_SELECT] = (dataset_id, conversation_id)
 
 
 def _dataset(api: ApiClient) -> dict[str, Any] | None:
@@ -58,23 +66,34 @@ def _conversation_picker(api: ApiClient, dataset_id: str) -> str | None:
         show_api_error(error)
         return current
     left, right = st.columns([4, 1], vertical_alignment="bottom")
+    widget = f"aa_conversation_{dataset_id}"
     if conversations:
         options = [None] + [c["id"] for c in conversations]
-        titles = {c["id"]: c["title"] for c in conversations}
-        index = options.index(current) if current in options else 0
+        # Labels must be unique: Streamlit matches a selectbox value by its label, and two
+        # conversations can start with the same question.
+        titles = {
+            c["id"]: f"{c['title'][:70]} · {str(c['created_at'])[:16].replace('T', ' ')} "
+            f"· #{c['id'][:6]}"
+            for c in conversations
+        }
+        selected = st.session_state.pop(_SELECT, None)
+        if selected is not None and selected[0] == dataset_id:
+            st.session_state[widget] = selected[1] if selected[1] in options else None
+        elif st.session_state.get(widget, current) not in options:
+            st.session_state[widget] = current if current in options else None
+        if widget not in st.session_state:
+            st.session_state[widget] = current if current in options else None
         chosen = left.selectbox(
             "Conversation",
             options,
-            index=index,
             format_func=lambda i: "New conversation" if i is None else titles[i],
-            key=f"aa_conversation_{dataset_id}",
+            key=widget,
         )
         if chosen != current:
             _set_conversation(dataset_id, chosen)
             current = chosen
     if right.button("New conversation", icon=":material/add_comment:", key="aa_new"):
-        _set_conversation(dataset_id, None)
-        st.session_state.pop(f"aa_conversation_{dataset_id}", None)
+        _select_next_run(dataset_id, None)
         st.rerun()
     return current
 
@@ -86,8 +105,7 @@ def _ask(api: ApiClient, dataset_id: str, question: str) -> None:
         except ApiError as error:
             show_api_error(error)
             return
-    _set_conversation(dataset_id, result["conversation_id"])
-    st.session_state.pop(f"aa_conversation_{dataset_id}", None)
+    _select_next_run(dataset_id, result["conversation_id"])
     st.rerun()
 
 

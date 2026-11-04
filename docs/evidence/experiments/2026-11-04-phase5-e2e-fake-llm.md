@@ -1,6 +1,6 @@
 # Phase 5 — end-to-end run with the real backend and a scripted fake LLM
 
-- **Date:** 2026-11-04 · **Commit tested:** `1fe5e2f`/`38ca2d2` · **LLM: mock** (scripted
+- **Date:** 2026-11-04 · **Commits tested:** `1fe5e2f`/`38ca2d2`, re-run after the review fixes · **LLM: mock** (scripted
   fake in `scripts/e2e/fake_llm_app.py`; OpenAI was never contacted)
 - **What is real:** Streamlit UI, FastAPI, SQL validator, sandboxed DuckDB worker, analytics
   templates, insight verification, SQLite history, usage records.
@@ -19,4 +19,10 @@
 | AI: `DROP TABLE` plan (3 attempts) → rejected by the validator, table intact, error shown | pass |
 | Usage recorded | 8 requests (2 + 2 + 1 + 3), all tied to their analysis; cost "not available" because `config/pricing.json` has no prices |
 
-Screenshots: `../screenshots/`.
+**Bug found only by the re-run (not by AppTest):** with older conversations of the same
+title listed, follow-up questions went into an *older* conversation, because Streamlit
+matches a selectbox value by its label. Fixed with unique labels (title · time · id) and
+by selecting the new conversation through Session State before the widget is created;
+regression tests added. Re-run after the fix: the 4 questions stay in one conversation.
+
+Screenshots (final run): `../screenshots/phase5-*.png`.

@@ -383,9 +383,12 @@ warnings). Before sending, text values are **pseudonymised** as `[V1]`, `[V2]`, 
 - every other text value unless it is a known category value (the allowlisted examples of
   the schema context) or an ISO date / period label (`2026`, `2026-03`, `2026-Q1`).
 
-Placeholders are mapped back to the real values locally, after verification. A
-retention insight receives only the metric counts, rates, period labels, and warnings —
-never client lists.
+Integers with 9 or more digits (NIK, phone, account numbers) are withheld too unless the
+column is named like an amount (`total`, `pendapatan`, `revenue`, …); `dob`/`whatsapp`/`ttl`
+columns count as identifiers. Placeholders are mapped back to the real values locally,
+after verification. A retention insight receives only the metric counts, rates, period
+labels, and **fixed texts per warning code** — never warning messages (they can quote
+values from the file) and never client lists.
 
 **Required structure:** `summary`, `facts` (read directly from the result),
 `interpretations` (possibilities, not proof), `recommendations` (next checks), and
@@ -394,18 +397,31 @@ data".
 
 **Verification before display** — the AI text is rejected when:
 
-1. **A number is not derivable from the result.** Allowed: cell values; per numeric column
-   the total, mean, shares of the total, pairwise differences and percentage changes;
-   differences within a row; ratios written as percentages; the row count (and small
-   integers up to it, e.g. "top 3"); years and dates of the result values, the compared
-   periods, and the data range. Numbers are parsed in Indonesian and English formats
-   (`1.234,5`, `1,234.5`, `62,5%`, `Rp 125.000.000`, `1,2 juta`/`million`); a written
-   value matches when an allowed value rounds to it (half-up or half-even) at the number
-   of decimals written. Unknown ISO dates are rejected too.
-2. **A placeholder does not exist** (`unknown_reference`).
-3. **A cause is stated as fact**: causal words (`karena`, `disebabkan`, `akibat`,
-   `because`, `due to`, `driven by`, …) in the summary or facts, or in interpretations /
-   recommendations without a hedge (`mungkin`, `kemungkinan`, `may`, `might`, …).
+1. **A number is not derivable from the result.** Allowed for plain numbers: cell values;
+   per numeric column the total and mean; unordered pairwise differences; the row count (and
+   small integers up to it, e.g. "top 3"); years and dates of the result values, the
+   compared periods, and the data range. **A percentage** (`%`, `persen`, `percent`) may
+   only match a real percentage: ratios × 100, shares of a column total, percentage changes
+   (never 0% between equal values), or values of a percentage-named column — never a count,
+   a small integer, or an undefined (NULL / N/A) rate. Rate columns are excluded from totals
+   and shares. Numbers are parsed in Indonesian and English formats (`1.234,5`, `1,234.5`,
+   `62,5%`, `Rp 125.000.000`, `1,2 juta`/`million`); a written value matches when an allowed
+   value rounds to it (half-up or half-even) at the number of decimals written. Unknown ISO
+   dates are rejected too.
+2. **A change is described in the wrong direction.** For ordered data (a time series with
+   unique periods, or previous → current) changes keep their sign; a number that matches
+   only such a change must agree with the sentence's direction words (`naik`/`meningkat`/
+   `increase` vs `turun`/`menurun`/`decrease`).
+3. **A placeholder does not exist** (`unknown_reference`).
+4. **A cause is stated as fact**: causal words, including Indonesian affixed forms
+   (`karena`, `menyebabkan`, `mengakibatkan`, `memicu`, `didorong`, `berdampak`, `because`,
+   `due to`, `driven by`, `thanks to`, `attributable to`, …) in the summary or facts, or in
+   interpretations / recommendations without a hedge (`mungkin`, `kemungkinan`, `may`, …).
+
+**Retention answers are stricter:** summary and facts always come from the deterministic
+template (exact counts, N/A for undefined rates); the AI may only add interpretations,
+recommendations, and limitations, which must contain **no numbers** and whose direction
+words must match the change in active clients.
 
 On rejection — or when AI insights are off (`ENABLE_LLM_INSIGHTS=false`), not configured,
 or the provider fails — a **deterministic template** built from the same result is shown,
@@ -415,10 +431,12 @@ history-completeness limitation for retention answers. The insight request is re
 `llm_requests` (purpose `insight`, prompt version `2026-11-04.insight-v1`) whether or not
 its text is used.
 
-**Known limits of the check (documented, not hidden):** it proves that every number *can be
-derived* from the result, not that the sentence attaches it to the right metric (e.g. a
-percentage change of one column quoted as another metric); numbers written as words
-("dua kali lipat") are not checked; the causal check is a word list.
+**Known limits of the check (documented, not hidden):** for SQL results it proves that every
+number *can be derived* from the result, not that the sentence attaches it to the right
+metric (e.g. a share of one column quoted as another metric); numbers written as words
+("dua kali lipat") are not checked; a large scale word tolerates rounding ("Rp 2 miliar"
+for 1,6 miliar); the causal and direction checks are word lists; `limitations` are not
+checked for causal words; the direction check is not applied to unordered (category) results.
 
 ## 8. Client-retention definitions
 
@@ -468,7 +486,7 @@ shown in the UI ("How the numbers were computed").
 
 | Item | Definition as built |
 |---|---|
-| Identity (ID) | `CAST(id AS VARCHAR)` with leading/trailing whitespace removed (ASCII whitespace and Unicode separators such as the no-break space); empty → missing. **Case-sensitive**: `KL-001` and `kl-001` are different clients (reported by the identity check). Integer IDs are compared as text. |
+| Identity (ID) | `CAST(id AS VARCHAR)` with leading/trailing whitespace removed (ASCII whitespace, Unicode separators such as the no-break space, and invisible format characters such as the zero-width space and BOM); empty → missing. **Case-sensitive**: `KL-001` and `kl-001` are different clients (reported by the identity check). Integer IDs are compared as text. |
 | Identity (name, no ID mapped) | lower-case, whitespace collapsed and trimmed; a `name_identity` warning is always shown. |
 | Date | `CAST(date AS DATE)`: a datetime of 23:59:59 on 31 Dec belongs to that day. Periods are half-open `[start, end)`. |
 | Transactions (previous/current) | rows of `valid` dated in the period (exact duplicates counted once by default). |
@@ -480,15 +498,17 @@ shown in the UI ("How the numbers were computed").
 | Department breakdown | per department (trimmed text; missing → "(no department)"): clients active in it in each period, returning (in it in both periods), retention = returning ÷ previous active in it (N/A if 0), transactions. A client can appear in several departments, so rows are **not additive**; `clients_in_multiple_departments` and a note say so. |
 | Trend | per month/quarter/year: active clients (distinct), new clients (first seen in the dataset in that bucket), transactions. Buckets without data are **zero-filled** (in Python, generators are blocked by the validator); `partial_first`/`partial_last` flag buckets only partly covered by the data. |
 | Identity check | rows without identity; groups of IDs that differ only by case or whitespace; IDs with several (normalized) names; names with several IDs; up to 50 examples per issue (shown to the user, never sent to the LLM). |
-| Coverage | rows, unique clients, missing identity/date rows, date range, years — feeds the period picker. |
+| Coverage | rows, unique clients, missing identity/date rows, date range, the years that have data — feeds the period picker. |
 
 Warnings (`code`, shown on the page and in AI answers): `history_completeness` (always),
 `history_starts_late` (data starts on/after the previous period start),
 `incomplete_current_period` (data ends before the current period's last day),
 `unequal_period_lengths` (lengths differ by > 1 day), `non_adjacent_periods` (gap →
 Between-period possible), `no_data` / `no_data_previous` / `no_data_current`,
-`missing_client_ids`, `missing_transaction_dates`, `duplicate_rows`, `name_identity`, and the
-identity column's own import warnings (e.g. IDs that could not be converted).
+`missing_client_ids`, `missing_transaction_dates`, `duplicate_rows`, `name_identity`,
+`implausible_dates` (dates before 1950 or more than a year ahead — likely typos; the trend
+then shows only buckets with data instead of zero-filling > 600 buckets), and the identity
+column's own import warnings (e.g. IDs that could not be converted).
 
 **Business assumptions:** "client" = one identity value; activity = any row dated in the
 period (status values such as *cancelled* are not filtered — filter in the AI Analyst if

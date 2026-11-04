@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
   await p.getByText('Retention rate').first().waitFor({ timeout: 30000 });
   await p.waitForTimeout(2500);
   const t = await p.locator('body').innerText();
-  for (const s of ['Active in 2025', 'Active in 2026', 'Retention rate', 'Existing active', 'returning ÷', 'incomplete'])
+  for (const s of ['Active in 2025', 'Active in 2026', 'Retention rate', 'Existing active', 'returning ÷', 'Year-to-date'])
     console.log(s, t.includes(s));
   await p.screenshot({ path: `${out}/ca_full.png`, fullPage: true });
   await p.setViewportSize({ width: 420, height: 900 });
