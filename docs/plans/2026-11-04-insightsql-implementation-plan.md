@@ -324,6 +324,24 @@ Accepted / follow-up:
   into the app but has no HTTP route until Task 18 (Phase 5).
 - Real OpenAI API: **not tested** (network blocked, no key). See ARCHITECTURE §9.
 
+**Phase 4 independent review (SQL-security focus) — outcome:** 0 Critical, 3 High, 4 Medium,
+~9 Low. Fixed: H1 (system catalogs readable through table macros and out-of-scope CTE names),
+H2 (generators ignored the timeout and memory limit → isolated worker process killed on
+timeout/RSS, plus RLIMIT_AS), H3 (cell values in error messages → category-only errors),
+M1 (tokenizer/recursion crashes), M2 (unrecorded non-provider failures), M3 (billed tokens of
+unusable answers lost), M4 (privacy false negatives → example allowlist, no min/max), and the
+Lows: equality-only joins, `<data>` escaping, utility nodes in subqueries, single statement in
+the executor, quota / long Retry-After / total deadline, serialized retry_count, snapshot price
+fallback, validation-time caps.
+Accepted / follow-up:
+- Scalar functions are still filtered by a denylist, not an allowlist. All table functions are
+  rejected, and the isolated worker bounds time, memory, and output, so an unlisted scalar
+  function can at worst waste one worker's time. Revisit after DuckDB upgrades.
+- The RSS watchdog reads `/proc` (Linux); elsewhere only the timeout kill and RLIMIT_AS apply.
+  The Docker image is Linux.
+- Equality self-joins on low-cardinality columns are valid SQL and are bounded only by the
+  worker limits (they time out or are killed).
+
 ---
 
 ## Phase 5 — Analytics

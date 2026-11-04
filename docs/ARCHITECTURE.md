@@ -271,44 +271,63 @@ The LLM never executes anything; the system prompt is one layer, not the securit
 
 | Rule | Rejects |
 |---|---|
-| `empty`, `too_long` (> 20,000 chars), `parse_error` | malformed input |
+| `empty`, `too_long` (> 20,000 chars), `parse_error` (incl. tokenizer errors), `too_complex` (nesting > 64, > 2,000 syntax nodes) | malformed or pathological input |
 | `multiple_statements` | more than one statement (a comment-only trailing `;` is ignored) |
-| `not_select` | any root other than `SELECT` or a set operation — an **allowlist**, so every write, DDL, session, and utility statement is rejected, including ones SQLGlot only knows as generic commands (`LOAD`, `CALL`) |
-| `forbidden_table` | anything but the active dataset's table `dataset` and CTEs of the same query; schema/catalog-qualified names; file paths in `FROM` |
-| `forbidden_function` | file/network readers (`read_*`, `glob`, `parquet_*`, …), SQL-executing functions (`query`, `query_table`, `json_execute*`), environment/config/catalog functions (`getenv`, `current_setting`, `duckdb_*`, `pragma_*`), and unbounded generators (`range`, `generate_series`, `repeat`) — in any position, including table functions and CTEs |
-| `recursive_cte`, `cartesian_join` (CROSS, comma joins, `ON TRUE`), `too_many_joins` (> 5) | resource exhaustion |
+| `not_select` | any root other than `SELECT` or a set operation — an **allowlist**, so every write, DDL, session, and utility statement is rejected, including ones SQLGlot only knows as generic commands (`LOAD`, `CALL`); utility/write nodes are also rejected **anywhere inside** a query (e.g. `SELECT * FROM (DESCRIBE dataset)`) |
+| `forbidden_table` | tables are resolved **per scope** (SQLGlot `traverse_scope`): each reference must be the active dataset's table `dataset` or a CTE visible in that scope, so an inner CTE named `duckdb_databases` cannot whitelist the real catalog outside it; schema/catalog-qualified names and file paths are rejected |
+| `forbidden_table_function` | every table function / table macro / `UNNEST` used as a `FROM`/`JOIN` source (they can read system catalogs, e.g. `histogram_values(duckdb_databases, path)`, or generate unbounded rows); sources may only be tables, subqueries, or `VALUES` |
+| `forbidden_function` | file/network readers (`read_*`, `glob`, `parquet_*`, …), SQL-executing functions (`query`, `query_table`, `json_execute*`), environment/config/catalog functions (`getenv`, `current_setting`, `duckdb_*`, `pragma_*`), `error()` (puts data into error text), sleep/log functions, and generators of huge values that ignore timeouts and memory limits (`range`, `generate_series`, `repeat`, `list_resize`, `array_resize`, `lpad`/`rpad`, `histogram`, `bar`, `printf`, `format`, …) |
+| `recursive_cte`, `cartesian_join`, `too_many_joins` (> 5) | resource exhaustion; a join must relate both sides with an equality between qualified columns of the two tables (or `USING`), so `CROSS`, comma joins, `ON TRUE`, `ON a.x = a.x`, `ON a.x <> b.x` are rejected |
 | `unknown_column` | columns that do not exist in the active dataset (SQLGlot `qualify` against the schema) |
 
 `ValidatedSQL` is immutable and can only be created by `validate_sql` (a private token);
 `QueryExecutor.execute` raises `TypeError` for anything else. The attack corpus
-(`tests/security/attack_corpus.yaml`, 61 cases incl. syntactically valid bypass attempts)
+(`tests/security/attack_corpus.yaml`, 92 cases incl. syntactically valid bypass attempts
+and every reproduction from the Phase 4 security review)
 and 20 accepted analytical queries are run on every test run.
 
-### 7.2 Execution sandbox (`query_executor`) — defense in depth
+### 7.2 Execution sandbox (`query_executor` + `query_worker`) — defense in depth
 
-- Opens the dataset file with `read_only=True`, `enable_external_access=false`, extension
-  autoload/autoinstall and community extensions disabled, then `SET lock_configuration=true`.
-  Tests run dangerous SQL that **bypasses the validator** (file reads, `COPY`, `ATTACH`,
-  `INSTALL`, `CREATE`, `DELETE`, `SET`) and show the sandbox blocks each one.
-- `QUERY_THREADS` (default 2) and `QUERY_MEMORY_LIMIT` (default 512MB) per query.
-- Timeout: a watchdog calls `connection.interrupt()` after `QUERY_TIMEOUT_SECONDS`.
-- Row cap: `SELECT * FROM (<sql>) AS result_set LIMIT MAX_RESULT_ROWS + 1` sets `truncated`
-  (inner `ORDER BY` order is preserved; tested).
-- Errors are sanitized before they reach users, logs, or the LLM: quoted values, file paths,
-  long numbers, and the echoed query are removed (DuckDB errors otherwise quote cell values,
-  e.g. `Could not convert string 'KL-77'`).
+- Each query runs in a **separate Python process** (`python -I backend/services/query_worker.py`,
+  isolated mode, JSON over stdin/stdout). The backend process never executes LLM SQL itself.
+  Reason (Phase 4 review): some DuckDB functions build huge values without checking DuckDB's
+  interrupt or `memory_limit`; in-process they took 55 s and 3.7 GB despite a 5 s / 512 MB limit.
+- The parent **kills** the worker when it exceeds `QUERY_TIMEOUT_SECONDS` (wall clock) or when
+  its resident memory exceeds `QUERY_PROCESS_MEMORY_MB` (default 1024, read from `/proc` every
+  20 ms on Linux). The OS caps the worker's address space with `RLIMIT_AS`
+  (`QUERY_ADDRESS_SPACE_MB`, default 4096; DuckDB needs about 2 GB of address space to start).
+  Overhead: about 0.2 s per query.
+- Inside the worker: `read_only=True`, `enable_external_access=false`, extension
+  autoload/autoinstall and community extensions disabled, `SET lock_configuration=true`,
+  `QUERY_THREADS` (2) and `QUERY_MEMORY_LIMIT` (512MB), and exactly one statement
+  (`extract_statements`). Tests run dangerous SQL that **bypasses the validator** (file reads,
+  `COPY`, `ATTACH`, `INSTALL`, `CREATE`, `DELETE`, `SET`, smuggled statements, runaway
+  generators) and show it is blocked or killed.
+- Row cap (`MAX_RESULT_ROWS`, `truncated` flag; inner `ORDER BY` preserved) and byte cap
+  (`MAX_RESULT_BYTES`, default 20 MB).
+- **Errors are reported by category only** (conversion, binder, out of range, invalid input,
+  out of memory, resources, not allowed, syntax, multiple statements, result too large,
+  timeout). DuckDB's error text is never forwarded to users, logs, or the LLM, because it can
+  quote cell values (multi-line values, unquoted numbers, `error()` arguments). Each category
+  has a generic, actionable message, which is also what the LLM sees in a repair step.
 
 ### 7.3 Prompt-injection and privacy — implemented in Phase 4
 
 - Sent to the LLM (`services/schema_context.py`): table name and row count; per column the SQL
-  name, original header, type, confirmed role, missing %, distinct count, and aggregates
-  (min/max/mean, date range); definitions derived from the confirmed mapping; up to five
-  example values **only** for low-cardinality (≤ 30), non-sensitive text categories.
-- Never sent: individual records or numbers; any value or statistic of identity columns
-  (confirmed client ID/name) or of columns whose header suggests personal data (NIK, NPWP,
-  KTP, phone, e-mail, address, name, birth date, account/rekening, salary, …) or whose values
-  look like e-mail addresses or phone/long numbers; values of identifier/code columns.
-  `SEND_SAMPLE_VALUES=false` withholds every example.
+  name, original header, type, confirmed role, missing %, distinct count, the **mean** of
+  non-sensitive numbers, and the date range of non-personal date columns; definitions derived
+  from the confirmed mapping; up to five example values **only** for category columns, decided
+  by an **allowlist** (headers such as Departemen, Divisi, Status, Jenis, Kategori, Produk,
+  Layanan, Metode, Channel, … or a confirmed department / service type / status role), with
+  ≤ 30 distinct values.
+- Never sent: individual records or numbers (**no min/max**); any value or statistic of
+  identity columns (confirmed client ID/name) or of columns whose header suggests personal
+  data (NIK, NPWP, KTP, phone, e-mail, address, domicile, names, customers/patients/employees,
+  PIC, health, income/salary, birth dates, gender, religion, ethnicity, notes, account numbers,
+  …) or whose values look like e-mail addresses or phone/long numbers; values of identifier
+  or code columns. `SEND_SAMPLE_VALUES=false` withholds every example.
+- Header and value text from the file is JSON-encoded with `<`, `>`, `&` escaped, so it can
+  never close or open the `<data>` block.
 - Headers and values come from the user's file: they appear only inside a JSON-encoded
   `<data>` block that the prompt marks as untrusted; the question is wrapped in `<question>`.
 - Conversation history sent to the model contains earlier questions and SQL, never results.
@@ -381,25 +400,33 @@ Rules:
 - `OPENAI_API_KEY`, `OPENAI_MODEL` (required for AI features) and `OPENAI_INSIGHT_MODEL`
   (optional). No model ID is hard-coded; the key exists only in the backend environment
   (`SecretStr`, never logged or returned by the API).
-- `OpenAIClient` uses the Responses API with **strict Structured Outputs** (`responses.parse`
-  with a Pydantic schema) and `store=False`. The SDK's own retries are disabled; the client
+- `OpenAIClient` uses the Responses API with **strict Structured Outputs** (`responses.create`
+  with the JSON schema of a Pydantic model, parsed by our code) and `store=False`. The SDK's own retries are disabled; the client
   retries timeouts, connection errors, HTTP 429, and 5xx at most `LLM_MAX_RETRIES` times
-  (default 2) with exponential backoff, honouring `Retry-After` up to 20 s. Other errors are not
-  retried. Timeouts: `LLM_TIMEOUT_SECONDS` per request. Output cap: `LLM_MAX_OUTPUT_TOKENS`.
+  (default 2) with exponential backoff, honouring `Retry-After` up to 20 s; a longer `Retry-After`,
+  `insufficient_quota` (`llm_quota_exceeded`), and a backoff that would exceed
+  `LLM_TOTAL_TIMEOUT_SECONDS` (default 90) fail fast. Other errors are not retried. Timeouts:
+  `LLM_TIMEOUT_SECONDS` per request. Output cap: `LLM_MAX_OUTPUT_TOKENS`.
+- The client parses the answer itself so the billed token usage is kept when the answer is
+  incomplete, refused, or invalid; that usage and its cost are recorded on the failed request.
+  The strict schema comes from the SDK helper `type_to_text_format_param` (a private SDK module;
+  the SDK version is pinned and tests check the request shape).
   (The planned JSON-mode fallback for models without Structured Outputs was not built: such a
   model returns an error that is reported clearly.)
 - `LLMGateway` is the only way the app calls a model. Every request — success or failure — is
   stored in `llm_requests`: id, timestamp, purpose (`sql_generation`, `sql_repair`, later
   `insight`), dataset and analysis ids, model, status, attempts (retries = attempts − 1), input,
   output, and cached tokens, estimated cost, `cost_status`, latency, error code/message, and the
-  prompt version. `GET /usage/requests` and `GET /usage/summary` expose them.
+  prompt version. `GET /usage/requests` and `GET /usage/summary` expose them. Unexpected
+  (non-provider) exceptions are recorded too, as `internal_error` without their message.
 - Prices live only in `config/pricing.json` (USD per 1M input, cached-input, and output
   tokens). Cost = (input − cached) × input price + cached × cached price (input price if no
   cached price) + output × output price. Without usage or price the cost is `null` with
   `cost_status` `unavailable_no_usage` / `unavailable_no_price`; summaries report how many
-  requests have no estimate instead of treating them as zero cost.
+  requests have no estimate instead of treating them as zero cost. When the provider reports a
+  dated snapshot (`model-2026-11-01`) of the requested id, the requested id's price is used.
 - SQL generation: up to `MAX_SQL_REPAIRS` (default 2, maximum 2) repair calls, each given
-  the sanitized error. Clarification, unsupported, and retention intents are returned without
+  the category-based error message (never DuckDB's own text). Clarification, unsupported, and retention intents are returned without
   executing anything. After the limit the user gets a clear explanation (`sql_generation_failed`).
 - Calls avoided: profiling, role suggestion, chart choice, and retention math are pure
   Python/SQL. Schema context is cached per dataset/profile/confirmed-mapping state.
