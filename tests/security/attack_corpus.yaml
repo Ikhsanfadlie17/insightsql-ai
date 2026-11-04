@@ -1,0 +1,88 @@
+# SQL the validator must reject. Each case names the rule expected to fire.
+# Schema under test: table "dataset" with columns id_klien (text), tanggal (date),
+# departemen (text), pendapatan (integer).
+
+# --- write / DDL / session statements --------------------------------------------
+- {sql: "DROP TABLE dataset", rule: not_select}
+- {sql: "DELETE FROM dataset", rule: not_select}
+- {sql: "INSERT INTO dataset VALUES ('x', '2026-01-01', 'a', 1)", rule: not_select}
+- {sql: "UPDATE dataset SET pendapatan = 0", rule: not_select}
+- {sql: "CREATE TABLE x AS SELECT * FROM dataset", rule: not_select}
+- {sql: "ALTER TABLE dataset ADD COLUMN x INT", rule: not_select}
+- {sql: "TRUNCATE dataset", rule: not_select}
+- {sql: "ATTACH 'other.duckdb' AS other", rule: not_select}
+- {sql: "DETACH other", rule: not_select}
+- {sql: "COPY dataset TO 'leak.csv'", rule: not_select}
+- {sql: "INSTALL httpfs", rule: not_select}
+- {sql: "LOAD httpfs", rule: not_select}
+- {sql: "PRAGMA database_list", rule: not_select}
+- {sql: "SET threads = 64", rule: not_select}
+- {sql: "CALL pragma_version()", rule: not_select}
+- {sql: "USE other", rule: not_select}
+- {sql: "SUMMARIZE dataset", rule: not_select}
+- {sql: "DESCRIBE dataset", rule: not_select}
+- {sql: "SHOW TABLES", rule: not_select}
+- {sql: "BEGIN TRANSACTION", rule: not_select}
+- {sql: "EXPORT DATABASE 'dump'", rule: parse_error}
+
+# --- multiple statements / smuggling ---------------------------------------------
+- {sql: "SELECT 1; DROP TABLE dataset", rule: multiple_statements}
+- {sql: "SELECT * FROM dataset; SELECT * FROM dataset", rule: multiple_statements}
+- {sql: "SELECT 1;\n/* hidden */ DELETE FROM dataset", rule: multiple_statements}
+
+# --- files, external sources, system functions -----------------------------------
+- {sql: "SELECT * FROM read_csv('/etc/passwd')", rule: forbidden_function}
+- {sql: "SELECT * FROM read_csv_auto('data/app.db')", rule: forbidden_function}
+- {sql: "SELECT * FROM read_parquet('s3://bucket/x.parquet')", rule: forbidden_function}
+- {sql: "SELECT * FROM read_json('https://evil.example/x.json')", rule: forbidden_function}
+- {sql: "SELECT * FROM read_text('/etc/hosts')", rule: forbidden_function}
+- {sql: "SELECT * FROM read_blob('/etc/hosts')", rule: forbidden_function}
+- {sql: "SELECT * FROM glob('*')", rule: forbidden_function}
+- {sql: "SELECT * FROM '/etc/passwd'", rule: forbidden_table}
+- {sql: "SELECT * FROM 'data/app.db'", rule: forbidden_table}
+- {sql: "SELECT getenv('OPENAI_API_KEY')", rule: forbidden_function}
+- {sql: "SELECT current_setting('enable_external_access')", rule: forbidden_function}
+- {sql: "SELECT * FROM duckdb_settings()", rule: forbidden_function}
+- {sql: "SELECT * FROM duckdb_tables()", rule: forbidden_function}
+- {sql: "SELECT * FROM query('SELECT 1')", rule: forbidden_function}
+- {sql: "SELECT * FROM query_table('dataset')", rule: forbidden_function}
+- {sql: "SELECT id_klien FROM dataset WHERE id_klien IN (SELECT content FROM read_text('/etc/hosts'))", rule: forbidden_function}
+
+# --- tables and columns outside the active dataset -------------------------------
+- {sql: "SELECT * FROM other_table", rule: forbidden_table}
+- {sql: "SELECT * FROM main.dataset", rule: forbidden_table}
+- {sql: "SELECT * FROM other_db.main.dataset", rule: forbidden_table}
+- {sql: "SELECT * FROM information_schema.tables", rule: forbidden_table}
+- {sql: "SELECT * FROM sqlite_master", rule: forbidden_table}
+- {sql: "SELECT * FROM dataset JOIN users ON dataset.id_klien = users.id", rule: forbidden_table}
+- {sql: "SELECT password FROM dataset", rule: unknown_column}
+- {sql: "SELECT id_klien FROM dataset WHERE nik = '1'", rule: unknown_column}
+
+# --- resource exhaustion -----------------------------------------------------------
+- {sql: "WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM t) SELECT * FROM t", rule: recursive_cte}
+- {sql: "SELECT * FROM range(1000000000000)", rule: forbidden_function}
+- {sql: "SELECT range(1000000000)", rule: forbidden_function}
+- {sql: "SELECT generate_series(1, 1000000000)", rule: forbidden_function}
+- {sql: "SELECT repeat('x', 1000000000)", rule: forbidden_function}
+- {sql: "SELECT COUNT(*) FROM dataset a, dataset b, dataset c", rule: cartesian_join}
+- {sql: "SELECT COUNT(*) FROM dataset a CROSS JOIN dataset b", rule: cartesian_join}
+- {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON TRUE", rule: cartesian_join}
+
+# --- malformed input ------------------------------------------------------------------
+- {sql: "", rule: empty}
+- {sql: "   ", rule: empty}
+- {sql: "please show me the revenue", rule: parse_error}
+- {sql: "SELECT FROM WHERE", rule: parse_error}
+
+# --- syntactically valid bypass attempts --------------------------------------------
+- {sql: "WITH x AS (SELECT * FROM read_csv('/etc/passwd')) SELECT * FROM x", rule: forbidden_function}
+- {sql: "SELECT * FROM READ_CSV('/etc/passwd')", rule: forbidden_function}
+- {sql: "SELECT * FROM \"read_csv\"('/etc/passwd')", rule: forbidden_function}
+- {sql: "SELECT id_klien FROM dataset UNION ALL SELECT content FROM read_text('/etc/hosts')", rule: forbidden_function}
+- {sql: "SELECT * FROM dataset, read_csv('x.csv')", rule: forbidden_function}
+- {sql: "SELECT * FROM dataset WHERE id_klien = (SELECT current_setting('home_directory'))", rule: forbidden_function}
+- {sql: "SELECT json_execute_serialized_sql('{}')", rule: forbidden_function}
+- {sql: "SELECT list_transform(range(1000000000), x -> x * 2)", rule: forbidden_function}
+- {sql: "PIVOT dataset ON departemen USING SUM(pendapatan)", rule: not_select}
+- {sql: "SELECT * FROM (SELECT * FROM other_table) t", rule: forbidden_table}
+- {sql: "WITH RECURSIVE r AS (SELECT 1 AS n) SELECT * FROM r", rule: recursive_cte}
