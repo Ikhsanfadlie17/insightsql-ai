@@ -1,0 +1,1 @@
+"""InsightSQL AI backend package."""

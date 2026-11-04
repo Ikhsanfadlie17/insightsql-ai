@@ -281,18 +281,42 @@
   | 12 | NULL | 2026-05-05 |
 
   ```python
-  r = svc.compare_periods(path, schema, mapping, year_period(2025), year_period(2026), RetentionOptions())
+  r = svc.compare_periods(
+      path, schema, mapping, year_period(2025), year_period(2026), RetentionOptions()
+  )
   assert (r.previous_active, r.current_active) == (3, 4)
-  assert (r.returning, r.new, r.reactivated, r.between_period, r.not_returned) == (2, 1, 1, 0, 1)  # D is reactivated
+  assert (r.returning, r.new, r.reactivated, r.between_period, r.not_returned) == (
+      2,
+      1,
+      1,
+      0,
+      1,
+  )  # D is reactivated
   assert r.existing_active == 3  # aggregate, overlaps returning + reactivated
   assert r.new + r.returning + r.reactivated + r.between_period == r.current_active
   assert r.returning + r.not_returned == r.previous_active
-  g = svc.compare_periods(path, schema, mapping, year_period(2024), year_period(2026), RetentionOptions())
-  assert (g.previous_active, g.current_active) == (2, 4)            # {A, D} vs {A, C, D, E}
-  assert (g.returning, g.new, g.reactivated, g.between_period, g.not_returned) == (2, 1, 0, 1, 0)  # E first seen in 2025 gap
-  assert r.transactions_current == 5 and r.repeat_transactions_current == 1 and r.clients_with_repeat_current == 1
+  g = svc.compare_periods(
+      path, schema, mapping, year_period(2024), year_period(2026), RetentionOptions()
+  )
+  assert (g.previous_active, g.current_active) == (2, 4)  # {A, D} vs {A, C, D, E}
+  assert (g.returning, g.new, g.reactivated, g.between_period, g.not_returned) == (
+      2,
+      1,
+      0,
+      1,
+      0,
+  )  # E first seen in 2025 gap
+  assert (
+      r.transactions_current == 5
+      and r.repeat_transactions_current == 1
+      and r.clients_with_repeat_current == 1
+  )
   assert r.duplicate_rows_excluded == 1 and r.excluded_missing_id_rows == 1
-  assert round(r.retention_rate, 4) == 0.6667 and r.new_client_rate == 0.25 and round(r.growth_rate, 4) == 0.3333
+  assert (
+      round(r.retention_rate, 4) == 0.6667
+      and r.new_client_rate == 0.25
+      and round(r.growth_rate, 4) == 0.3333
+  )
   assert any("incomplete" in w.lower() for w in r.warnings)  # data ends 2026-08-08
   ```
 
