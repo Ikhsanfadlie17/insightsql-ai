@@ -3,6 +3,7 @@
 AI Data Analyst berbasis Text-to-SQL: Streamlit + FastAPI + DuckDB + OpenAI API.
 Spesifikasi: `docs/PRD.md` (v1.0). Desain: `docs/ARCHITECTURE.md`.
 Rencana kerja: `docs/plans/2026-11-04-insightsql-implementation-plan.md` (Phase 2–8, Task 1–26).
+Melanjutkan di sesi/mesin baru: baca `docs/HANDOFF.md` dulu.
 
 ## Status
 
