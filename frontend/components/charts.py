@@ -66,6 +66,7 @@ def build_figure(
     colors: dict[str, str] | None = None,
     value_format: str = ",.0f",
     percent_axis: bool = False,
+    series_colors: Sequence[str] | None = None,
 ) -> go.Figure:
     """Plotly figure for a validated spec (call :func:`chart_problem` first)."""
     labels = labels or {}
@@ -104,7 +105,8 @@ def build_figure(
             yi = columns.index(y)
             values = [r[yi] for r in data]
             name = labels.get(y, y)
-            color = SERIES_COLORS[n % len(SERIES_COLORS)]
+            palette = series_colors or SERIES_COLORS
+            color = palette[n % len(palette)]
             if kind in {"line", "area"}:
                 fig.add_trace(
                     go.Scatter(
@@ -153,7 +155,11 @@ def build_figure(
         plot_bgcolor="#FFFFFF",
         font={"color": MUTED, "size": 12},
         showlegend=show_legend,
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.0, "x": 0},
+        legend=(
+            {"orientation": "h", "yanchor": "top", "y": -0.02, "x": 0.5, "xanchor": "center"}
+            if kind in {"pie", "donut"}
+            else {"orientation": "h", "yanchor": "bottom", "y": 1.0, "x": 0}
+        ),
         barmode="group",
         bargap=0.3,
         bargroupgap=0.08,
@@ -167,10 +173,14 @@ def build_figure(
             value_axis["tickformat"] = ",d" if value_format.endswith("0f") else ","
         category_axis = {"showgrid": False, "linecolor": GRID, "type": "category"}
         if kind == "hbar":
-            fig.update_xaxes(**value_axis, title=labels.get(ys[0], ys[0]))
+            fig.update_xaxes(**value_axis, title=labels.get(ys[0], ys[0]), automargin=True)
             fig.update_yaxes(**category_axis, automargin=True)
         else:
-            fig.update_yaxes(**value_axis, title=labels.get(ys[0], ys[0]) if len(ys) == 1 else "")
+            fig.update_yaxes(
+                **value_axis,
+                title=labels.get(ys[0], ys[0]) if len(ys) == 1 else "",
+                automargin=True,
+            )
             fig.update_xaxes(**category_axis, title=labels.get(x_col, x_col), automargin=True)
     return fig
 
@@ -184,13 +194,16 @@ def render_chart(
     colors: dict[str, str] | None = None,
     value_format: str = ",.0f",
     percent_axis: bool = False,
+    series_colors: Sequence[str] | None = None,
     key: str | None = None,
 ) -> bool:
     """Draw the chart; return False (and draw nothing) when it cannot be drawn safely."""
     if chart_problem(spec, columns, rows) is not None:
         return False
     try:
-        figure = build_figure(spec, columns, rows, labels, colors, value_format, percent_axis)
+        figure = build_figure(
+            spec, columns, rows, labels, colors, value_format, percent_axis, series_colors
+        )
     except (KeyError, ValueError, TypeError, IndexError):
         return False
     st.plotly_chart(

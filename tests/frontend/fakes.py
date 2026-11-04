@@ -156,3 +156,174 @@ class FakeApi:
         self.confirm_calls.append(mapping)
         self.confirmed = True
         return mapping_state(True)
+
+
+# ------------------------------------------------------------- client analytics
+def _period(year: int) -> dict[str, Any]:
+    return {"label": str(year), "start": f"{year}-01-01", "end": f"{year + 1}-01-01"}
+
+
+COVERAGE: dict[str, Any] = {
+    "identity_column": "id_klien",
+    "identity_kind": "client_id",
+    "date_column": "tanggal",
+    "department_column": "departemen",
+    "rows": 12,
+    "unique_clients": 5,
+    "missing_id_rows": 1,
+    "missing_date_rows": 0,
+    "data_start": "2024-03-01",
+    "data_end": "2026-08-08",
+    "years": [2024, 2025, 2026],
+    "warnings": [],
+}
+
+
+def retention(**overrides: Any) -> dict[str, Any]:
+    """The plan fixture's 2025 vs 2026 result (hand-computed)."""
+    result = {
+        "previous": _period(2025),
+        "current": _period(2026),
+        "identity_column": "id_klien",
+        "identity_kind": "client_id",
+        "date_column": "tanggal",
+        "previous_active": 3,
+        "current_active": 4,
+        "new": 1,
+        "returning": 2,
+        "reactivated": 1,
+        "between_period": 0,
+        "not_returned": 1,
+        "existing_active": 3,
+        "transactions_previous": 3,
+        "transactions_current": 5,
+        "repeat_transactions_previous": 0,
+        "repeat_transactions_current": 1,
+        "clients_with_repeat_previous": 0,
+        "clients_with_repeat_current": 1,
+        "retention_rate": 2 / 3,
+        "new_client_rate": 0.25,
+        "growth_rate": 1 / 3,
+        "excluded_missing_id_rows": 1,
+        "excluded_missing_date_rows": 0,
+        "duplicate_rows_excluded": 1,
+        "data_start": "2024-03-01",
+        "data_end": "2026-08-08",
+        "warnings": [
+            {"level": "warning", "code": "history_completeness",
+             "message": "New and Reactivated are classified from the history in this dataset."},
+            {"level": "warning", "code": "incomplete_current_period",
+             "message": "The data ends on 2026-08-08; the current period looks incomplete."},
+        ],
+        "definitions": {
+            "retention_rate": "Returning ÷ active in 2025 (the previous period).",
+            "new": "Active in 2026 and first seen in 2026.",
+            "existing_active": "Overlaps returning + reactivated + between-period.",
+        },
+        "sql": ["WITH src AS (SELECT DISTINCT * FROM dataset) SELECT 1"],
+    }  # fmt: skip
+    result.update(overrides)
+    return result
+
+
+TREND: dict[str, Any] = {
+    "granularity": "month",
+    "result": {
+        "columns": ["period", "active_clients", "new_clients", "transactions"],
+        "rows": [["2026-06", 1, 0, 1], ["2026-07", 1, 0, 1], ["2026-08", 1, 0, 1]],
+        "row_count": 3, "truncated": False, "elapsed_ms": 1.0,
+    },
+    "data_start": "2024-03-01", "data_end": "2026-08-08",
+    "partial_first": False, "partial_last": True,
+    "warnings": [{"level": "warning", "code": "partial_last_bucket",
+                  "message": "The last month is only partly covered."}],
+    "definitions": {"active_clients": "Unique clients with a transaction in the bucket."},
+    "sql": ["SELECT 1"],
+}  # fmt: skip
+DEPARTMENTS: dict[str, Any] = {
+    "department_column": "departemen",
+    "previous": _period(2025),
+    "current": _period(2026),
+    "result": {
+        "columns": ["department", "previous_active", "current_active", "returning",
+                    "retention_rate", "transactions_current", "transactions_previous"],
+        "rows": [["Audit", 1, 2, 1, 1.0, 2, 1], ["(no department)", 0, 1, 0, None, 1, 0]],
+        "row_count": 2, "truncated": False, "elapsed_ms": 1.0,
+    },
+    "clients_in_multiple_departments": 1,
+    "warnings": [{"level": "info", "code": "clients_in_multiple_departments",
+                  "message": "1 client(s) used more than one department."}],
+    "definitions": {}, "sql": [],
+}  # fmt: skip
+IDENTITY: dict[str, Any] = {
+    "identity_column": "id_klien", "identity_kind": "client_id", "missing_id_rows": 1,
+    "ids_differing_only_by_case_or_spacing": 0, "ids_with_multiple_names": None,
+    "names_with_multiple_ids": None,
+    "examples": {"columns": ["issue", "value", "variants"], "rows": [], "row_count": 0,
+                 "truncated": False, "elapsed_ms": 0.0},
+    "warnings": [],
+}  # fmt: skip
+CLIENTS_BY_CATEGORY = {
+    "new": ["C"], "returning": ["A", "E"], "reactivated": ["D"], "between_period": [],
+    "not_returned": ["B"], "existing_active": ["A", "D", "E"],
+}  # fmt: skip
+
+
+class AnalyticsFakeApi(FakeApi):
+    """FakeApi plus the client-analytics endpoints."""
+
+    def __init__(self, result: dict[str, Any] | None = None, mapped: bool = True, **kwargs):
+        super().__init__(confirmed=mapped, **kwargs)
+        self.mapped = mapped
+        self.result = result or retention()
+        self.coverage = copy.deepcopy(COVERAGE)
+        self.compare_calls: list[tuple[dict, dict, bool]] = []
+        self.client_calls: list[dict[str, Any]] = []
+
+    def _mapping_required(self) -> None:
+        if not self.mapped:
+            raise ApiError(
+                "mapping_required",
+                "Confirm the column mapping (Data Sources → Column mapping) to enable client "
+                "analytics.",
+                409,
+            )
+
+    def analytics_coverage(self, dataset_id: str) -> dict[str, Any]:
+        self._check("analytics_coverage")
+        self._mapping_required()
+        return copy.deepcopy(self.coverage)
+
+    def analytics_compare(self, dataset_id, previous, current, dedupe=True) -> dict[str, Any]:
+        self._check("analytics_compare")
+        self._mapping_required()
+        self.compare_calls.append((previous, current, dedupe))
+        return copy.deepcopy(self.result)
+
+    def analytics_clients(
+        self, dataset_id, previous, current, category, offset=0, limit=100, dedupe=True
+    ) -> dict[str, Any]:
+        self._check("analytics_clients")
+        self.client_calls.append({"category": category, "offset": offset, "limit": limit})
+        ids = CLIENTS_BY_CATEGORY[category]
+        rows = [[c, "2024-03-01", "2026-08-08", 1, 1] for c in ids[offset : offset + limit]]
+        return {
+            "category": category, "previous": previous, "current": current,
+            "total": len(ids), "offset": offset, "limit": limit,
+            "result": {"columns": ["client", "first_seen", "last_seen",
+                                   "transactions_previous", "transactions_current"],
+                       "rows": rows, "row_count": len(rows),
+                       "truncated": offset + len(rows) < len(ids), "elapsed_ms": 1.0},
+        }  # fmt: skip
+
+    def analytics_trend(self, dataset_id: str, granularity: str = "month") -> dict[str, Any]:
+        self._check("analytics_trend")
+        return copy.deepcopy(TREND)
+
+    def analytics_departments(self, dataset_id, previous, current, dedupe=True):
+        self._check("analytics_departments")
+        return copy.deepcopy(DEPARTMENTS)
+
+    def analytics_identity(self, dataset_id: str) -> dict[str, Any]:
+        self._check("analytics_identity")
+        return copy.deepcopy(IDENTITY)

@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from tests.frontend.fakes import FAILED, FakeApi
+from tests.frontend.fakes import FAILED
+from tests.frontend.fakes import AnalyticsFakeApi as FakeApi
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 PAGES = ["overview", "data_sources", "ai_analyst", "client_analytics", "query_history", "settings"]
@@ -49,7 +50,7 @@ def test_data_sources_shows_preview_and_conversion_warning() -> None:
 
 
 def test_unbuilt_pages_do_not_show_fake_numbers() -> None:
-    at = _run("client_analytics", FakeApi())
+    at = _run("query_history", FakeApi())
 
     assert len(at.metric) == 0
     assert any("Phase" in i.value for i in at.info)

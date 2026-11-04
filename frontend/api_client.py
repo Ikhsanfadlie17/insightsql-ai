@@ -119,3 +119,65 @@ class ApiClient:
     def confirm_mapping(self, dataset_id: str, mapping: dict[str, Any]) -> dict[str, Any]:
         """``PUT /datasets/{id}/column-mapping``: the user's confirmed column roles."""
         return self._request("PUT", f"/datasets/{dataset_id}/column-mapping", json=mapping)
+
+    # ------------------------------------------------------- client analytics
+    def analytics_coverage(self, dataset_id: str) -> dict[str, Any]:
+        """``GET /datasets/{id}/client-analytics/coverage``."""
+        return self._request("GET", f"/datasets/{dataset_id}/client-analytics/coverage")
+
+    def analytics_compare(
+        self, dataset_id: str, previous: dict, current: dict, dedupe: bool = True
+    ) -> dict[str, Any]:
+        """``POST /datasets/{id}/client-analytics/compare`` (period ends are exclusive)."""
+        body = {
+            "previous": previous,
+            "current": current,
+            "options": {"dedupe_exact_duplicates": dedupe},
+        }
+        return self._request("POST", f"/datasets/{dataset_id}/client-analytics/compare", json=body)
+
+    def analytics_clients(
+        self,
+        dataset_id: str,
+        previous: dict,
+        current: dict,
+        category: str,
+        offset: int = 0,
+        limit: int = 100,
+        dedupe: bool = True,
+    ) -> dict[str, Any]:
+        """``POST /datasets/{id}/client-analytics/clients``: one page of a category."""
+        body = {
+            "previous": previous,
+            "current": current,
+            "category": category,
+            "offset": offset,
+            "limit": limit,
+            "options": {"dedupe_exact_duplicates": dedupe},
+        }
+        return self._request("POST", f"/datasets/{dataset_id}/client-analytics/clients", json=body)
+
+    def analytics_trend(self, dataset_id: str, granularity: str = "month") -> dict[str, Any]:
+        """``GET /datasets/{id}/client-analytics/trend``."""
+        return self._request(
+            "GET",
+            f"/datasets/{dataset_id}/client-analytics/trend",
+            params={"granularity": granularity},
+        )
+
+    def analytics_departments(
+        self, dataset_id: str, previous: dict, current: dict, dedupe: bool = True
+    ) -> dict[str, Any]:
+        """``POST /datasets/{id}/client-analytics/departments``."""
+        body = {
+            "previous": previous,
+            "current": current,
+            "options": {"dedupe_exact_duplicates": dedupe},
+        }
+        return self._request(
+            "POST", f"/datasets/{dataset_id}/client-analytics/departments", json=body
+        )
+
+    def analytics_identity(self, dataset_id: str) -> dict[str, Any]:
+        """``GET /datasets/{id}/client-analytics/identity-issues``."""
+        return self._request("GET", f"/datasets/{dataset_id}/client-analytics/identity-issues")
