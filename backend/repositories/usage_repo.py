@@ -50,6 +50,18 @@ class UsageRepository:
             ).fetchall()
         return [UsageRecord.model_validate(dict(r)) for r in rows]
 
+    def by_ids(self, ids: list[str]) -> list[UsageRecord]:
+        """The records with these ids (oldest first)."""
+        if not ids:
+            return []
+        marks = ", ".join("?" for _ in ids)
+        with connect(self._db_path) as conn:
+            rows = conn.execute(
+                f"SELECT * FROM llm_requests WHERE id IN ({marks}) ORDER BY created_at, rowid",
+                tuple(ids),
+            ).fetchall()
+        return [UsageRecord.model_validate(dict(r)) for r in rows]
+
     def summary(self) -> UsageSummary:
         """Totals overall, per model, and per purpose."""
         with connect(self._db_path) as conn:

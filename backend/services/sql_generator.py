@@ -149,7 +149,7 @@ class TextToSQLService:
         context = self._contexts.build(dataset_id)
         context_text = render_schema_context(context)
         schema = TableSchema(columns={c.name: c.type for c in context.columns})
-        turns = [(t.question, t.sql) for t in (history or [])][-5:]
+        turns = [(t.question, t.sql, t.clarification) for t in (history or [])][-5:]
         request_ids: list[str] = []
 
         def call(purpose: str, user: str) -> SQLPlanOutput:

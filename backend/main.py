@@ -8,14 +8,18 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.api import client_analytics, datasets, health, usage
+from backend.api import analyses, client_analytics, datasets, health, usage
 from backend.core.config import Settings, get_settings
 from backend.core.errors import register_error_handlers
 from backend.core.logging import setup_logging
 from backend.repositories.dataset_repo import DatasetRepository
+from backend.repositories.history_repo import HistoryRepository
 from backend.repositories.usage_repo import UsageRepository
+from backend.services.analysis_orchestrator import AnalysisOrchestrator
 from backend.services.analytics_service import AnalyticsService, DatasetAnalytics
 from backend.services.dataset_service import DatasetService
+from backend.services.insight_generator import InsightGenerator
+from backend.services.llm.client import LLMClient
 from backend.services.llm.cost import load_pricing
 from backend.services.llm.gateway import LLMGateway
 from backend.services.llm.openai_client import OpenAIClient
@@ -28,11 +32,13 @@ from backend.services.sql_generator import TextToSQLService
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, llm_client: LLMClient | None = None) -> FastAPI:
     """Build the API application.
 
     Args:
         settings: Optional settings override (used by tests); defaults to env settings.
+        llm_client: Optional LLM client override (tests use a fake); by default an
+            OpenAI client when an API key and model are configured.
     """
     settings = settings or get_settings()
     setup_logging(settings.log_level)
@@ -41,7 +47,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     dataset_service = DatasetService(settings, repo)
     mapping_service = MappingService(dataset_service, repo)
     usage_repo = UsageRepository(settings.metadata_db_path)
-    llm_client = OpenAIClient(settings) if settings.llm_configured else None
+    history_repo = HistoryRepository(settings.metadata_db_path)
+    if llm_client is None and settings.llm_configured:
+        llm_client = OpenAIClient(settings)
     llm_gateway = LLMGateway(
         llm_client,
         settings,
@@ -51,10 +59,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     executor = QueryExecutor(settings)
     analytics = DatasetAnalytics(dataset_service, repo, AnalyticsService(executor))
-    # Used by the analysis endpoint in Phase 5 (Task 18); no HTTP route yet.
+    contexts = SchemaContextBuilder(dataset_service, repo, settings)
     text_to_sql = TextToSQLService(
         datasets=dataset_service,
-        contexts=SchemaContextBuilder(dataset_service, repo, settings),
+        contexts=contexts,
         gateway=llm_gateway,
         executor=executor,
         settings=settings,
@@ -79,11 +87,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.analytics = analytics
     app.state.llm_gateway = llm_gateway
     app.state.text_to_sql = text_to_sql
+    app.state.history_repo = history_repo
+    app.state.orchestrator = AnalysisOrchestrator(
+        datasets=dataset_service,
+        contexts=contexts,
+        text_to_sql=text_to_sql,
+        analytics=analytics,
+        insights=InsightGenerator(llm_gateway, settings),
+        history=history_repo,
+        usage=usage_repo,
+        gateway=llm_gateway,
+        settings=settings,
+    )
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(datasets.router)
     app.include_router(usage.router)
     app.include_router(client_analytics.router)
+    app.include_router(analyses.router)
     return app
 
 

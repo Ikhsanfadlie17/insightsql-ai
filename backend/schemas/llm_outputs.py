@@ -46,7 +46,9 @@ class SQLPlanOutput(BaseModel):
 
 
 class HistoryTurn(BaseModel):
-    """A previous turn as given to the model: the question and its SQL, never results."""
+    """A previous turn as given to the model: the question, its SQL, and the clarifying
+    question the model asked (if any). Never results or data values."""
 
     question: str = Field(max_length=2000)
     sql: str | None = None
+    clarification: str | None = Field(default=None, max_length=500)
