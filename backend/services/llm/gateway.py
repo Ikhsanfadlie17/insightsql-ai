@@ -54,6 +54,7 @@ class LLMGateway:
         dataset_id: str | None = None,
         analysis_id: str | None = None,
         model: str | None = None,
+        prompt_version: str | None = None,
     ) -> tuple[LLMResponse[T], UsageRecord]:
         """Run one structured request and record it.
 
@@ -73,7 +74,7 @@ class LLMGateway:
             "purpose": purpose,
             "dataset_id": dataset_id,
             "analysis_id": analysis_id,
-            "prompt_version": self._prompt_version,
+            "prompt_version": prompt_version or self._prompt_version,
         }
         try:
             response = self._client.complete_structured(
