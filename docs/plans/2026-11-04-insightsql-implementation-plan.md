@@ -17,7 +17,8 @@
 - SQL: "SELECT queries only", "Safe CTE queries are allowed", reject destructive SQL, multiple statements, filesystem access, dangerous DuckDB commands; validate tables and columns; timeout; row limit; SQLGlot parser; "Never execute unvalidated LLM output."
 - SQL failure: at most **2** automatic repair attempts, each re-validated; then a friendly error.
 - Ratios with zero denominator → `None` → displayed as **N/A**.
-- Retention categories exactly: Returning, New (first-ever activity in latest period), Existing Active, Not Returned, Repeat Transactions. Periods configurable; never hard-code 2025/2026.
+- Retention categories (user clarification 2026-11-04): New (first-ever activity in latest period), Returning (active in both), Reactivated (first seen before the previous period, inactive in it, active in the latest), Between-period (first seen in the gap between non-adjacent periods), Not Returned (active in previous, inactive in latest), Repeat Transactions. Existing Active is an aggregate KPI only, never summed or stacked with Returning/Reactivated. Partitions: current = new + returning + reactivated + between-period; previous = returning + not returned. Periods configurable; never hard-code 2025/2026.
+- All business assumptions and metric definitions are documented (ARCHITECTURE §8) and covered by tests.
 - Never call an absent client permanently churned.
 - Ambiguous questions → ask for clarification instead of guessing.
 - Record per LLM request: input tokens, output tokens, model, timestamp, estimated cost, purpose.
@@ -68,7 +69,7 @@
 **Interfaces:**
 - Produces: `generate(seed: int = 42) -> pd.DataFrame` and `write_outputs(out_dir: Path, seed: int = 42) -> list[Path]`. Columns (Indonesian headers to exercise normalization): `ID Klien`, `Nama Klien`, `Tanggal Layanan`, `Departemen`, `Jenis Layanan`, `Pendapatan (Rp)`, `Status`.
 
-- [ ] **Step 1: Write failing tests** — with `df = generate(42)`: `df["ID Klien"].nunique() >= 100`; years in `Tanggal Layanan` ⊇ {2023, 2024, 2025, 2026}; max date ≤ 2026-10-31; `df["Departemen"].nunique() >= 4`; `df["Jenis Layanan"].nunique() >= 6`; at least 30 clients with ≥ 2 transactions; `df["ID Klien"].isna().sum() > 0`; `df["Pendapatan (Rp)"].isna().sum() > 0`; `df.duplicated().sum() > 0`; at least one ID with two spellings of its name; clients exist that are (a) active in 2025 and 2026, (b) first seen in 2026, (c) active in 2025 but not 2026; `generate(42).equals(generate(42))`.
+- [ ] **Step 1: Write failing tests** — with `df = generate(42)`: `df["ID Klien"].nunique() >= 100`; years in `Tanggal Layanan` ⊇ {2023, 2024, 2025, 2026}; max date ≤ 2026-10-31; `df["Departemen"].nunique() >= 4`; `df["Jenis Layanan"].nunique() >= 6`; at least 30 clients with ≥ 2 transactions; `df["ID Klien"].isna().sum() > 0`; `df["Pendapatan (Rp)"].isna().sum() > 0`; `df.duplicated().sum() > 0`; at least one ID with two spellings of its name; clients exist that are (a) active in 2025 and 2026, (b) first seen in 2026, (c) active in 2025 but not 2026, (d) reactivated: active in 2024, not in 2025, active in 2026; `generate(42).equals(generate(42))`.
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement** with `numpy.random.default_rng(seed)`; IDs like `KL-0001` with leading zeros preserved as text.
 - [ ] **Step 4: Run** `pytest tests/test_sample_data.py -v` → PASS; run the script; commit the generated files (small, < 1 MB).
@@ -259,8 +260,8 @@
 - Test: `tests/services/test_analytics_service.py`, `tests/ground_truth.py` (independent pandas implementation), `tests/api/test_client_analytics_api.py`
 
 **Interfaces:**
-- Produces: `Period{label, start: date, end: date}` (validator: `start < end`); `year_period(year: int, through: date | None = None) -> Period`; `RetentionOptions{dedupe_exact_duplicates: bool = True}`; `RetentionResult` (fields per ARCHITECTURE §8: `previous_active, current_active, returning, new, existing_active, not_returned, transactions_previous, transactions_current, repeat_transactions_previous, repeat_transactions_current, clients_with_repeat_current, retention_rate, new_client_rate, growth_rate, excluded_missing_id_rows, duplicate_rows_excluded, identity_column, warnings: list[str], definitions: dict[str, str], sql: list[str]`).
-- Produces: `AnalyticsService(executor, validator)`: `compare_periods(duckdb_path, schema: TableSchema, mapping: ColumnMapping, previous: Period, current: Period, options) -> RetentionResult`; `client_list(..., category: Literal["returning","new","existing_active","not_returned"]) -> QueryResult`; `client_trend(duckdb_path, schema, mapping, granularity) -> QueryResult`; `identity_issues(duckdb_path, schema, mapping) -> IdentityReport`. SQL is built with SQLGlot identifiers and `DATE` literals from validated `date` objects — no user text interpolation.
+- Produces: `Period{label, start: date, end: date}` (validator: `start < end`); `year_period(year: int, through: date | None = None) -> Period`; `RetentionOptions{dedupe_exact_duplicates: bool = True}`; `RetentionResult` (fields per ARCHITECTURE §8: `previous_active, current_active, returning, new, reactivated, between_period, existing_active, not_returned, transactions_previous, transactions_current, repeat_transactions_previous, repeat_transactions_current, clients_with_repeat_current, retention_rate, new_client_rate, growth_rate, excluded_missing_id_rows, duplicate_rows_excluded, identity_column, warnings: list[str], definitions: dict[str, str], sql: list[str]`).
+- Produces: `AnalyticsService(executor, validator)`: `compare_periods(duckdb_path, schema: TableSchema, mapping: ColumnMapping, previous: Period, current: Period, options) -> RetentionResult`; `client_list(..., category: Literal["new","returning","reactivated","between_period","not_returned","existing_active"]) -> QueryResult`; `client_trend(duckdb_path, schema, mapping, granularity) -> QueryResult`; `identity_issues(duckdb_path, schema, mapping) -> IdentityReport`. SQL is built with SQLGlot identifiers and `DATE` literals from validated `date` objects — no user text interpolation.
 
 - [ ] **Step 1: Failing tests** on this exact fixture (columns `client_id`, `tx_date`):
 
@@ -282,14 +283,20 @@
   ```python
   r = svc.compare_periods(path, schema, mapping, year_period(2025), year_period(2026), RetentionOptions())
   assert (r.previous_active, r.current_active) == (3, 4)
-  assert (r.returning, r.new, r.existing_active, r.not_returned) == (2, 1, 3, 1)
+  assert (r.returning, r.new, r.reactivated, r.between_period, r.not_returned) == (2, 1, 1, 0, 1)  # D is reactivated
+  assert r.existing_active == 3  # aggregate, overlaps returning + reactivated
+  assert r.new + r.returning + r.reactivated + r.between_period == r.current_active
+  assert r.returning + r.not_returned == r.previous_active
+  g = svc.compare_periods(path, schema, mapping, year_period(2024), year_period(2026), RetentionOptions())
+  assert (g.previous_active, g.current_active) == (2, 4)            # {A, D} vs {A, C, D, E}
+  assert (g.returning, g.new, g.reactivated, g.between_period, g.not_returned) == (2, 1, 0, 1, 0)  # E first seen in 2025 gap
   assert r.transactions_current == 5 and r.repeat_transactions_current == 1 and r.clients_with_repeat_current == 1
   assert r.duplicate_rows_excluded == 1 and r.excluded_missing_id_rows == 1
   assert round(r.retention_rate, 4) == 0.6667 and r.new_client_rate == 0.25 and round(r.growth_rate, 4) == 0.3333
   assert any("incomplete" in w.lower() for w in r.warnings)  # data ends 2026-08-08
   ```
 
-  Plus: 2023 vs 2024 → `previous_active == 0`, `retention_rate is None`, `growth_rate is None`; 2030 vs 2031 → all zero, rates `None`, a "no data" warning; overlapping periods → `ValueError`; `year_period(2025, through=date(2026, 10, 31))` ends at 2025-11-01; `through=date(2024, 2, 29)` for year 2025 ends at 2025-03-01 (clamped to Feb 28); `"A "` and `"A"` count as one client; name-only identity (no ID mapped) adds a warning; invariants `new + existing_active == current_active` and `returning + not_returned == previous_active` hold on the sample dataset for every year pair 2023–2026; every metric equals the result of `tests/ground_truth.py` on the sample dataset.
+  Plus: 2023 vs 2024 → `previous_active == 0`, `retention_rate is None`, `growth_rate is None`; 2030 vs 2031 → all zero, rates `None`, a "no data" warning; overlapping periods → `ValueError`; `year_period(2025, through=date(2026, 10, 31))` ends at 2025-11-01; `through=date(2024, 2, 29)` for year 2025 ends at 2025-03-01 (clamped to Feb 28); `"A "` and `"A"` count as one client; name-only identity (no ID mapped) adds a warning; invariants `new + returning + reactivated + between_period == current_active`, `existing_active == returning + reactivated + between_period`, and `returning + not_returned == previous_active` hold on the sample dataset for every year pair 2023–2026; every metric equals the result of `tests/ground_truth.py` on the sample dataset.
 - [ ] **Step 2–4:** Run → FAIL → implement (single CTE query per comparison, validated then executed) → PASS. **Step 5: Commit** `feat: deterministic client retention analytics`.
 
 ### Task 15: Client Analytics page
@@ -300,7 +307,7 @@
 
 **Interfaces:**
 - Consumes: `POST /client-analytics/compare`, `GET /clients`, `GET /trend`, `GET /identity-issues`.
-- Produces: page with period picker (year vs year, YTD toggle, custom ranges), KPI cards (N/A rendering), grouped bar previous vs current, category breakdown, monthly trend line, definitions expander, warnings banner, client drill-down table.
+- Produces: page with period picker (year vs year, YTD toggle, custom ranges), KPI cards (N/A rendering; Existing Active shown as a separate aggregate card, labelled as overlapping), grouped bar previous vs current, current-period breakdown using only the partition categories (new / returning / reactivated / between-period), monthly trend line, definitions expander, warnings banner, client drill-down table.
 
 - [ ] **Step 1: Failing test** — AppTest with a mocked client returning a `RetentionResult` with `retention_rate=None` renders the text "N/A" and the warnings. **Steps 2–4** → implement → PASS; Playwright screenshot with the sample dataset. **Step 5: Commit** `feat: client analytics page`.
 

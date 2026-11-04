@@ -6,8 +6,8 @@ Rencana kerja: `docs/plans/2026-11-04-insightsql-implementation-plan.md` (Phase 
 
 ## Status
 
-**Phase 1 (planning) selesai, menunggu review user.** Jangan mulai Phase 2 sebelum
-user menyetujui rencana. Kerjakan per phase; di akhir tiap phase laporkan ringkasan,
+**Phase 1 disetujui (eksekusi Native + review code-reviewer per phase). Phase 2 sedang dikerjakan.**
+Setelah tiap phase: review independen, perbaiki temuan critical/high, lapor, lalu TUNGGU review user. Laporan berisi ringkasan,
 file yang berubah, keputusan arsitektur, hasil test, kegagalan, dan phase berikutnya.
 Jangan mengklaim fitur selesai tanpa implementasi + test.
 

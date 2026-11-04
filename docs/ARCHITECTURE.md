@@ -235,20 +235,33 @@ the whole dataset. With `previous` before `current` (non-overlapping, enforced):
 | Metric | Definition |
 |---|---|
 | Active (previous / current) | distinct clients active in that period |
-| Returning | active in previous **and** current |
-| New | active in current **and** `first_seen` within current |
-| Existing active | active in current **and** `first_seen` before current start (= current active − new) |
-| Not returned | active in previous **and not** active in current (an observation, not proof of churn) |
+| **New** | active in current **and** `first_seen` within current |
+| **Returning** | active in previous **and** current |
+| **Reactivated** | active in current, **not** active in previous, and `first_seen` **before previous start** (was a client before, skipped the previous period, came back) |
+| **Between-period** | active in current, **not** active in previous, and `first_seen` in the gap between previous end and current start. Always 0 when the periods are adjacent (e.g. 2025 vs 2026). |
+| **Not returned** | active in previous **and not** active in current (an observation, not proof of churn) |
+| Existing active (aggregate KPI) | active in current **and** `first_seen` before current start = returning + reactivated + between-period |
 | Transactions | rows in the period after exclusions below |
 | Repeat transactions | transactions − active clients in the period; also reported: clients with ≥ 2 transactions |
 | Retention rate | returning / previous active |
 | New client rate | new / current active |
 | Client growth rate | (current active − previous active) / previous active |
 
+**No double counting.** The categories form two exact partitions, which tests check on
+every fixture and on the sample dataset:
+
+- Current period: `current active = new + returning + reactivated + between-period`
+- Previous period: `previous active = returning + not returned`
+
+*Existing active* is an aggregate that **overlaps** returning, reactivated, and
+between-period. It is shown as its own KPI and is never added to or stacked with those
+categories in charts, totals, or exports. The current-period breakdown chart uses only the
+partition categories.
+
 Rules:
 
 - Rates with a zero denominator are `None` → shown as **N/A**.
-- Invariants checked in tests: new + existing active = current active; returning + not returned = previous active.
+- `previous` must end on or before `current` starts (no overlap); otherwise the request is rejected.
 - Identity = client ID column (trimmed, kept as text). If no ID is mapped, the normalized
   client name is used (trim, collapse spaces, case-fold) with a visible warning.
 - Rows with missing identity are excluded from client metrics and counted in `excluded_missing_id_rows`.
