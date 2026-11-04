@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     max_upload_mb: float = Field(default=50, gt=0)
     query_timeout_seconds: float = Field(default=10.0, gt=0)
     max_result_rows: int = Field(default=5000, gt=0)
+    query_threads: int = Field(default=2, gt=0, le=16)
+    query_memory_limit: str = "512MB"
     max_sql_repairs: int = Field(default=2, ge=0, le=2)
     send_sample_values: bool = True
     enable_llm_insights: bool = True
