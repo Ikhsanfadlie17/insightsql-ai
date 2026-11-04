@@ -126,3 +126,75 @@ def test_excel_native_decimals_stay_decimals(tmp_path: Path) -> None:
     result = infer_types(df, locale_numbers=False)
 
     assert list(result.dataframe["score"]) == [4.125, 3.875, 5.0]
+
+
+# --- Phase 3: unusual structures ------------------------------------------------
+
+
+def test_duplicate_headers_keep_their_real_names(tmp_path: Path) -> None:
+    """Review L3: pandas would rename the second header to "Nama.1"."""
+    path = tmp_path / "x.csv"
+    path.write_text("Nama,Nama,Kota\nA,B,Bogor\n")
+
+    df = load_dataframe(path, "csv", None)
+
+    assert list(df.columns) == ["Nama", "Nama", "Kota"]
+    assert df.iloc[0].tolist() == ["A", "B", "Bogor"]
+
+
+def test_duplicate_headers_in_excel(tmp_path: Path) -> None:
+    from openpyxl import Workbook
+
+    path = tmp_path / "x.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Nama", "Nama", 2025])
+    ws.append(["A", "B", 10])
+    wb.save(path)
+
+    df = load_dataframe(path, "xlsx", ws.title)
+
+    assert list(df.columns) == ["Nama", "Nama", "2025"]
+
+
+def test_blank_header_with_data_is_kept(tmp_path: Path) -> None:
+    path = tmp_path / "x.csv"
+    path.write_text("ID,,Nilai\n1,catatan,5\n")
+
+    df = load_dataframe(path, "csv", None)
+
+    assert list(df.columns) == ["ID", "", "Nilai"]
+
+
+def test_blank_header_without_data_is_dropped(tmp_path: Path) -> None:
+    path = tmp_path / "x.csv"
+    path.write_text("ID,,Nilai\n1,,5\n2,,6\n")
+
+    df = load_dataframe(path, "csv", None)
+
+    assert list(df.columns) == ["ID", "Nilai"]
+
+
+def test_header_only_file_has_no_data(tmp_path: Path) -> None:
+    path = tmp_path / "x.csv"
+    path.write_text("ID,Nama\n")
+
+    with pytest.raises(UploadError, match="no data rows"):
+        load_dataframe(path, "csv", None)
+
+
+def test_ragged_rows_are_an_upload_error(tmp_path: Path) -> None:
+    path = tmp_path / "x.csv"
+    path.write_text("a,b\n1,2\n3,4,5,6\n")
+
+    with pytest.raises(UploadError):
+        load_dataframe(path, "csv", None)
+
+
+def test_single_column_file(tmp_path: Path) -> None:
+    path = tmp_path / "x.csv"
+    path.write_text("Kode\nA1\nA2\n")
+
+    df = load_dataframe(path, "csv", None)
+
+    assert list(df.columns) == ["Kode"] and len(df) == 2

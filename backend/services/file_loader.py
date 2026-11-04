@@ -78,25 +78,51 @@ def _sniff_delimiter(sample: str) -> str:
         return ","
 
 
+def _with_header_row(raw: pd.DataFrame) -> pd.DataFrame:
+    """Use the first row as headers exactly as written.
+
+    Reading with ``header=None`` keeps duplicate headers ("Nama", "Nama") instead of
+    pandas' "Nama.1" renaming; blank headers become "". Labels may repeat here; they
+    are made unique by ``normalize_columns`` during ingestion.
+    """
+    if raw.empty:
+        return raw
+    headers = ["" if pd.isna(v) else str(v).strip() for v in raw.iloc[0]]
+    body = raw.iloc[1:].reset_index(drop=True)
+    body.columns = headers
+    return body
+
+
 def _tidy(df: pd.DataFrame) -> pd.DataFrame:
-    """Drop fully empty rows and empty columns that have no header."""
+    """Drop fully empty rows, and columns that have neither a header nor any values."""
     df = df.dropna(how="all")
-    empty_unnamed = [c for c in df.columns if str(c).startswith("Unnamed:") and df[c].isna().all()]
-    return df.drop(columns=empty_unnamed).reset_index(drop=True)
+    keep = [
+        position
+        for position, header in enumerate(df.columns)
+        if not (_is_blank_header(header) and df.iloc[:, position].isna().all())
+    ]
+    return df.iloc[:, keep].reset_index(drop=True)
+
+
+def _is_blank_header(header: object) -> bool:
+    text = str(header).strip()
+    return text == "" or text.startswith("Unnamed:")
 
 
 def _load_csv(path: Path) -> pd.DataFrame:
     sample, encoding = _read_text(path)
     if not sample.strip():
         raise UploadError("The file is empty.")
-    return pd.read_csv(
+    raw = pd.read_csv(
         path,
         sep=_sniff_delimiter(sample),
+        header=None,
         dtype="string",
         encoding=encoding,
         keep_default_na=False,
         na_values=_NA_VALUES,
     )
+    return _with_header_row(raw)
 
 
 def _load_xlsx(path: Path, sheet: str | None) -> pd.DataFrame:
@@ -106,7 +132,8 @@ def _load_xlsx(path: Path, sheet: str | None) -> pd.DataFrame:
     target = sheet or names[0]
     if target not in names:
         raise UploadError(f"Sheet '{target}' was not found in the workbook.")
-    return pd.read_excel(path, sheet_name=target, engine="calamine", dtype="string")
+    raw = pd.read_excel(path, sheet_name=target, engine="calamine", dtype="string", header=None)
+    return _with_header_row(raw)
 
 
 def load_dataframe(path: Path, file_type: FileType, sheet: str | None) -> pd.DataFrame:
@@ -119,6 +146,9 @@ def load_dataframe(path: Path, file_type: FileType, sheet: str | None) -> pd.Dat
 
     Raises:
         UploadError: If the file is empty, unreadable, or the sheet is missing.
+
+    Returns:
+        A frame whose column labels are the raw header cells (possibly repeated or "").
     """
     try:
         df = _load_csv(path) if file_type == "csv" else _load_xlsx(path, sheet)

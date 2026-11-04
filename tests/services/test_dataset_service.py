@@ -223,3 +223,18 @@ def test_interrupted_imports_are_marked_failed(service: DatasetService) -> None:
     assert failed.status == "failed"
     assert "interrupted" in (failed.error or "").lower()
     assert not tmp_file.exists()
+
+
+def test_duplicate_headers_are_ingested_with_unique_names(service: DatasetService) -> None:
+    inspection = service.inspect_upload("dup.csv", b"Nama,Nama,Nilai\nA,B,1\nC,D,2\n")
+    record = service.create_dataset(inspection.upload_id, None, None)
+    service.ingest(record.id, inspection.upload_id, None)
+
+    columns = service.columns(record.id)
+
+    assert service.get(record.id).status == "ready"
+    assert [(c.name, c.original_name) for c in columns] == [
+        ("nama", "Nama"),
+        ("nama_2", "Nama"),
+        ("nilai", "Nilai"),
+    ]
