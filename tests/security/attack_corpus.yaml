@@ -86,3 +86,40 @@
 - {sql: "PIVOT dataset ON departemen USING SUM(pendapatan)", rule: not_select}
 - {sql: "SELECT * FROM (SELECT * FROM other_table) t", rule: forbidden_table}
 - {sql: "WITH RECURSIVE r AS (SELECT 1 AS n) SELECT * FROM r", rule: recursive_cte}
+
+# --- Phase 4 review regressions -------------------------------------------------------
+# H1: system catalogs through table macros / table functions
+- {sql: "SELECT * FROM histogram_values(duckdb_databases, path)", rule: forbidden_table_function}
+- {sql: "SELECT * FROM histogram_values(pg_settings, name || '=' || setting)", rule: forbidden_table_function}
+- {sql: "SELECT * FROM histogram(sqlite_master, sql)", rule: forbidden_table_function}
+- {sql: "SELECT * FROM histogram(\"information_schema.tables\", table_name)", rule: forbidden_table_function}
+- {sql: "SELECT * FROM summary(dataset)", rule: forbidden_table_function}
+- {sql: "SELECT * FROM repeat_row(1, num_rows = 100000000000)", rule: forbidden_table_function}
+- {sql: "SELECT * FROM checkpoint()", rule: forbidden_table_function}
+- {sql: "SELECT * FROM json_tree('{}')", rule: forbidden_table_function}
+- {sql: "SELECT * FROM test_all_types()", rule: forbidden_table_function}
+- {sql: "SELECT * FROM unnest([1, 2, 3])", rule: forbidden_table_function}
+# H1: CTE names are only visible in their own scope
+- {sql: "SELECT d.* FROM duckdb_databases AS d WHERE 1 IN (WITH duckdb_databases AS (SELECT 1 AS x) SELECT x FROM duckdb_databases)", rule: forbidden_table}
+- {sql: "SELECT * FROM sqlite_master WHERE EXISTS (WITH sqlite_master AS (SELECT 1 AS sql) SELECT * FROM sqlite_master)", rule: forbidden_table}
+# Low: utility statements inside subqueries
+- {sql: "SELECT * FROM (DESCRIBE dataset)", rule: not_select}
+- {sql: "SELECT * FROM (SUMMARIZE dataset)", rule: not_select}
+- {sql: "SELECT * FROM (SHOW TABLES)", rule: forbidden_table}  # SQLGlot reads SHOW as a table name
+# H2: generators that ignore timeouts and memory limits
+- {sql: "SELECT count(*) FROM (SELECT unnest(list_resize([1], 100000000, 1)))", rule: forbidden_function}
+- {sql: "SELECT len(array_resize([1], 50000000, 1))", rule: forbidden_function}
+- {sql: "SELECT lpad(id_klien, 20000000, 'x') FROM dataset", rule: forbidden_function}
+- {sql: "SELECT rpad('', 450000000, 'x')", rule: forbidden_function}
+- {sql: "SELECT histogram(pendapatan) FROM dataset", rule: forbidden_function}
+# H3: error() echoes data into error messages
+- {sql: "SELECT error('NIK ' || id_klien) FROM dataset", rule: forbidden_function}
+# M1: tokenizer errors and pathological nesting
+- {sql: "SELECT 'abc", rule: parse_error}
+- {sql: "SELECT \"abc FROM dataset", rule: parse_error}
+- {sql: "SELECT 1 /* unterminated", rule: parse_error}
+- {sql: "SELECT $$abc", rule: parse_error}
+# Low: joins whose condition does not relate both sides
+- {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.pendapatan = a.pendapatan", rule: cartesian_join}
+- {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.pendapatan IS NOT NULL", rule: cartesian_join}
+- {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.id_klien <> b.id_klien", rule: cartesian_join}

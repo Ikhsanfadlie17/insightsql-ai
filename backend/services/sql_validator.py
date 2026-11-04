@@ -10,11 +10,17 @@ run. Rules (each failure reason starts with its rule name):
 * ``not_select`` — the statement must be a SELECT or a set operation (UNION, ...);
   this allowlist rejects every write, DDL, session, and utility statement,
   including ones SQLGlot only knows as generic commands (LOAD, CALL, ...).
-* ``forbidden_table`` — only the active dataset's table ``dataset`` and CTEs defined
-  in the same query; no schema/catalog qualifiers, file paths, or other tables.
-* ``forbidden_function`` — no file/network readers, table functions, system or
-  configuration functions, or functions that can generate huge outputs.
-* ``recursive_cte`` / ``cartesian_join`` / ``too_many_joins`` — resource limits.
+* ``not_select`` also applies inside the query: DESCRIBE/SUMMARIZE/SHOW subqueries
+  and any write or utility node anywhere are rejected.
+* ``forbidden_table`` — every table reference, resolved **per scope**, must be the
+  active dataset's table ``dataset`` or a CTE visible in that scope; no
+  schema/catalog qualifiers, file paths, or other tables (system catalogs included).
+* ``forbidden_table_function`` — no table functions or table macros in FROM/JOIN
+  (they can read catalogs, files, or generate unbounded rows).
+* ``forbidden_function`` — no file/network readers, system or configuration
+  functions, error-raising functions, or functions that can generate huge values.
+* ``too_complex`` / ``recursive_cte`` / ``cartesian_join`` / ``too_many_joins`` —
+  resource limits (joins must relate both sides with an equality or USING).
 * ``unknown_column`` — every column must exist in the active dataset (or a CTE).
 
 The executor adds a read-only, no-external-access sandbox, a timeout, and a row
@@ -27,14 +33,17 @@ from dataclasses import dataclass, field
 
 import sqlglot
 from sqlglot import exp
-from sqlglot.errors import OptimizeError, ParseError
+from sqlglot.errors import OptimizeError, SqlglotError
 from sqlglot.optimizer.qualify import qualify
+from sqlglot.optimizer.scope import Scope, traverse_scope
 
 from backend.core.errors import SQLValidationError
 
 TABLE_NAME = "dataset"
 MAX_SQL_CHARS = 20_000
 MAX_JOINS = 5
+MAX_NODES = 2_000
+MAX_PAREN_DEPTH = 64
 
 _DUCKDB_TYPES = {
     "integer": "BIGINT",
@@ -51,8 +60,11 @@ _FORBIDDEN_FUNCTIONS = {
     "load", "install", "attach",
     # environment / configuration / catalog
     "getenv", "current_setting", "current_schema", "current_schemas", "which_secret",
-    # unbounded generators
-    "range", "generate_series", "repeat", "unnest_range",
+    # functions that put arbitrary values into error messages
+    "error",
+    # unbounded generators / huge values (they ignore timeouts and memory limits)
+    "range", "generate_series", "repeat", "unnest_range", "list_resize", "array_resize",
+    "lpad", "rpad", "pad", "histogram", "histogram_values", "repeat_row", "bar", "printf", "format",
 }  # fmt: skip
 _FORBIDDEN_PREFIXES = (
     "read_", "parquet_", "iceberg_", "delta_", "sqlite_", "postgres_", "mysql_",
@@ -68,6 +80,19 @@ _FORBIDDEN_FUNCTION_CLASSES = tuple(
 )
 
 _COMMENT_ONLY = tuple(c for c in (getattr(exp, "Semicolon", None),) if c is not None)
+# Statement / utility nodes that must not appear anywhere inside a query.
+_FORBIDDEN_NODES = tuple(
+    cls
+    for cls in (
+        getattr(exp, name, None)
+        for name in (
+            "Insert", "Update", "Delete", "Merge", "Create", "Drop", "Alter", "Copy",
+            "Attach", "Detach", "Install", "Pragma", "Set", "Use", "Transaction", "Commit",
+            "Rollback", "Command", "Describe", "Summarize", "Show", "Into", "Analyze",
+        )
+    )
+    if cls is not None
+)  # fmt: skip
 _TOKEN = object()
 
 
@@ -118,22 +143,73 @@ def _is_forbidden_function(node: exp.Func) -> bool:
     return name in _FORBIDDEN_FUNCTIONS or name.startswith(_FORBIDDEN_PREFIXES)
 
 
+def _relates_both_sides(condition: exp.Expression) -> bool:
+    """True if an equality compares qualified columns of two different tables."""
+    for eq in condition.find_all(exp.EQ):
+        left = {c.table for c in eq.left.find_all(exp.Column)}
+        right = {c.table for c in eq.right.find_all(exp.Column)}
+        if left and right and "" not in left | right and left.isdisjoint(right):
+            return True
+    return False
+
+
 def _is_cartesian(join: exp.Join) -> bool:
     if str(join.args.get("kind") or "").upper() == "CROSS":
         return True
     if join.args.get("using"):
         return False
     condition = join.args.get("on")
-    if condition is None:
-        return True  # comma join or join without a condition
-    # ON TRUE / ON 1 = 1: a condition that references no column joins every row pair.
-    return not any(condition.find_all(exp.Column))
+    # No condition (comma join), ON TRUE, ON a.x = a.x, ON a.x <> b.x ... all pair every row.
+    return condition is None or not _relates_both_sides(condition)
+
+
+def _paren_depth(sql: str) -> int:
+    depth = deepest = 0
+    for char in sql:
+        if char == "(":
+            depth += 1
+            deepest = max(deepest, depth)
+        elif char == ")":
+            depth -= 1
+    return deepest
+
+
+def _table_reasons(tree: exp.Expression, schema: TableSchema) -> list[str]:
+    """Resolve every table reference in its own scope (CTEs are only visible there)."""
+    reasons: list[str] = []
+    for clause in tree.find_all(exp.From, exp.Join):
+        source = clause.this
+        if not isinstance(source, exp.Table | exp.Subquery | exp.Values):
+            name = type(source).__name__.lower() if source is not None else "?"
+            reasons.append(f"forbidden_table_function: {name} as a table source")
+    for table in tree.find_all(exp.Table):
+        if not isinstance(table.this, exp.Identifier):
+            name = table.this.sql(dialect="duckdb").split("(")[0] if table.this else "?"
+            reasons.append(f"forbidden_table_function: {name}")
+        elif table.args.get("db") or table.args.get("catalog"):
+            reasons.append(f"forbidden_table: {table.sql(dialect='duckdb')} (qualified name)")
+    if reasons:
+        return reasons
+    try:
+        scopes = traverse_scope(tree)
+    except (OptimizeError, SqlglotError, RecursionError):
+        return ["unsupported_query: the query structure could not be analysed"]
+    for scope in scopes:
+        for table in scope.tables:
+            source = scope.sources.get(table.alias_or_name)
+            if isinstance(source, Scope):
+                continue  # a CTE or derived table visible in this scope
+            if table.name.lower() != schema.table.lower():
+                reasons.append(f"forbidden_table: {table.name}")
+    return reasons
 
 
 def _structural_reasons(tree: exp.Expression, schema: TableSchema) -> list[str]:
     reasons: list[str] = []
-    cte_names = {cte.alias_or_name.lower() for cte in tree.find_all(exp.CTE)}
-    allowed_tables = cte_names | {schema.table.lower()}
+    for node in tree.find_all(*_FORBIDDEN_NODES):
+        reasons.append(f"not_select: {type(node).__name__.upper()} is not allowed in a query")
+    if reasons:
+        return reasons
 
     for with_ in tree.find_all(exp.With):
         if with_.args.get("recursive"):
@@ -143,20 +219,17 @@ def _structural_reasons(tree: exp.Expression, schema: TableSchema) -> list[str]:
         if _is_forbidden_function(node):
             reasons.append(f"forbidden_function: {_function_name(node)}")
 
-    for table in tree.find_all(exp.Table):
-        if not isinstance(table.this, exp.Identifier):
-            continue  # table functions are reported as forbidden_function
-        if table.args.get("db") or table.args.get("catalog"):
-            reasons.append(f"forbidden_table: {table.sql(dialect='duckdb')} (qualified name)")
-        elif table.name.lower() not in allowed_tables:
-            reasons.append(f"forbidden_table: {table.name}")
+    reasons.extend(_table_reasons(tree, schema))
 
     joins = list(tree.find_all(exp.Join))
     if len(joins) > MAX_JOINS:
         reasons.append(f"too_many_joins: {len(joins)} joins (maximum {MAX_JOINS})")
     for join in joins:
         if _is_cartesian(join):
-            reasons.append("cartesian_join: every join needs a condition on columns")
+            reasons.append(
+                "cartesian_join: every join needs an equality between columns of both tables "
+                "(or USING)"
+            )
     return reasons
 
 
@@ -190,6 +263,8 @@ def validate_sql(sql: str, schema: TableSchema) -> ValidatedSQL:
         raise SQLValidationError(["empty: no SQL was provided"])
     if len(sql) > MAX_SQL_CHARS:
         raise SQLValidationError([f"too_long: more than {MAX_SQL_CHARS} characters"])
+    if _paren_depth(sql) > MAX_PAREN_DEPTH:
+        raise SQLValidationError([f"too_complex: nesting deeper than {MAX_PAREN_DEPTH} levels"])
     try:
         # A comment after the final ";" parses as a comment-only Semicolon node: ignore it.
         statements = [
@@ -197,7 +272,7 @@ def validate_sql(sql: str, schema: TableSchema) -> ValidatedSQL:
             for s in sqlglot.parse(sql, dialect="duckdb")
             if s is not None and not isinstance(s, _COMMENT_ONLY)
         ]
-    except ParseError:
+    except (SqlglotError, RecursionError):  # ParseError, TokenError, ...
         raise SQLValidationError(["parse_error: the SQL could not be parsed"]) from None
     if not statements:
         raise SQLValidationError(["empty: no SQL statement found"])
@@ -208,6 +283,10 @@ def validate_sql(sql: str, schema: TableSchema) -> ValidatedSQL:
     if not isinstance(tree, _ALLOWED_ROOTS):
         kind = type(tree).__name__.upper()
         raise SQLValidationError([f"not_select: {kind} statements are not allowed"])
+
+    node_count = sum(1 for _ in tree.walk())
+    if node_count > MAX_NODES:
+        raise SQLValidationError([f"too_complex: {node_count} syntax nodes (max {MAX_NODES})"])
 
     reasons = _structural_reasons(tree, schema)
     if not reasons:

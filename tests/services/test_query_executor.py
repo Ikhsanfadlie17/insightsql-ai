@@ -84,9 +84,10 @@ def test_empty_result(executor: QueryExecutor, dataset_path: Path) -> None:
 
 def test_timeout_interrupts_slow_queries(settings: Settings, dataset_path: Path) -> None:
     executor = QueryExecutor(settings.model_copy(update={"query_timeout_seconds": 0.5}))
+    # Passes the validator (equality joins) but explodes: only the timeout can stop it.
     slow = validate_sql(
-        "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.nilai >= b.nilai "
-        "JOIN dataset c ON b.nilai >= c.nilai",
+        "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.nilai % 2 = b.nilai % 2 "
+        "JOIN dataset c ON b.nilai % 2 = c.nilai % 2 JOIN dataset d ON c.nilai % 2 = d.nilai % 2",
         SCHEMA,
     )
 

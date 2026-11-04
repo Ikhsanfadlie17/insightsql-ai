@@ -140,3 +140,38 @@ def test_trailing_comment_is_not_a_second_statement_but_trailing_sql_is() -> Non
 
     with pytest.raises(SQLValidationError):
         validate_sql("SELECT 1; -- done\nDROP TABLE dataset", SCHEMA)
+
+
+def test_deeply_nested_sql_is_rejected_quickly() -> None:
+    import time
+
+    sql = "SELECT " + "(" * 3000 + "1" + ")" * 3000
+    started = time.perf_counter()
+
+    with pytest.raises(SQLValidationError) as caught:
+        validate_sql(sql, SCHEMA)
+
+    assert time.perf_counter() - started < 2
+    assert caught.value.reasons[0].split(":")[0] in {"parse_error", "too_complex"}
+
+
+def test_huge_expressions_are_rejected_before_column_resolution() -> None:
+    import time
+
+    sql = "SELECT " + " + ".join(["pendapatan"] * 1500) + " FROM dataset"
+    started = time.perf_counter()
+
+    with pytest.raises(SQLValidationError) as caught:
+        validate_sql(sql, SCHEMA)
+
+    assert time.perf_counter() - started < 2
+    assert caught.value.reasons[0].startswith("too_complex")
+
+
+def test_equality_join_between_both_sides_is_accepted() -> None:
+    validate_sql("SELECT COUNT(*) FROM dataset a JOIN dataset b USING (id_klien)", SCHEMA)
+    validate_sql(
+        "WITH y AS (SELECT id_klien FROM dataset) "
+        "SELECT COUNT(*) FROM dataset d JOIN y ON d.id_klien = y.id_klien",
+        SCHEMA,
+    )

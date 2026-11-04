@@ -194,9 +194,9 @@ def test_execution_error_sent_for_repair_contains_no_data(make_env) -> None:
 
 def test_timeouts_are_reported_after_bounded_repairs(make_env) -> None:
     heavy = (
-        "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.pendapatan_rp >= b.pendapatan_rp "
-        "JOIN dataset c ON b.pendapatan_rp >= c.pendapatan_rp "
-        "JOIN dataset d ON c.pendapatan_rp >= d.pendapatan_rp"
+        "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.departemen = b.departemen "
+        "JOIN dataset c ON b.departemen = c.departemen "
+        "JOIN dataset d ON c.departemen = d.departemen"
     )
     env = make_env(*[plan(heavy) for _ in range(3)], settings_update={"query_timeout_seconds": 0.2})
 
