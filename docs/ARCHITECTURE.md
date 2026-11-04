@@ -104,29 +104,70 @@ SQLite tables (full DDL lands in `docs/DATABASE.md` during Phase 8):
 
 1. `POST /datasets/inspect` — validate extension, magic bytes (`PK` for xlsx), and size
    (`MAX_UPLOAD_MB`). Return `upload_id`, file type, and sheet names with row counts.
-2. `POST /datasets` with `upload_id` + `sheet` — create a dataset record in status
+2. `POST /datasets` with `upload_id`, `sheet`, and the import options `number_format`
+   (`auto` | `id` | `en`; CSV only, Excel always uses `plain`) and `date_order`
+   (`auto` | `day_first` | `month_first`) — create a dataset record in status
    `processing` and run ingestion as a FastAPI background task.
-3. Ingestion: read (CSV via pandas; XLSX via the `calamine` engine for speed) → normalize
-   headers → infer types → write DuckDB table → profile → suggest column roles → status
-   `ready` (or `failed` with a safe error message).
-4. The frontend polls `GET /datasets/{id}` until it is ready and then shows preview + profile.
+3. Ingestion: read (CSV via pandas; XLSX via the `calamine` engine; header row read raw so
+   duplicate headers keep their names) → normalize headers → infer types and record
+   per-column notes → write DuckDB table → profile (stored; a profiling failure does not
+   fail the import) → status `ready` (or `failed` with a safe error message).
+4. The frontend polls `GET /datasets/{id}` until it is ready and then shows profile,
+   column-mapping review, preview, and columns.
 5. At startup, datasets left in `processing` by a restart are marked `failed`
    ("import was interrupted") and partial `*.tmp.duckdb` files are removed.
 
-Type inference rules (`services/type_inference.py`, all covered by tests):
+Type inference rules (`services/type_inference.py`, all covered by tests). **No value is
+changed silently:** every interpretation the user might disagree with produces a
+`ColumnNote` (`info` or `warning`) shown in the UI.
 
-- Values are trimmed; blanks become missing. Leading-zero integers (`00123`) and
-  integers with 16+ digits (e.g. NIK) stay text, because float64 cannot hold them exactly.
+- Values are trimmed; blanks become missing.
+- **Identifiers stay text:** leading-zero integers (`00123`) and integers with 16+ digits
+  (e.g. NIK) are never converted to numbers, so no digit is lost during import.
+  - Excel keeps at most 15 significant digits for *numeric* cells. A 16+ digit value from
+    Excel gets a warning that its last digits may already be wrong in the file and
+    **cannot be recovered** (cells formatted as Text are exact; the two cannot be told
+    apart after reading). CSV files get a similar warning, since they may have been
+    exported from such a sheet. Values in scientific notation (`9.17E+15`) get a warning
+    that the digits were lost before the file was saved.
 - A column converts to number/date only when ≥ 95% of its non-missing values parse.
-  Values that do not parse become missing and are **counted** and shown in the UI.
-- CSV numbers: one style per column. When every dot separates 3-digit groups (`1.234`,
-  `1.000.000`), dots are thousands separators (Indonesian convention). A group never
-  starts with 0, so `0.125` is a decimal. Values written in another style than the
-  column's are rejected and counted, never rewritten. Integers are converted exactly.
-- Excel numbers are already canonical (`4.125` is 4.125), so no locale heuristics apply.
-- Slash/dot/dash dates: day-first if any first part > 12, month-first if any second
-  part > 12, day-first when ambiguous (target users are in Indonesia).
+  Values that do not parse become missing and are reported with examples
+  (`unconverted_values`). Columns where 50–95% parse stay text with a `mixed_types` note.
+- **Number format (CSV):** chosen at import. `id` = `1.234,5`, `en` = `1,234.5`,
+  `auto` = one style detected per column. In `auto`, when every dot separates 3-digit
+  groups (`1.000.000`, `1.234`) the dots are thousands separators (Indonesian
+  convention); if no value proves it (only single groups such as `1.234`), the column
+  gets an `ambiguous_number_format` warning naming the alternative format to re-import
+  with. The same applies to `1,234` in English style. A group never starts with 0, so
+  `0.125` is a decimal. Values written in another style than the column's are rejected
+  and reported, never rewritten. Integers are converted exactly.
+- Excel numbers are already canonical (`4.125` is 4.125), so Excel imports use `plain`.
+- **Date order:** chosen at import. In `auto`, day-first if any first part > 12,
+  month-first if any second part > 12; otherwise day-first with an
+  `ambiguous_date_order` warning. Impossible dates (`31/02/2026`) are reported.
 - CSV encoding is chosen by decoding the whole file (UTF-8 → cp1252 → latin-1).
+
+Profiling (`services/data_profiler.py`) runs one DuckDB aggregate scan: per column null
+count/%, distinct count, top-5 values (truncated to 80 characters), min/max/mean/median/
+sample std for numbers, min/max for dates; per dataset duplicate rows and missing cells.
+Dataset notes: `duplicate_rows`, `missing_headers` (title row above the table),
+`empty_column`, `no_date_column`.
+
+### 5.1b Column roles and confirmation
+
+`services/column_roles.py` suggests up to three candidates per role (client ID, client
+name, transaction date, department, service type, revenue, status), each with a
+confidence and human-readable reasons, using type gates (e.g. only date columns for the
+transaction date), Indonesian/English header words, and profile statistics. It never
+suggests a client identity without header evidence.
+
+Suggestions are an **unsaved draft**. `PUT /datasets/{id}/column-mapping` stores the user's
+choice with `confirmed=true`; the server validates that each column exists, has a
+compatible type, and is used for one role only. Analytics (Phase 5) may only use a
+confirmed mapping. The mapping state also returns warnings (missing client IDs, long or
+scientific-notation IDs, client IDs with several names, name-only identity, history
+completeness, missing transaction dates) and the number of unique clients (confirmed
+mappings only).
 
 ### 5.2 Natural-language question
 
@@ -173,14 +214,16 @@ All responses are JSON unless noted. Errors use `{"error": {"code": str, "messag
 |---|---|---|
 | `GET /health` | — | `{status, llm_configured: bool, model: str \| null}` |
 | `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count}]}` |
-| `POST /datasets` | `{upload_id, sheet: str \| null, name: str \| null}` | `DatasetRecord` (status `processing`) |
+| `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first}` | `DatasetRecord` (status `processing`) |
 | `GET /datasets` | — | `DatasetRecord[]` |
 | `GET /datasets/{id}` | — | `DatasetRecord` |
 | `DELETE /datasets/{id}` | — | `204`; removes DuckDB file, metadata, history |
 | `GET /datasets/{id}/preview` | `limit` ≤ 200 | `QueryResult` |
 | `GET /datasets/{id}/profile` | — | `DatasetProfile` |
-| `GET /datasets/{id}/column-mapping` | — | `{mapping: ColumnMapping, suggestions: RoleSuggestion[]}` |
-| `PUT /datasets/{id}/column-mapping` | `ColumnMapping` | `ColumnMapping` (columns must exist; date column must be date-typed) |
+| `GET /datasets/{id}/columns` | — | `DatasetColumn[]` with original headers, types, and notes |
+| `PATCH /datasets/{id}` | `{name}` | `DatasetRecord` |
+| `GET /datasets/{id}/column-mapping` | — | `MappingState{mapping (confirmed) \| null, draft, suggestions, compatible_columns, warnings, unique_clients}` |
+| `PUT /datasets/{id}/column-mapping` | `{client_id, client_name, transaction_date, department, service_type, revenue, status}` (each nullable) | `MappingState` (422 if a column is unknown, has an incompatible type, or is used twice) |
 | `POST /datasets/{id}/client-analytics/compare` | `{previous: Period, current: Period, options}` | `RetentionResult` |
 | `GET /datasets/{id}/client-analytics/clients` | `category`, periods | `QueryResult` (client list for drill-down/export) |
 | `GET /datasets/{id}/client-analytics/trend` | `granularity=month\|quarter\|year` | `QueryResult` |
@@ -245,6 +288,9 @@ template-based summary instead and logs the event.
 
 ## 8. Client-retention definitions
 
+Every category counts **unique client identities** (distinct client IDs), never
+transactions; transaction counts are reported separately.
+
 For a client identity `c` and a period `P = [start, end)`, `c` is **active in P** if it has at
 least one transaction with a date in `P`. `first_seen(c)` is its earliest transaction date in
 the whole dataset. With `previous` before `current` (non-overlapping, enforced):
@@ -284,6 +330,9 @@ Rules:
 - Rows with missing identity are excluded from client metrics and counted in `excluded_missing_id_rows`.
 - Exact duplicate rows are excluded from transaction counts by default (`dedupe_exact_duplicates=true`) and counted.
 - Warnings:
+  - **History completeness (always shown):** New and Reactivated are classified from the
+    history in the dataset. Clients active before the first date in the data are invisible,
+    so they can be counted as New, or not recognized as Reactivated.
   - **History starts late:** if the data begins on or after the previous period start, "new" may be overstated.
   - **Incomplete period:** if the current period ends after the last date in the data, suggest a YTD comparison.
   - **Identity inconsistency:** IDs with several names, or names with several IDs.

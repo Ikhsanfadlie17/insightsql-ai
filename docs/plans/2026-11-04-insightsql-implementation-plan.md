@@ -156,8 +156,8 @@
 - M1: upload size is enforced after Starlette spools the multipart body; add a
   `Content-Length` check / reverse-proxy body limit (Phase 8 deployment).
 - M4: stale-upload cleanup runs only at startup; run it periodically (Task 21).
-- L3: duplicate headers are renamed by pandas (`Nama.1`) before normalization, so the
-  original label shown is `Nama.1` (Task 7).
+- ~~L3: duplicate headers are renamed by pandas (`Nama.1`) before normalization~~ —
+  resolved in Phase 3 (header row read raw).
 - L4: Excel sheets are parsed several times per import; `create_dataset` only needs
   sheet names (Task 24 performance work).
 - L5: FastAPI validation errors and unknown routes still return `{"detail": ...}`
@@ -196,6 +196,24 @@
 - [ ] **Step 2–4:** Run → FAIL → implement (UI: suggestions pre-filled in selectboxes, user confirms) → PASS. **Step 5: Commit** `feat: column role suggestions and mapping`.
 
 **Phase 3 report.**
+
+**Phase 3 as built — additions and deviations (with reasons):**
+- Added per user requirements (2026-11-04): import options `number_format`
+  (`auto`/`id`/`en`, CSV only) and `date_order` (`auto`/`day_first`/`month_first`); per-column
+  `ColumnNote`s so no interpretation is silent (ambiguous numbers/dates, unconverted values
+  with examples, mixed types, long identifiers and the Excel 15-digit limit, scientific
+  notation). `infer_types(number_format=..., date_order=...)` replaces `locale_numbers`.
+- `DatasetProfile` has no dataset-level `date_range`; dates are per column, and the
+  Overview uses the confirmed transaction-date column. It adds `missing_pct` and `notes`.
+- `RoleSuggestion` became `RoleSuggestions{role, candidates[≤3]}` with `reasons`, so the
+  UI can offer alternatives. `GET /column-mapping` returns `MappingState` (confirmed
+  mapping or null, unsaved draft, suggestions, compatible columns, warnings, unique
+  clients) instead of `{mapping, suggestions}`.
+- Unique clients are computed only for a confirmed mapping, by distinct client ID (or the
+  normalized name when no ID is mapped).
+- Overview shows analysis counts / recent activity as "after Phase 6" (no fake numbers).
+- No re-import endpoint: changing the number format means importing the file again
+  (the upload is kept for 24 h, but the UI asks for the file again).
 
 ---
 
