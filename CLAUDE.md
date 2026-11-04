@@ -1,12 +1,15 @@
 # InsightSQL AI
 
 AI Data Analyst berbasis Text-to-SQL: Streamlit + FastAPI + DuckDB + OpenAI API.
-Spesifikasi lengkap ada di `PRD.md` (v1.0).
+Spesifikasi: `docs/PRD.md` (v1.0). Desain: `docs/ARCHITECTURE.md`.
+Rencana kerja: `docs/plans/2026-11-04-insightsql-implementation-plan.md` (Phase 2–8, Task 1–26).
 
 ## Status
 
-**Tahap setup / perencanaan. Jangan menulis kode aplikasi** sampai user memberikan
-prompt eksekusi secara eksplisit.
+**Phase 1 (planning) selesai, menunggu review user.** Jangan mulai Phase 2 sebelum
+user menyetujui rencana. Kerjakan per phase; di akhir tiap phase laporkan ringkasan,
+file yang berubah, keputusan arsitektur, hasil test, kegagalan, dan phase berikutnya.
+Jangan mengklaim fitur selesai tanpa implementasi + test.
 
 ## Prinsip yang tidak boleh dilanggar (dari PRD)
 
