@@ -246,10 +246,13 @@ def _identifier_notes(text: pd.Series, number_format: NumberFormat) -> list[Colu
         else:
             notes.append(
                 ColumnNote(
-                    level="info",
+                    level="warning",
                     code="long_identifier",
                     message=f"{len(long_values):,} value(s) have 16 or more digits (e.g. "
-                    f"{_examples(long_values)}). They are kept as text so no digit is lost.",
+                    f"{_examples(long_values)}). They are kept as text, so no digit is lost "
+                    "during import. If this file was exported from Excel with the column "
+                    "formatted as a number, digits after the 15th may already have been "
+                    "changed before export and cannot be recovered.",
                 )
             )
     scientific = values[values.str.match(_SCIENTIFIC)]

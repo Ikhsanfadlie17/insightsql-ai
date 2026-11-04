@@ -325,13 +325,15 @@ def test_mostly_date_text_column_is_flagged() -> None:
     assert "mixed_types" in _codes(notes)
 
 
-def test_long_csv_identifiers_are_kept_as_text_with_info() -> None:
+def test_long_csv_identifiers_are_kept_as_text_with_potential_loss_warning() -> None:
     series, logical, notes = _infer_full(["9171234567890123", "3201234567890127"])
 
     assert logical == "text"
     assert list(series) == ["9171234567890123", "3201234567890127"]
     note = next(n for n in notes if n.code == "long_identifier")
-    assert note.level == "info"
+    assert note.level == "warning"
+    assert "no digit is lost during import" in note.message
+    assert "cannot be recovered" in note.message
 
 
 def test_long_excel_numbers_warn_about_15_digit_limit() -> None:

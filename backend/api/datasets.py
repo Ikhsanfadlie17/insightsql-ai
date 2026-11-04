@@ -16,15 +16,18 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
-from backend.api.deps import get_dataset_service
+from backend.api.deps import get_dataset_service, get_mapping_service
 from backend.core.errors import UploadError
 from backend.schemas.datasets import DatasetColumn, DatasetRecord, DateOrder, UploadInspection
+from backend.schemas.mapping import MappingState, MappingUpdate
 from backend.schemas.profile import DatasetProfile
 from backend.schemas.query import QueryResult
 from backend.services.dataset_service import DatasetService
+from backend.services.mapping_service import MappingService
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 Service = Annotated[DatasetService, Depends(get_dataset_service)]
+Mappings = Annotated[MappingService, Depends(get_mapping_service)]
 
 
 class CreateDatasetRequest(BaseModel):
@@ -107,6 +110,20 @@ def get_columns(dataset_id: str, service: Service) -> list[DatasetColumn]:
 def get_profile(dataset_id: str, service: Service) -> DatasetProfile:
     """Return the data-quality profile of a ready dataset."""
     return service.profile(dataset_id)
+
+
+@router.get("/{dataset_id}/column-mapping", response_model=MappingState)
+def get_column_mapping(dataset_id: str, mappings: Mappings) -> MappingState:
+    """Suggested roles (unsaved draft) and the user-confirmed mapping, if any."""
+    return mappings.state(dataset_id)
+
+
+@router.put("/{dataset_id}/column-mapping", response_model=MappingState)
+def confirm_column_mapping(
+    dataset_id: str, body: MappingUpdate, mappings: Mappings
+) -> MappingState:
+    """Confirm (or change) which column plays which role. Only this is used by analytics."""
+    return mappings.confirm(dataset_id, body)
 
 
 @router.get("/{dataset_id}/preview", response_model=QueryResult)
