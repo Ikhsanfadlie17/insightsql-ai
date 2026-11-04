@@ -64,6 +64,7 @@ _FORBIDDEN_FUNCTIONS = {
     "error",
     # unbounded generators / huge values (they ignore timeouts and memory limits)
     "range", "generate_series", "repeat", "unnest_range", "list_resize", "array_resize",
+    "pg_sleep", "sleep", "sleep_ms", "write_log",
     "lpad", "rpad", "pad", "histogram", "histogram_values", "repeat_row", "bar", "printf", "format",
 }  # fmt: skip
 _FORBIDDEN_PREFIXES = (

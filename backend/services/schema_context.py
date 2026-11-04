@@ -44,6 +44,7 @@ _SENSITIVE_WORDS = {
     "karyawan", "pegawai", "employee", "staff", "pic", "kontak", "contact", "domisili",
     "tinggal", "diagnosis", "penyakit", "medis", "medical", "penghasilan", "income",
     "pendapatan_pribadi", "keterangan", "catatan", "notes", "note", "komentar", "comment",
+    "kelamin", "gender", "sex", "suku", "ras", "ethnic", "ethnicity", "race",
 }  # fmt: skip
 # Allowlist: only columns whose header names a category may include example values.
 _CATEGORY_WORDS = {

@@ -123,3 +123,7 @@
 - {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.pendapatan = a.pendapatan", rule: cartesian_join}
 - {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.pendapatan IS NOT NULL", rule: cartesian_join}
 - {sql: "SELECT COUNT(*) FROM dataset a JOIN dataset b ON a.id_klien <> b.id_klien", rule: cartesian_join}
+# Review re-check: functions with no analytical use that only waste worker time
+- {sql: "SELECT pg_sleep(30)", rule: forbidden_function}
+- {sql: "SELECT sleep_ms(30000)", rule: forbidden_function}
+- {sql: "SELECT write_log('x')", rule: forbidden_function}

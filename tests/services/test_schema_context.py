@@ -218,6 +218,7 @@ def test_context_is_cached_until_the_mapping_changes(services, sample_id: str) -
         ("Tempat Tinggal", ["Depok", "Bogor"]),
         ("Diagnosis", ["HIV positif", "Diabetes"]),
         ("Keterangan", ["catatan pribadi A", "catatan pribadi B"]),
+        ("Jenis Kelamin", ["Laki-laki", "Perempuan"]),
     ],
 )
 def test_text_examples_are_only_sent_for_known_category_headers(services, header, values) -> None:
