@@ -8,6 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 from frontend.api_client import ApiError
+from frontend.components.formatting import fmt_int
 
 _CSS_PATH = Path(__file__).resolve().parent.parent / "styles" / "theme.css"
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~:$])")
@@ -23,8 +24,8 @@ def md_escape(text: object) -> str:
 
 
 def fmt_count(value: int | None) -> str:
-    """Thousands-separated count, or "N/A" when unknown (e.g. a failed import)."""
-    return "N/A" if value is None else f"{value:,}"
+    """Count in Indonesian format (1.234), or "N/A" when unknown (e.g. a failed import)."""
+    return fmt_int(value)
 
 
 def inject_css() -> None:
