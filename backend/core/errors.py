@@ -67,6 +67,13 @@ class QueryExecutionError(AppError):
     status_code = 400
 
 
+class MappingRequiredError(AppError):
+    """Client analytics need a user-confirmed mapping with the required roles."""
+
+    code = "mapping_required"
+    status_code = 409
+
+
 class LLMNotConfiguredError(AppError):
     """AI features were requested but no API key / model is configured."""
 

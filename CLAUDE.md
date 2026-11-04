@@ -6,7 +6,7 @@ Rencana kerja: `docs/plans/2026-11-04-insightsql-implementation-plan.md` (Phase 
 
 ## Status
 
-**Phase 4 (Task 9–13) selesai + direview (fokus keamanan SQL) + temuan High/Medium diperbaiki. MENUNGGU review user sebelum Phase 5. OpenAI API sungguhan BELUM pernah diuji (jaringan diblokir, belum ada key).**
+**Phase 5 (Task 14–18) SEDANG DIKERJAKAN (disetujui user). Phase 4 selesai + direview. OpenAI API sungguhan BELUM pernah diuji (jaringan diblokir, belum ada key).**
 Setelah tiap phase: review independen, perbaiki temuan critical/high, lapor, lalu TUNGGU review user. Laporan berisi ringkasan,
 file yang berubah, keputusan arsitektur, hasil test, kegagalan, dan phase berikutnya.
 Jangan mengklaim fitur selesai tanpa implementasi + test.

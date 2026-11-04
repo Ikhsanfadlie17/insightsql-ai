@@ -8,12 +8,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.api import datasets, health, usage
+from backend.api import client_analytics, datasets, health, usage
 from backend.core.config import Settings, get_settings
 from backend.core.errors import register_error_handlers
 from backend.core.logging import setup_logging
 from backend.repositories.dataset_repo import DatasetRepository
 from backend.repositories.usage_repo import UsageRepository
+from backend.services.analytics_service import AnalyticsService, DatasetAnalytics
 from backend.services.dataset_service import DatasetService
 from backend.services.llm.cost import load_pricing
 from backend.services.llm.gateway import LLMGateway
@@ -48,12 +49,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         load_pricing(settings.pricing_file),
         prompt_version=PROMPT_VERSION,
     )
+    executor = QueryExecutor(settings)
+    analytics = DatasetAnalytics(dataset_service, repo, AnalyticsService(executor))
     # Used by the analysis endpoint in Phase 5 (Task 18); no HTTP route yet.
     text_to_sql = TextToSQLService(
         datasets=dataset_service,
         contexts=SchemaContextBuilder(dataset_service, repo, settings),
         gateway=llm_gateway,
-        executor=QueryExecutor(settings),
+        executor=executor,
         settings=settings,
     )
 
@@ -71,13 +74,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.dataset_service = dataset_service
     app.state.mapping_service = mapping_service
+    app.state.dataset_repo = repo
     app.state.usage_repo = usage_repo
+    app.state.analytics = analytics
     app.state.llm_gateway = llm_gateway
     app.state.text_to_sql = text_to_sql
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(datasets.router)
     app.include_router(usage.router)
+    app.include_router(client_analytics.router)
     return app
 
 
