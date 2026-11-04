@@ -464,6 +464,37 @@ Accepted / follow-up:
 - [ ] **Step 1: Failing tests** (FakeLLM) — the `sql` intent returns answer + table + chart + SQL + insight; the `retention` intent calls `AnalyticsService` (spy) and never sends SQL to the LLM; the `clarify` intent returns `status="clarification"` with no execution; LLM not configured → 503 `llm_not_configured`; a `DROP TABLE` plan returns `status="error"` with a validation message and the table still exists; a question about 2030 returns a "no data" answer with N/A; each analysis is persisted with SQL and usage; the follow-up question includes the previous turn in the LLM call.
 - [ ] **Step 2–4** → PASS. AI Analyst page: dataset selector, suggested questions (built from the column mapping), chat, KPI cards, chart, table, SQL expander, explanation/assumptions, insight. **Step 5: Commit** `feat: end-to-end ask pipeline and AI analyst page`.
 
+**Phase 5 as built — additions and deviations (with reasons):**
+- User requirements (2026-11-04) added: Existing Active as a separate aggregate KPI;
+  explicit denominators; coverage endpoint; department breakdown; identity checks (case/space
+  variants, ID↔name conflicts); YTD as the default comparison when the latest year is
+  incomplete; Indonesian number format; facts / interpretations / recommendations /
+  limitations in insights; dataset-bound conversations.
+- `RetentionResult.warnings` are `{level, code, message}` notes (plan: `list[str]`) so the UI
+  and tests can rely on codes. Added `excluded_missing_date_rows`, `data_start`, `data_end`,
+  `identity_kind`, `date_column`, and the `previous`/`current` periods.
+- `AnalyticsService` methods take an `AnalyticsSource` (DuckDB path + column types + confirmed
+  mapping) instead of three arguments; `AnalyticsSource` refuses unconfirmed mappings
+  (`409 mapping_required`). `DatasetAnalytics` adds a per-dataset result cache.
+- Invalid/overlapping periods raise the app's `ValidationError` (422) instead of `ValueError`.
+- `clients` and `departments` are POST endpoints with a JSON body (periods are objects).
+- `InsightOutput`/`Insight` use summary + facts + interpretations + recommendations +
+  limitations (plan: summary/findings/caveats) to separate fact from interpretation. Grounding
+  is done per written number with rounding-aware matching instead of a precomputed set of
+  rounded values; text values are pseudonymised before the call; a causal-claim check was
+  added.
+- `LLMGateway.complete` gained a `prompt_version` override (insight prompts have their own
+  version). `create_app` accepts an `llm_client` override (tests and the fake-LLM e2e).
+- `HistoryTurn` gained `clarification` so an answer to a clarifying question is understood.
+- Frontend files live in `frontend/views/` (not `pages/`); components: `charts.py`,
+  `formatting.py`, `period_picker.py`, `chat.py`, `suggested_questions.py`. The plan's
+  `kpi_cards.py` / `sql_panel.py` were folded into the page / `chat.py`.
+- Verification: hand-computed fixtures, an independent pandas implementation
+  (`tests/ground_truth.py`) on every year pair of the sample, mutation checks of the SQL
+  template, an e2e run against the real backend and DuckDB with a **scripted fake LLM** (not
+  the OpenAI API), and an independent recomputation from the raw CSV.
+- Real OpenAI API: still **not tested** (network blocked, no key).
+
 **Phase 5 report.**
 
 ---

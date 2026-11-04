@@ -1,8 +1,8 @@
 # InsightSQL AI — Architecture
 
-Status: **Phase 1 design (approved plan pending).** This document describes the target
-architecture. Sections are updated as each phase is implemented; anything not yet built
-is marked *planned*.
+Status: **Phases 2–5 implemented** (Phase 5 awaiting user review). Sections are updated as
+each phase is implemented; anything not yet built (export, Query History page, Docker) is
+marked *planned* or listed in the implementation plan.
 
 Spec: [`PRD.md`](PRD.md) · Implementation plan:
 [`plans/2026-11-04-insightsql-implementation-plan.md`](plans/2026-11-04-insightsql-implementation-plan.md)
@@ -219,6 +219,32 @@ Client-retention questions are **routed, not generated**: the LLM only extracts 
 (periods, YTD), and the metrics come from tested SQL templates. This keeps the flagship
 feature exact and cheap.
 
+**AI Analyst flow as built (Phase 5, `analysis_orchestrator.py`):**
+
+1. Validate the question (non-empty, ≤ `MAX_QUESTION_CHARS`) and that the dataset is ready.
+2. A `conversation_id` must belong to the same dataset, otherwise `422` ("belongs to
+   another dataset"). Without one a new conversation is created. Context therefore never
+   crosses datasets; the UI keeps one conversation per dataset and switching datasets
+   switches conversations.
+3. Without an LLM configured: `503 llm_not_configured` before anything is stored or sent.
+4. Follow-up context = the last **3 turns of the same conversation**: each turn's question,
+   its validated SQL (for a retention turn, a one-line comment naming the two periods
+   instead of the long template SQL), and the clarifying question the model asked, if any.
+   **Result rows of earlier turns are never sent**, so the model cannot reuse old numbers.
+5. Plan → `clarify` (status `clarification`, nothing executed), `unsupported`,
+   `retention` (periods → `DatasetAnalytics.compare`, the deterministic templates; the
+   LLM never writes retention SQL), or `sql` (validate → sandboxed execution, ≤ 2 repairs).
+6. Chart: rule-based `recommend_chart` (the LLM hint is used only when it validates);
+   KPI cards only for a one-row result of 1–4 numbers, or the retention KPIs.
+7. Insight: `InsightGenerator` (§7.4); the answer text is the insight summary.
+8. Every analysis — answered, clarification, unsupported, or error (SQL generation
+   failed, provider error, mapping required) — is stored in `analyses` with its SQL, the
+   full response, and the ids of its LLM requests; `usage` sums their tokens and estimated
+   cost (`cost_complete=false` when a request has no price/usage).
+
+LLM calls per question: 1 plan (+ ≤ 2 repairs) + ≤ 1 insight. Clarification/unsupported:
+1 call. No call for retention math, charts, KPIs, or the template insight.
+
 ## 6. API contract (v1)
 
 All responses are JSON unless noted. Errors use `{"error": {"code": str, "message": str}}`.
@@ -237,9 +263,11 @@ All responses are JSON unless noted. Errors use `{"error": {"code": str, "messag
 | `PATCH /datasets/{id}` | `{name}` | `DatasetRecord` |
 | `GET /datasets/{id}/column-mapping` | — | `MappingState{mapping (confirmed) \| null, draft, suggestions, compatible_columns, warnings, unique_clients}` |
 | `PUT /datasets/{id}/column-mapping` | `{client_id, client_name, transaction_date, department, service_type, revenue, status}` (each nullable) | `MappingState` (422 if a column is unknown, has an incompatible type, or is used twice) |
-| `POST /datasets/{id}/client-analytics/compare` | `{previous: Period, current: Period, options}` | `RetentionResult` |
-| `GET /datasets/{id}/client-analytics/clients` | `category`, periods | `QueryResult` (client list for drill-down/export) |
-| `GET /datasets/{id}/client-analytics/trend` | `granularity=month\|quarter\|year` | `QueryResult` |
+| `GET /datasets/{id}/client-analytics/coverage` | — | `AnalyticsCoverage{rows, unique_clients, missing_id_rows, missing_date_rows, data_start, data_end, years, identity/date/department columns, warnings}` |
+| `POST /datasets/{id}/client-analytics/compare` | `{previous: Period, current: Period, options: {dedupe_exact_duplicates}}` | `RetentionResult` |
+| `POST /datasets/{id}/client-analytics/clients` | `{previous, current, options, category, offset ≥ 0, limit 1–500}` | `ClientListPage{category, total, offset, limit, result: QueryResult}` |
+| `POST /datasets/{id}/client-analytics/departments` | `{previous, current, options}` | `DepartmentBreakdown{result, clients_in_multiple_departments, warnings, definitions}` |
+| `GET /datasets/{id}/client-analytics/trend` | `granularity=month\|quarter\|year` | `TrendResult{result (zero-filled), partial_first, partial_last, warnings, definitions}` |
 | `GET /datasets/{id}/client-analytics/identity-issues` | — | `IdentityReport` |
 | `POST /analyses/ask` | `{dataset_id, conversation_id: str \| null, question}` | `AnalysisResponse` |
 | `GET /conversations` | `dataset_id` | `ConversationSummary[]` |
@@ -256,8 +284,14 @@ Key response models (Pydantic, in `backend/schemas/`):
 - `Period{label: str, start: date, end: date}` — `end` is **exclusive**.
 - `RetentionResult` — counts, rates (`float | None`; `None` renders as **N/A**), warnings,
   definitions, executed SQL.
-- `ChartSpec{type: bar|line|area|pie|donut|hbar|grouped_bar|kpi, x: str|None, y: list[str], color: str|None, title: str}`
-- `AnalysisResponse{analysis_id, status: answered|clarification|unsupported|error, answer, kpis, chart, table, sql, explanation, assumptions, insight, warnings, usage}`
+- `ChartSpec{type: bar|line|area|pie|donut|hbar|grouped_bar|kpi, x: str|None, y: list[str], color: str|None, title: str, top_n: int|None}`
+- `AnalysisResponse{analysis_id, conversation_id, dataset_id, question, status: answered|clarification|unsupported|error, language, answer, kpis, chart, table, sql, explanation, assumptions, insight, retention, warnings, error_code, repairs, usage, created_at}`
+- `Insight{source: llm|deterministic, language, summary, facts, interpretations, recommendations, limitations, ungrounded_numbers, fallback_reason, llm_request_id}`
+
+Client-analytics endpoints answer `409 mapping_required` until the user has confirmed a
+client identity (ID or name) and a transaction date; invalid or overlapping periods are
+`422`. `clients`/`departments` use POST because the periods are structured bodies
+(the plan had a GET with query parameters).
 
 ## 7. Security model
 
@@ -336,12 +370,55 @@ and 20 accepted analytical queries are run on every test run.
 - Even if the model is manipulated, its output can only be a validated, read-only query on
   the active dataset, executed in the sandbox.
 
-### 7.4 Grounded insights
+### 7.4 Grounded insights — implemented in Phase 5 (`insight_generator.py`)
 
-The insight model receives only the (already aggregated, capped) result rows plus metric
-definitions. Before display, every number in its text is checked against the result values
-and derived percentages. If any number is ungrounded, the system shows a deterministic,
-template-based summary instead and logs the event.
+**What the model receives:** the question, at most **50 rows × 20 columns** of the result
+(cells ≤ 60 characters), the metric definitions, and notes (truncation, retention
+warnings). Before sending, text values are **pseudonymised** as `[V1]`, `[V2]`, …:
+
+- columns whose name looks like an identifier (`id`, `kode`, `nik`, `no`, `telepon`,
+  `rekening`, `lahir`, …) — all values, numbers included;
+- columns whose name looks personal (`nama`, `klien`, `client`, `email`, `alamat`, …),
+  and any value that looks like an e-mail address or phone number;
+- every other text value unless it is a known category value (the allowlisted examples of
+  the schema context) or an ISO date / period label (`2026`, `2026-03`, `2026-Q1`).
+
+Placeholders are mapped back to the real values locally, after verification. A
+retention insight receives only the metric counts, rates, period labels, and warnings —
+never client lists.
+
+**Required structure:** `summary`, `facts` (read directly from the result),
+`interpretations` (possibilities, not proof), `recommendations` (next checks), and
+`limitations`. The UI labels each section; interpretations are shown as "not proven by the
+data".
+
+**Verification before display** — the AI text is rejected when:
+
+1. **A number is not derivable from the result.** Allowed: cell values; per numeric column
+   the total, mean, shares of the total, pairwise differences and percentage changes;
+   differences within a row; ratios written as percentages; the row count (and small
+   integers up to it, e.g. "top 3"); years and dates of the result values, the compared
+   periods, and the data range. Numbers are parsed in Indonesian and English formats
+   (`1.234,5`, `1,234.5`, `62,5%`, `Rp 125.000.000`, `1,2 juta`/`million`); a written
+   value matches when an allowed value rounds to it (half-up or half-even) at the number
+   of decimals written. Unknown ISO dates are rejected too.
+2. **A placeholder does not exist** (`unknown_reference`).
+3. **A cause is stated as fact**: causal words (`karena`, `disebabkan`, `akibat`,
+   `because`, `due to`, `driven by`, …) in the summary or facts, or in interpretations /
+   recommendations without a hedge (`mungkin`, `kemungkinan`, `may`, `might`, …).
+
+On rejection — or when AI insights are off (`ENABLE_LLM_INSIGHTS=false`), not configured,
+or the provider fails — a **deterministic template** built from the same result is shown,
+with the reason (`fallback_reason`) and any rejected numbers (`ungrounded_numbers`). The
+template never shows an undefined rate as 0 (it shows N/A) and always lists the
+history-completeness limitation for retention answers. The insight request is recorded in
+`llm_requests` (purpose `insight`, prompt version `2026-11-04.insight-v1`) whether or not
+its text is used.
+
+**Known limits of the check (documented, not hidden):** it proves that every number *can be
+derived* from the result, not that the sentence attaches it to the right metric (e.g. a
+percentage change of one column quoted as another metric); numbers written as words
+("dua kali lipat") are not checked; the causal check is a word list.
 
 ## 8. Client-retention definitions
 
@@ -377,6 +454,57 @@ every fixture and on the sample dataset:
 between-period. It is shown as its own KPI and is never added to or stacked with those
 categories in charts, totals, or exports. The current-period breakdown chart uses only the
 partition categories.
+
+### 8.1 Implementation (Phase 5, `analytics_service.py`)
+
+Every metric is computed by **one fixed SQL template per request** (CTEs: `src` = rows,
+deduplicated with `SELECT DISTINCT *` unless turned off; `raw` = every row; `valid` = rows
+with an identity and a date; `per_client` = first/last seen and transactions per period;
+`classified` = one category per client via a `CASE`). Templates are built only from
+column names taken from the dataset metadata (quoted), `DATE` literals rendered from
+validated `date` objects, and fixed category names, then passed through `validate_sql`
+and the sandboxed executor like generated SQL. The executed SQL is returned in `sql` and
+shown in the UI ("How the numbers were computed").
+
+| Item | Definition as built |
+|---|---|
+| Identity (ID) | `CAST(id AS VARCHAR)` with leading/trailing whitespace removed (ASCII whitespace and Unicode separators such as the no-break space); empty → missing. **Case-sensitive**: `KL-001` and `kl-001` are different clients (reported by the identity check). Integer IDs are compared as text. |
+| Identity (name, no ID mapped) | lower-case, whitespace collapsed and trimmed; a `name_identity` warning is always shown. |
+| Date | `CAST(date AS DATE)`: a datetime of 23:59:59 on 31 Dec belongs to that day. Periods are half-open `[start, end)`. |
+| Transactions (previous/current) | rows of `valid` dated in the period (exact duplicates counted once by default). |
+| Repeat transactions | transactions − active clients; clients with repeat = clients with ≥ 2 transactions in the period. |
+| `excluded_missing_id_rows` | rows (before dedup) without identity whose date is in either period. |
+| `excluded_missing_date_rows` | rows with an identity but no valid date (invalid dates are stored as empty at import, with a column note). |
+| `duplicate_rows_excluded` | rows with identity in either period minus the deduplicated rows in those periods. |
+| `data_start` / `data_end` | first/last date of any row (with or without identity). |
+| Department breakdown | per department (trimmed text; missing → "(no department)"): clients active in it in each period, returning (in it in both periods), retention = returning ÷ previous active in it (N/A if 0), transactions. A client can appear in several departments, so rows are **not additive**; `clients_in_multiple_departments` and a note say so. |
+| Trend | per month/quarter/year: active clients (distinct), new clients (first seen in the dataset in that bucket), transactions. Buckets without data are **zero-filled** (in Python, generators are blocked by the validator); `partial_first`/`partial_last` flag buckets only partly covered by the data. |
+| Identity check | rows without identity; groups of IDs that differ only by case or whitespace; IDs with several (normalized) names; names with several IDs; up to 50 examples per issue (shown to the user, never sent to the LLM). |
+| Coverage | rows, unique clients, missing identity/date rows, date range, years — feeds the period picker. |
+
+Warnings (`code`, shown on the page and in AI answers): `history_completeness` (always),
+`history_starts_late` (data starts on/after the previous period start),
+`incomplete_current_period` (data ends before the current period's last day),
+`unequal_period_lengths` (lengths differ by > 1 day), `non_adjacent_periods` (gap →
+Between-period possible), `no_data` / `no_data_previous` / `no_data_current`,
+`missing_client_ids`, `missing_transaction_dates`, `duplicate_rows`, `name_identity`, and the
+identity column's own import warnings (e.g. IDs that could not be converted).
+
+**Business assumptions:** "client" = one identity value; activity = any row dated in the
+period (status values such as *cancelled* are not filtered — filter in the AI Analyst if
+needed); "new" means *new to this dataset*; "not returned" is an observation, not churn;
+calendar years unless the user chooses YTD or custom ranges.
+
+**Data limitations surfaced to the user:** history before the first date is unknown;
+an incomplete latest year makes year-vs-year growth misleading (the page therefore
+**defaults to year-to-date** when the data does not end on 31 December); clients with
+inconsistent IDs are counted separately; rows without identity or date are excluded.
+
+**Cost/performance:** no LLM call; each panel is one query in the sandboxed worker
+(≈ 0.3 s on the sample, mostly process start-up); only aggregates or one page (≤ 500
+clients) of rows leave DuckDB; `DatasetAnalytics` caches results per dataset, confirmed
+mapping (`confirmed_at`), and request (LRU, 128 entries, deep copies), resolving the dataset
+and mapping on every call so a deleted dataset or changed mapping is never served stale.
 
 Rules:
 
@@ -414,7 +542,7 @@ Rules:
   (The planned JSON-mode fallback for models without Structured Outputs was not built: such a
   model returns an error that is reported clearly.)
 - `LLMGateway` is the only way the app calls a model. Every request — success or failure — is
-  stored in `llm_requests`: id, timestamp, purpose (`sql_generation`, `sql_repair`, later
+  stored in `llm_requests`: id, timestamp, purpose (`sql_generation`, `sql_repair`,
   `insight`), dataset and analysis ids, model, status, attempts (retries = attempts − 1), input,
   output, and cached tokens, estimated cost, `cost_status`, latency, error code/message, and the
   prompt version. `GET /usage/requests` and `GET /usage/summary` expose them. Unexpected
@@ -452,6 +580,12 @@ Rules:
 | D9 | Python 3.13, dependencies pinned in `requirements.txt`. | Matches the dev environment and the Docker image. |
 | D10 | Code, docs, and UI copy in English; the app answers in the user's language (ID/EN). | Portfolio audience; the PRD requires bilingual Q&A. |
 | D11 | Excel read with the `calamine` engine. | Much faster than openpyxl for large sheets. |
+| D12 | Retention SQL templates go through the same validator and sandboxed worker as LLM SQL. | One execution path to secure and test; costs ≈ 0.3 s process start per query. |
+| D13 | Client IDs are case-sensitive; case/space variants are reported, not merged. | Merging could join different clients silently; the user decides. |
+| D14 | Insight text is verified (numbers, placeholders, causal words) and replaced by a template when it fails. | Trust over eloquence; the template is less fluent but always correct. |
+| D15 | Text values are pseudonymised before insight calls, except known category values. | Names/IDs never reach the provider; the model writes `[V1]`, restored locally. |
+| D16 | Conversations are bound to one dataset; follow-ups see questions + SQL + clarifications, never results. | Prevents cross-dataset context and reuse of stale numbers. |
+| D17 | UI numbers use the Indonesian format (1.234,5 · 63,2%); undefined rates render as N/A. | Audience is Indonesian; 0% would be a false statement. |
 
 ## 11. Risks
 
@@ -464,3 +598,5 @@ Rules:
 | Large Excel files (100k+ rows). | Slow upload, blocked UI. | Background ingestion, calamine engine, performance test in Phase 7. |
 | Prompt injection via cell values. | Model manipulation. | Data blocks, no samples for identity columns, validator + sandbox. |
 | Docker daemon not running in the dev container. | Compose cannot be verified here. | Try starting `dockerd` in Phase 8; otherwise report it as unverified. |
+| Insight grounding checks that numbers are derivable, not that they are attached to the right metric. | A fluent sentence could still mislabel a real number. | Facts are short and structured; the template is used on any doubt; KPIs, chart, and table are shown from the result itself; documented in §7.4. |
+| Pseudonymised insight input loses names of non-allowlisted categories. | Slightly less specific AI text. | Placeholders are restored locally; known category values are sent as-is. |
