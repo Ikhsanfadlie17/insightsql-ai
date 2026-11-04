@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     query_threads: int = Field(default=2, gt=0, le=16)
     query_memory_limit: str = "512MB"
     max_sql_repairs: int = Field(default=2, ge=0, le=2)
+    max_question_chars: int = Field(default=1000, gt=0, le=5000)
     send_sample_values: bool = True
     enable_llm_insights: bool = True
     pricing_file: Path = Path("config/pricing.json")

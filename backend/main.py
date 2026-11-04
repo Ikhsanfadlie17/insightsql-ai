@@ -18,7 +18,11 @@ from backend.services.dataset_service import DatasetService
 from backend.services.llm.cost import load_pricing
 from backend.services.llm.gateway import LLMGateway
 from backend.services.llm.openai_client import OpenAIClient
+from backend.services.llm.prompts import PROMPT_VERSION
 from backend.services.mapping_service import MappingService
+from backend.services.query_executor import QueryExecutor
+from backend.services.schema_context import SchemaContextBuilder
+from backend.services.sql_generator import TextToSQLService
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     mapping_service = MappingService(dataset_service, repo)
     usage_repo = UsageRepository(settings.metadata_db_path)
     llm_client = OpenAIClient(settings) if settings.llm_configured else None
-    llm_gateway = LLMGateway(llm_client, settings, usage_repo, load_pricing(settings.pricing_file))
+    llm_gateway = LLMGateway(
+        llm_client,
+        settings,
+        usage_repo,
+        load_pricing(settings.pricing_file),
+        prompt_version=PROMPT_VERSION,
+    )
+    # Used by the analysis endpoint in Phase 5 (Task 18); no HTTP route yet.
+    text_to_sql = TextToSQLService(
+        datasets=dataset_service,
+        contexts=SchemaContextBuilder(dataset_service, repo, settings),
+        gateway=llm_gateway,
+        executor=QueryExecutor(settings),
+        settings=settings,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -55,6 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.mapping_service = mapping_service
     app.state.usage_repo = usage_repo
     app.state.llm_gateway = llm_gateway
+    app.state.text_to_sql = text_to_sql
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(datasets.router)

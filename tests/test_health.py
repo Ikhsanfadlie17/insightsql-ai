@@ -79,3 +79,10 @@ def test_unexpected_error_is_generic(settings: Settings) -> None:
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "internal_error"
     assert "/secret/path" not in response.text
+
+
+def test_app_wires_the_text_to_sql_pipeline(client: TestClient) -> None:
+    from backend.services.sql_generator import TextToSQLService
+
+    assert isinstance(client.app.state.text_to_sql, TextToSQLService)
+    assert client.app.state.llm_gateway.configured is False  # no key in tests
