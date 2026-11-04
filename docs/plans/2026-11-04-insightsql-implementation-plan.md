@@ -310,6 +310,20 @@ Accepted / follow-up:
 
 **Phase 4 report** (includes a live OpenAI smoke test only if network + key are available; otherwise it is stated as not run).
 
+**Phase 4 as built — additions and deviations (with reasons):**
+- User requirements (2026-11-04) added: cached tokens, request status, retry count, and error
+  per LLM request; bounded retries for timeout/rate limit/5xx; resource rules in the validator
+  (recursive CTEs, cartesian joins, > 5 joins, unbounded generators); executor memory/thread
+  limits; error sanitization; privacy rules for the schema context.
+- `llm_usage` (Phase 1 design, never written) was replaced by `llm_requests`; an empty legacy
+  table is dropped by the migration. `CostTracker` became `LLMGateway` + `services/llm/cost.py`
+  so one place records success and failure.
+- The OpenAI JSON-mode fallback was not implemented (YAGNI until a configured model needs it).
+- `RetentionParams` dates are ISO strings validated by the service (strict-schema friendly).
+- `SQLGenerator` became `TextToSQLService.ask` (plan + run in one bounded loop). It is wired
+  into the app but has no HTTP route until Task 18 (Phase 5).
+- Real OpenAI API: **not tested** (network blocked, no key). See ARCHITECTURE §9.
+
 ---
 
 ## Phase 5 — Analytics

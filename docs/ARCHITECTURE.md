@@ -246,7 +246,8 @@ All responses are JSON unless noted. Errors use `{"error": {"code": str, "messag
 | `GET /conversations/{id}` | — | `Conversation` with analyses |
 | `DELETE /conversations/{id}` | — | `204` |
 | `GET /analyses/{id}/export` | `format=csv\|xlsx\|pdf\|sql` | file download |
-| `GET /usage/summary` | — | totals by model and purpose, estimated cost |
+| `GET /usage/summary` | — | totals overall, by model, by purpose; estimated cost and the number of requests without an estimate |
+| `GET /usage/requests` | `limit` ≤ 500 | latest `UsageRecord`s (no prompts, no answers) |
 | `GET /settings` | — | non-secret runtime settings |
 
 Key response models (Pydantic, in `backend/schemas/`):
@@ -260,37 +261,61 @@ Key response models (Pydantic, in `backend/schemas/`):
 
 ## 7. Security model
 
-### 7.1 SQL validation (`sql_validator`)
+### 7.1 SQL validation (`sql_validator`) — implemented in Phase 4
 
-Parse with SQLGlot (`dialect="duckdb"`). Reject unless **all** hold:
+The pipeline is **question → LLM plan → `validate_sql` → `QueryExecutor` → `QueryResult`**.
+The LLM never executes anything; the system prompt is one layer, not the security boundary.
 
-1. Exactly one statement; the root is `SELECT` or a set operation (`UNION`/`INTERSECT`/`EXCEPT`), optionally with `WITH` CTEs.
-2. No node of a write/DDL/session type anywhere in the tree (insert, update, delete, merge, create, drop, alter, copy, attach/detach, install/load, pragma, set/reset, use, transaction, export/import, call, generic commands).
-3. Every table reference is either the dataset table `dataset` or a CTE defined in the same query; no schema/catalog qualifiers; no string/file paths in `FROM`.
-4. No table functions or file/system functions (e.g. `read_csv*`, `read_parquet`, `read_json*`, `read_text`, `read_blob`, `glob`, `query`, `query_table`, `getenv`, `duckdb_*`, `pragma_*`).
-5. All column references resolve against the dataset schema (SQLGlot `qualify` with the schema).
+`validate_sql(sql, TableSchema)` parses with SQLGlot (`dialect="duckdb"`) and returns a
+`ValidatedSQL` only when all rules hold (each failure reason starts with its rule name):
 
-Only the validator can construct a `ValidatedSQL` object, and the executor accepts nothing else.
-Deterministic analytics SQL goes through the same validator.
+| Rule | Rejects |
+|---|---|
+| `empty`, `too_long` (> 20,000 chars), `parse_error` | malformed input |
+| `multiple_statements` | more than one statement (a comment-only trailing `;` is ignored) |
+| `not_select` | any root other than `SELECT` or a set operation — an **allowlist**, so every write, DDL, session, and utility statement is rejected, including ones SQLGlot only knows as generic commands (`LOAD`, `CALL`) |
+| `forbidden_table` | anything but the active dataset's table `dataset` and CTEs of the same query; schema/catalog-qualified names; file paths in `FROM` |
+| `forbidden_function` | file/network readers (`read_*`, `glob`, `parquet_*`, …), SQL-executing functions (`query`, `query_table`, `json_execute*`), environment/config/catalog functions (`getenv`, `current_setting`, `duckdb_*`, `pragma_*`), and unbounded generators (`range`, `generate_series`, `repeat`) — in any position, including table functions and CTEs |
+| `recursive_cte`, `cartesian_join` (CROSS, comma joins, `ON TRUE`), `too_many_joins` (> 5) | resource exhaustion |
+| `unknown_column` | columns that do not exist in the active dataset (SQLGlot `qualify` against the schema) |
+
+`ValidatedSQL` is immutable and can only be created by `validate_sql` (a private token);
+`QueryExecutor.execute` raises `TypeError` for anything else. The attack corpus
+(`tests/security/attack_corpus.yaml`, 61 cases incl. syntactically valid bypass attempts)
+and 20 accepted analytical queries are run on every test run.
 
 ### 7.2 Execution sandbox (`query_executor`) — defense in depth
 
-- Opens the dataset file with `read_only=True` and `enable_external_access=false`, extension
-  autoload/autoinstall disabled, then `lock_configuration=true`.
-- Limits `threads` and `memory_limit`.
+- Opens the dataset file with `read_only=True`, `enable_external_access=false`, extension
+  autoload/autoinstall and community extensions disabled, then `SET lock_configuration=true`.
+  Tests run dangerous SQL that **bypasses the validator** (file reads, `COPY`, `ATTACH`,
+  `INSTALL`, `CREATE`, `DELETE`, `SET`) and show the sandbox blocks each one.
+- `QUERY_THREADS` (default 2) and `QUERY_MEMORY_LIMIT` (default 512MB) per query.
 - Timeout: a watchdog calls `connection.interrupt()` after `QUERY_TIMEOUT_SECONDS`.
-- Row cap: wraps the query as `SELECT * FROM (<sql>) LIMIT <MAX_RESULT_ROWS + 1>` and sets `truncated`.
+- Row cap: `SELECT * FROM (<sql>) AS result_set LIMIT MAX_RESULT_ROWS + 1` sets `truncated`
+  (inner `ORDER BY` order is preserved; tested).
+- Errors are sanitized before they reach users, logs, or the LLM: quoted values, file paths,
+  long numbers, and the echoed query are removed (DuckDB errors otherwise quote cell values,
+  e.g. `Could not convert string 'KL-77'`).
 
-### 7.3 Prompt-injection and privacy
+### 7.3 Prompt-injection and privacy — implemented in Phase 4
 
-- Dataset content is untrusted data. Sample values are short, deduplicated, length-capped,
-  and passed inside a clearly delimited data block. The system prompt tells the model to
-  treat them as data.
-- **No sample values** are sent for columns mapped or detected as client ID, client name, or
-  identifier-like (email, phone). Only type and cardinality are sent. `SEND_SAMPLE_VALUES=false`
-  disables samples entirely.
-- Even if the model is manipulated, its output can only be a validated read-only query on
-  one dataset.
+- Sent to the LLM (`services/schema_context.py`): table name and row count; per column the SQL
+  name, original header, type, confirmed role, missing %, distinct count, and aggregates
+  (min/max/mean, date range); definitions derived from the confirmed mapping; up to five
+  example values **only** for low-cardinality (≤ 30), non-sensitive text categories.
+- Never sent: individual records or numbers; any value or statistic of identity columns
+  (confirmed client ID/name) or of columns whose header suggests personal data (NIK, NPWP,
+  KTP, phone, e-mail, address, name, birth date, account/rekening, salary, …) or whose values
+  look like e-mail addresses or phone/long numbers; values of identifier/code columns.
+  `SEND_SAMPLE_VALUES=false` withholds every example.
+- Headers and values come from the user's file: they appear only inside a JSON-encoded
+  `<data>` block that the prompt marks as untrusted; the question is wrapped in `<question>`.
+- Conversation history sent to the model contains earlier questions and SQL, never results.
+- Prompts, questions, and responses are never logged or stored in usage records; provider
+  error bodies (which can echo the prompt) are never put in messages or logs.
+- Even if the model is manipulated, its output can only be a validated, read-only query on
+  the active dataset, executed in the sandbox.
 
 ### 7.4 Grounded insights
 
@@ -351,21 +376,39 @@ Rules:
   - **Identity inconsistency:** IDs with several names, or names with several IDs.
 - YTD comparison: both periods are cut to the same month/day as `through` (Feb 29 is clamped to Feb 28 in non-leap years).
 
-## 9. LLM integration and cost
+## 9. LLM integration and cost — implemented in Phase 4
 
 - `OPENAI_API_KEY`, `OPENAI_MODEL` (required for AI features) and `OPENAI_INSIGHT_MODEL`
-  (optional, defaults to `OPENAI_MODEL`, allowing a cheaper model for summaries). No model ID
-  is hard-coded.
-- Structured Outputs via the OpenAI Python SDK with a Pydantic schema. If the configured
-  model does not support them, the client falls back to JSON mode + Pydantic validation.
-- Every call is logged in `llm_usage` with purpose (`sql_generation`, `sql_repair`, `insight`),
-  model, tokens, latency, and estimated cost. Prices come from `config/pricing.json`. An unknown
-  model gets `est_cost_usd = null`, never a guess.
+  (optional). No model ID is hard-coded; the key exists only in the backend environment
+  (`SecretStr`, never logged or returned by the API).
+- `OpenAIClient` uses the Responses API with **strict Structured Outputs** (`responses.parse`
+  with a Pydantic schema) and `store=False`. The SDK's own retries are disabled; the client
+  retries timeouts, connection errors, HTTP 429, and 5xx at most `LLM_MAX_RETRIES` times
+  (default 2) with exponential backoff, honouring `Retry-After` up to 20 s. Other errors are not
+  retried. Timeouts: `LLM_TIMEOUT_SECONDS` per request. Output cap: `LLM_MAX_OUTPUT_TOKENS`.
+  (The planned JSON-mode fallback for models without Structured Outputs was not built: such a
+  model returns an error that is reported clearly.)
+- `LLMGateway` is the only way the app calls a model. Every request — success or failure — is
+  stored in `llm_requests`: id, timestamp, purpose (`sql_generation`, `sql_repair`, later
+  `insight`), dataset and analysis ids, model, status, attempts (retries = attempts − 1), input,
+  output, and cached tokens, estimated cost, `cost_status`, latency, error code/message, and the
+  prompt version. `GET /usage/requests` and `GET /usage/summary` expose them.
+- Prices live only in `config/pricing.json` (USD per 1M input, cached-input, and output
+  tokens). Cost = (input − cached) × input price + cached × cached price (input price if no
+  cached price) + output × output price. Without usage or price the cost is `null` with
+  `cost_status` `unavailable_no_usage` / `unavailable_no_price`; summaries report how many
+  requests have no estimate instead of treating them as zero cost.
+- SQL generation: up to `MAX_SQL_REPAIRS` (default 2, maximum 2) repair calls, each given
+  the sanitized error. Clarification, unsupported, and retention intents are returned without
+  executing anything. After the limit the user gets a clear explanation (`sql_generation_failed`).
 - Calls avoided: profiling, role suggestion, chart choice, and retention math are pure
-  Python/SQL. Schema context is cached per dataset version. Insight generation can be turned
-  off (`ENABLE_LLM_INSIGHTS=false`) to fall back to deterministic summaries.
+  Python/SQL. Schema context is cached per dataset/profile/confirmed-mapping state.
 - Without an API key the app still works for upload, profiling, column mapping, client
-  analytics, history, and export. The AI Analyst explains how to configure the key.
+  analytics, history, and export; AI calls raise `llm_not_configured` without contacting anyone.
+- **Status of the real API:** in the development environment `api.openai.com` is blocked and no
+  key is configured. All LLM tests use a fake client or a fake HTTP transport; they verify our
+  code, not the provider or model quality. The real integration and the evaluation benchmark
+  have **not** been run yet.
 
 ## 10. Key decisions and assumptions
 
