@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Data & runtime artifacts
+data/uploads/
+*.duckdb
+*.duckdb.wal
+
+# AI tooling dipakai saat development saja, tidak masuk repo
+.claude/skills/
+.claude/commands/
+.claude/agents/
+.claude/references/
+.claude/settings.local.json
+graphify-out/
