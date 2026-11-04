@@ -57,6 +57,12 @@ Follow-up yang sudah tercatat dan cocok dikerjakan di Phase 6:
 - Error validasi FastAPI dan route tidak dikenal masih `{"detail": ...}` (Phase 2 L5).
 - Pembersihan upload kedaluwarsa hanya saat startup (Phase 2 M4).
 - Batas ukuran upload ditegakkan setelah body di-spool (Phase 2 M1 → Phase 8).
+- **Temuan uji lokal user (2026-11-04, Windows):** user memilih semua kolom di "Keep as text";
+  akibatnya tanggal & pendapatan jadi teks dan analisis periode tidak tersedia. Perilaku benar
+  sesuai pilihan, tetapi UI kurang tegas. Usulan Task 21: (a) di form import, peringatkan bila
+  kolom yang terdeteksi tanggal/angka dipilih sebagai teks; (b) catatan profil sebutkan
+  penyebabnya ("Tanggal Layanan berisi tanggal tetapi disimpan sebagai teks — import ulang
+  tanpa memilihnya"), bukan hanya "No date column was detected".
 
 Catatan path: plan masih menyebut `frontend/pages/...`; folder yang benar adalah
 `frontend/views/` (folder `pages/` merusak navigasi Streamlit — ada regression test).
