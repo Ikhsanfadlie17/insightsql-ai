@@ -327,3 +327,79 @@ class AnalyticsFakeApi(FakeApi):
     def analytics_identity(self, dataset_id: str) -> dict[str, Any]:
         self._check("analytics_identity")
         return copy.deepcopy(IDENTITY)
+
+
+# ------------------------------------------------------------------- AI analyst
+def analysis(question: str = "Klien per departemen?", **overrides: Any) -> dict[str, Any]:
+    """An answered AnalysisResponse payload."""
+    data = {
+        "analysis_id": "a1", "conversation_id": "c1", "dataset_id": "d1",
+        "question": question, "status": "answered", "language": "id",
+        "answer": "Audit memiliki klien aktif terbanyak (34).",
+        "kpis": [], "chart": {"type": "bar", "x": "departemen", "y": ["klien"], "color": None,
+                              "title": "", "top_n": None},
+        "table": {"columns": ["departemen", "klien"], "rows": [["Audit", 34], ["Pajak", 29]],
+                  "row_count": 2, "truncated": False, "elapsed_ms": 3.0},
+        "sql": "SELECT departemen, COUNT(DISTINCT id_klien) AS klien FROM dataset GROUP BY 1",
+        "explanation": "Menghitung klien unik per departemen.",
+        "assumptions": ["Semua tahun."],
+        "insight": {"source": "llm", "language": "id", "summary": "Audit tertinggi (34).",
+                    "facts": ["Audit: 34 klien."], "interpretations": [],
+                    "recommendations": ["Bandingkan per tahun."], "limitations": [],
+                    "ungrounded_numbers": [], "fallback_reason": None, "llm_request_id": "r1"},
+        "retention": None, "warnings": [], "error_code": None, "repairs": 0,
+        "usage": {"requests": 2, "input_tokens": 1200, "output_tokens": 150,
+                  "est_cost_usd": None, "cost_complete": False, "request_ids": ["r0", "r1"]},
+        "created_at": "2026-11-04T03:00:00+00:00",
+    }  # fmt: skip
+    data.update(overrides)
+    return data
+
+
+class AnalystFakeApi(AnalyticsFakeApi):
+    """AnalyticsFakeApi plus the AI Analyst endpoints."""
+
+    def __init__(self, llm: bool = True, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.llm = llm
+        self.ask_calls: list[tuple[str, str, str | None]] = []
+        self.conversations: dict[str, dict[str, Any]] = {}
+        self.next_answer: dict[str, Any] | None = None
+
+    def health(self) -> dict[str, Any]:
+        self._check("health")
+        return {"status": "ok", "llm_configured": self.llm, "model": "m" if self.llm else None}
+
+    def ask(self, dataset_id: str, question: str, conversation_id: str | None) -> dict[str, Any]:
+        self._check("ask")
+        self.ask_calls.append((dataset_id, question, conversation_id))
+        conversation_id = conversation_id or f"c{len(self.conversations) + 1}"
+        answer = analysis(question, conversation_id=conversation_id, dataset_id=dataset_id,
+                          analysis_id=f"a{len(self.ask_calls)}")  # fmt: skip
+        if self.next_answer:
+            answer.update(self.next_answer)
+        conversation = self.conversations.setdefault(
+            conversation_id,
+            {"id": conversation_id, "dataset_id": dataset_id, "title": question,
+             "created_at": "2026-11-04T03:00:00+00:00", "analysis_count": 0, "analyses": []},
+        )  # fmt: skip
+        conversation["analyses"].append(answer)
+        conversation["analysis_count"] += 1
+        return answer
+
+    def list_conversations(self, dataset_id: str) -> list[dict[str, Any]]:
+        self._check("list_conversations")
+        return [
+            {k: v for k, v in c.items() if k != "analyses"}
+            for c in self.conversations.values()
+            if c["dataset_id"] == dataset_id
+        ]
+
+    def get_conversation(self, conversation_id: str) -> dict[str, Any]:
+        self._check("get_conversation")
+        if conversation_id not in self.conversations:
+            raise ApiError("not_found", "This conversation was not found.", 404)
+        return copy.deepcopy(self.conversations[conversation_id])
+
+    def delete_conversation(self, conversation_id: str) -> None:
+        self.conversations.pop(conversation_id, None)

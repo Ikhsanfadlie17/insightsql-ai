@@ -181,3 +181,22 @@ class ApiClient:
     def analytics_identity(self, dataset_id: str) -> dict[str, Any]:
         """``GET /datasets/{id}/client-analytics/identity-issues``."""
         return self._request("GET", f"/datasets/{dataset_id}/client-analytics/identity-issues")
+
+    # ------------------------------------------------------------- AI analyst
+    def ask(self, dataset_id: str, question: str, conversation_id: str | None) -> dict[str, Any]:
+        """``POST /analyses/ask``."""
+        body = {"dataset_id": dataset_id, "conversation_id": conversation_id, "question": question}
+        # A question can take several LLM calls plus query execution.
+        return self._request("POST", "/analyses/ask", json=body, timeout=180.0)
+
+    def list_conversations(self, dataset_id: str) -> list[dict[str, Any]]:
+        """``GET /conversations?dataset_id=``."""
+        return self._request("GET", "/conversations", params={"dataset_id": dataset_id})
+
+    def get_conversation(self, conversation_id: str) -> dict[str, Any]:
+        """``GET /conversations/{id}``."""
+        return self._request("GET", f"/conversations/{conversation_id}")
+
+    def delete_conversation(self, conversation_id: str) -> None:
+        """``DELETE /conversations/{id}``."""
+        return self._request("DELETE", f"/conversations/{conversation_id}")

@@ -8,7 +8,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from tests.frontend.fakes import FAILED
-from tests.frontend.fakes import AnalyticsFakeApi as FakeApi
+from tests.frontend.fakes import AnalystFakeApi as FakeApi
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 PAGES = ["overview", "data_sources", "ai_analyst", "client_analytics", "query_history", "settings"]
