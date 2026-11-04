@@ -171,3 +171,27 @@ def test_compatible_columns_per_role(client: TestClient) -> None:
     assert compatible["revenue"] == ["pendapatan_rp"]
     assert "tanggal_layanan" not in compatible["client_id"]
     assert set(compatible) == set(FULL)
+
+
+def test_all_empty_column_cannot_be_confirmed(client: TestClient) -> None:
+    """Review L4: server validation must match the compatible-column list."""
+    dataset_id = _dataset(client, b"Kode Klien,Kosong,Tanggal\nK1,,2026-01-01\nK2,,2026-02-01\n")
+
+    response = client.put(f"/datasets/{dataset_id}/column-mapping", json={"client_id": "kosong"})
+
+    assert response.status_code == 422
+    assert "no values" in response.json()["error"]["message"]
+
+
+def test_client_id_with_unconverted_values_warns(client: TestClient) -> None:
+    """Review H2: IDs lost during number conversion must be called out at confirmation."""
+    rows = "\n".join(f"{1000 + i},2026-01-0{1 + i % 9}" for i in range(60))
+    content = f"Pelanggan,Tanggal\n{rows}\nKL-77,2026-03-01\n".encode()
+    dataset_id = _dataset(client, content)
+
+    state = client.put(
+        f"/datasets/{dataset_id}/column-mapping", json={"client_id": "pelanggan"}
+    ).json()
+
+    warning = next(w for w in state["warnings"] if w["code"] == "client_id_unconverted")
+    assert "Keep as text" in warning["message"]

@@ -47,13 +47,38 @@ def list_sheets(path: Path) -> list[SheetInfo]:
     """List worksheets of an Excel file with their data-row counts (header excluded)."""
     try:
         workbook = python_calamine.CalamineWorkbook.from_path(str(path))
-        return [
-            SheetInfo(name=name, row_count=max(workbook.get_sheet_by_name(name).height - 1, 0))
-            for name in workbook.sheet_names
-        ]
+        sheets = []
+        for name in workbook.sheet_names:
+            sheet = workbook.get_sheet_by_name(name)
+            first = sheet.to_python(nrows=1)
+            headers = [_header_text(v) for v in first[0]] if first else []
+            sheets.append(SheetInfo(name=name, row_count=max(sheet.height - 1, 0), columns=headers))
+        return sheets
     except Exception as exc:  # calamine raises several error types for corrupt files
         logger.warning("Could not read workbook: %s", type(exc).__name__)
         raise UploadError("The Excel file could not be read. It may be corrupt.") from exc
+
+
+def _header_text(value: object) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def read_headers(path: Path, file_type: FileType, sheet: str | None) -> list[str]:
+    """Return the header row as written (before any normalization)."""
+    if file_type == "xlsx":
+        sheets = {s.name: s for s in list_sheets(path)}
+        target = sheet or next(iter(sheets), None)
+        if target not in sheets:
+            raise UploadError(f"Sheet '{target}' was not found in the workbook.")
+        return sheets[target].columns
+    sample, _ = _read_text(path)
+    first_line = sample.splitlines()[0] if sample.strip() else ""
+    row = next(csv.reader([first_line], delimiter=_sniff_delimiter(sample)), [])
+    return [cell.strip() for cell in row]
 
 
 def _read_text(path: Path) -> tuple[str, str]:
@@ -154,7 +179,12 @@ def load_dataframe(path: Path, file_type: FileType, sheet: str | None) -> pd.Dat
         df = _load_csv(path) if file_type == "csv" else _load_xlsx(path, sheet)
     except UploadError:
         raise
-    except (pd.errors.ParserError, pd.errors.EmptyDataError, ValueError) as exc:
+    except pd.errors.ParserError as exc:
+        raise UploadError(
+            "Some rows have more values than the header row (for example an extra "
+            "delimiter at the end of a line). Fix those rows and upload again."
+        ) from exc
+    except (pd.errors.EmptyDataError, ValueError) as exc:
         raise UploadError("The file could not be parsed as a table.") from exc
     df = _tidy(df)
     if df.empty or len(df.columns) == 0:

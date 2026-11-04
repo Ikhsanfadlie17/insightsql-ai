@@ -28,6 +28,7 @@ class SheetInfo(BaseModel):
 
     name: str
     row_count: int
+    columns: list[str] = Field(default_factory=list)  # header row as written
 
 
 class UploadInspection(BaseModel):
@@ -53,6 +54,7 @@ class DatasetRecord(BaseModel):
     created_at: datetime
     number_format: NumberFormat = "auto"
     date_order: DateOrder = "auto"
+    text_columns: list[str] = Field(default_factory=list)  # original headers kept as text
 
 
 class DatasetColumn(BaseModel):

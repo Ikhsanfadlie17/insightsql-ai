@@ -71,6 +71,7 @@ class ApiClient:
         name: str | None = None,
         number_format: str = "auto",
         date_order: str = "auto",
+        text_columns: list[str] | None = None,
     ) -> dict[str, Any]:
         """``POST /datasets``; ingestion continues in the background."""
         payload = {
@@ -79,6 +80,7 @@ class ApiClient:
             "name": name,
             "number_format": number_format,
             "date_order": date_order,
+            "text_columns": text_columns or [],
         }
         return self._request("POST", "/datasets", json=payload)
 

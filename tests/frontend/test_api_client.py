@@ -78,6 +78,7 @@ def test_create_dataset_payload() -> None:
             "name": None,
             "number_format": "auto",
             "date_order": "auto",
+            "text_columns": [],
         }
         return httpx.Response(201, json={"id": "d1", "status": "processing"})
 
@@ -90,3 +91,11 @@ def test_delete_returns_none_on_204() -> None:
         return httpx.Response(204)
 
     assert _client(handler).delete_dataset("d1") is None
+
+
+def test_create_dataset_sends_text_columns() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["text_columns"] == ["Kode"]
+        return httpx.Response(201, json={"id": "d1"})
+
+    _client(handler).create_dataset("u1", text_columns=["Kode"])

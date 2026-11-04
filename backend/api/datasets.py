@@ -38,6 +38,7 @@ class CreateDatasetRequest(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     number_format: Literal["auto", "id", "en"] = "auto"
     date_order: DateOrder = "auto"
+    text_columns: list[str] = Field(default_factory=list, max_length=1000)
 
 
 class RenameDatasetRequest(BaseModel):
@@ -69,7 +70,12 @@ def create_dataset(
 ) -> DatasetRecord:
     """Register a dataset and ingest it in the background (poll ``GET /datasets/{id}``)."""
     record = service.create_dataset(
-        body.upload_id, body.sheet, body.name, body.number_format, body.date_order
+        body.upload_id,
+        body.sheet,
+        body.name,
+        body.number_format,
+        body.date_order,
+        body.text_columns,
     )
     background.add_task(service.ingest, record.id, body.upload_id, record.sheet_name)
     return record

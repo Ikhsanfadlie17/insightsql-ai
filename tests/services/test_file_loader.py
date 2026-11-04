@@ -198,3 +198,47 @@ def test_single_column_file(tmp_path: Path) -> None:
     df = load_dataframe(path, "csv", None)
 
     assert list(df.columns) == ["Kode"] and len(df) == 2
+
+
+def test_ragged_rows_error_is_actionable(tmp_path: Path) -> None:
+    """Review L2: say what is wrong instead of a generic parse error."""
+    path = tmp_path / "x.csv"
+    path.write_text("a,b\n1,2,\n")
+
+    with pytest.raises(UploadError, match="more values than the header"):
+        load_dataframe(path, "csv", None)
+
+
+def test_read_headers(tmp_path: Path) -> None:
+    from backend.services.file_loader import read_headers
+
+    csv_path = tmp_path / "x.csv"
+    csv_path.write_text("ID;Nama;Nilai\n1;A;2\n")
+
+    assert read_headers(csv_path, "csv", None) == ["ID", "Nama", "Nilai"]
+    assert read_headers(SAMPLE_DATA_DIR / "client_services.xlsx", "xlsx", "Departments") == [
+        "Departemen",
+        "Kepala Departemen",
+        "Lokasi",
+    ]
+
+
+def test_excel_numeric_16_digit_cells_keep_text_with_warning(tmp_path: Path) -> None:
+    """Review L10: a real .xlsx numeric cell with 16 digits."""
+    from openpyxl import Workbook
+
+    from backend.services.type_inference import infer_types
+
+    path = tmp_path / "nik.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Penduduk"])
+    ws.append([9171234567890123])
+    ws.append([3201234567890127])
+    wb.save(path)
+
+    result = infer_types(load_dataframe(path, "xlsx", ws.title), number_format="plain")
+
+    assert result.types["Penduduk"] == "text"
+    note = next(n for n in result.notes["Penduduk"] if n.code == "long_identifier")
+    assert note.level == "warning" and "15" in note.message

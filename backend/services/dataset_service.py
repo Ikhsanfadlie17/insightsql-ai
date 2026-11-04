@@ -36,7 +36,12 @@ from backend.schemas.profile import DatasetProfile
 from backend.schemas.query import QueryResult
 from backend.services.column_normalizer import normalize_columns
 from backend.services.data_profiler import profile_dataset
-from backend.services.file_loader import detect_file_type, list_sheets, load_dataframe
+from backend.services.file_loader import (
+    detect_file_type,
+    list_sheets,
+    load_dataframe,
+    read_headers,
+)
 from backend.services.query_results import rows_to_jsonable
 from backend.services.sql_utils import quote_identifier
 from backend.services.type_inference import infer_types
@@ -105,7 +110,13 @@ class DatasetService:
                 raise UploadError("The workbook has no sheets.")
             return sheets
         lines = [line for line in content.splitlines() if line.strip()]
-        return [SheetInfo(name=path.stem, row_count=max(len(lines) - 1, 0))]
+        return [
+            SheetInfo(
+                name=path.stem,
+                row_count=max(len(lines) - 1, 0),
+                columns=read_headers(path, file_type, None),
+            )
+        ]
 
     def _upload(self, upload_id: str) -> tuple[Path, FileType]:
         if not _UPLOAD_ID.match(upload_id):
@@ -137,11 +148,16 @@ class DatasetService:
         name: str | None,
         number_format: NumberFormat = "auto",
         date_order: DateOrder = "auto",
+        text_columns: list[str] | None = None,
     ) -> DatasetRecord:
         """Register a dataset in ``processing`` state; call :meth:`ingest` afterwards.
 
         ``number_format`` applies to CSV files only: Excel numeric cells are already
-        canonical, so Excel imports always use ``plain``.
+        canonical, so Excel imports always use ``plain``. ``text_columns`` lists original
+        headers the user wants kept as text (IDs, codes, phone numbers).
+
+        Raises:
+            ValidationError: Also when ``text_columns`` names a header that does not exist.
 
         Raises:
             NotFoundError: Unknown or expired upload.
@@ -157,6 +173,15 @@ class DatasetService:
         else:
             sheet = None
 
+        requested = list(dict.fromkeys(text_columns or []))
+        if requested:
+            headers = set(read_headers(path, file_type, sheet))
+            unknown = [h for h in requested if h not in headers]
+            if unknown:
+                raise ValidationError(
+                    "Columns to keep as text were not found: " + ", ".join(unknown) + "."
+                )
+
         stem = Path(path.name).stem
         default_name = f"{stem} — {sheet}" if sheet else stem
         record = DatasetRecord(
@@ -168,6 +193,7 @@ class DatasetService:
             created_at=datetime.now(UTC),
             number_format=number_format,
             date_order=date_order,
+            text_columns=requested,
         )
         return self._repo.create(record)
 
@@ -187,6 +213,7 @@ class DatasetService:
                 frame,
                 number_format="plain" if file_type == "xlsx" else record.number_format,
                 date_order=record.date_order,
+                text_columns={n.name for n in names if n.original in record.text_columns},
             )
             self._write_duckdb(target, inference.dataframe, inference.types)
             columns = [

@@ -360,3 +360,164 @@ def test_clean_columns_have_no_notes() -> None:
     _, _, notes = _infer_full(["10", "20", "30"])
 
     assert notes == []
+
+
+# --- Phase 3 review regressions -------------------------------------------------
+
+
+def _infer_named(name: str, values: list[str | None], **kwargs):
+    frame = pd.DataFrame({name: pd.Series(values, dtype="string")})
+    result = infer_types(frame, **kwargs)
+    return result.dataframe[name], result.types[name], result.notes.get(name, [])
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        ["0012 345", "0013 456"],  # leading zero hidden behind a space
+        ["0812 3456 7890", "0813 1111 2222"],  # phone numbers
+        ["3201 2345 6789 0123", "3201 2345 6789 0124"],  # spaced NIK
+        ["1 2", "3 4"],  # spaces that are not thousands groups
+    ],
+)
+def test_spaced_identifiers_are_never_converted(values) -> None:
+    """Review H1: spaces were removed before the identifier checks."""
+    series, logical, _ = _infer_full(values)
+
+    assert logical == "text"
+    assert list(series) == values
+
+
+def test_space_thousands_separators_still_work() -> None:
+    series, logical, _ = _infer_full(["1 000 000", "250 000"])
+
+    assert logical == "integer"
+    assert list(series) == [1_000_000, 250_000]
+
+
+def test_spaced_nik_gets_long_identifier_warning() -> None:
+    _, _, notes = _infer_full(["3201 2345 6789 0123", "3201 2345 6789 0124"])
+
+    assert "long_identifier" in _codes(notes)
+
+
+@pytest.mark.parametrize("header", ["id_klien", "kode_pelanggan", "no_telepon", "nik", "npwp"])
+def test_identifier_headers_stay_text(header: str) -> None:
+    """Review H2: numeric-looking IDs must not become integers (minority IDs would be lost)."""
+    values = [str(1000 + i) for i in range(60)] + ["KL-77"]
+    series, logical, notes = _infer_named(header, values)
+
+    assert logical == "text"
+    assert list(series) == values
+    note = next(n for n in notes if n.code == "identifier_kept_as_text")
+    assert note.level == "info"
+
+
+def test_count_like_headers_are_still_numbers() -> None:
+    _, logical, _ = _infer_named("jumlah_transaksi", ["1", "2", "3"])
+
+    assert logical == "integer"
+
+
+def test_user_can_force_columns_to_text() -> None:
+    frame = pd.DataFrame({"kolom_a": pd.Series(["1", "2"], dtype="string")})
+
+    result = infer_types(frame, text_columns={"kolom_a"})
+
+    assert result.types["kolom_a"] == "text"
+    assert result.notes["kolom_a"][0].code == "kept_as_text_by_user"
+
+
+def test_mixed_thousand_separators_are_not_converted_in_auto_mode() -> None:
+    """Review M1: "1.500" was read as 1.5 next to "1,500" read as 1500."""
+    values = ["1,500", "1.500", "2,000", "750"]
+    series, logical, notes = _infer_full(values)
+
+    assert logical == "text"
+    assert list(series) == values
+    note = next(n for n in notes if n.code == "mixed_number_format")
+    assert note.level == "warning"
+
+
+def test_mixed_separators_follow_an_explicit_format() -> None:
+    values = ["1,500", "1.500", "2,000", "750"]
+    series, _, notes = _infer_full(values, number_format="id")
+
+    # Indonesian: "1.500" = 1500, "750" = 750; "1,500"/"2,000" are decimals 1.5 / 2.0.
+    assert list(series) == [1.5, 1500.0, 2.0, 750.0]
+    assert "mixed_number_format" not in _codes(notes)
+
+
+def test_mixed_currencies_are_not_summed() -> None:
+    """Review M2: Rp and USD values must not end up in one numeric column."""
+    values = ["Rp 1.000.000", "$ 100", "USD 50"]
+    series, logical, notes = _infer_full(values)
+
+    assert logical == "text"
+    assert list(series) == values
+    assert "mixed_currency" in _codes(notes)
+
+
+def test_single_currency_prefix_is_reported() -> None:
+    series, logical, notes = _infer_full(["Rp 1.500.000", "Rp 250.000"])
+
+    assert logical == "integer"
+    assert list(series) == [1_500_000, 250_000]
+    note = next(n for n in notes if n.code == "currency_removed")
+    assert "IDR" in note.message
+
+
+def test_rupiah_dash_suffix_is_supported() -> None:
+    """Review M3: "Rp 1.500.000,-" is a common Indonesian notation."""
+    series, logical, _ = _infer_full(["Rp 1.500.000,-", "Rp 250.000,--", "Rp 75.000,-"])
+
+    assert logical == "integer"
+    assert list(series) == [1_500_000, 250_000, 75_000]
+
+
+def test_mixed_date_order_is_flagged() -> None:
+    """Review L3: a column proven to contain both orders must not read 03/04 silently."""
+    values = ["13/04/2026"] * 40 + ["04/13/2026", "03/04/2026"]
+    _, logical, notes = _infer_full(values)
+
+    assert logical == "date"
+    assert "mixed_date_order" in _codes(notes)
+
+
+def test_excel_scientific_text_cells_are_identifiers() -> None:
+    """Review L5: positive exponents in Excel strings are text cells (e.g. codes), not numbers."""
+    series, logical, notes = _infer_full(["9.17E+15", "1E5"], number_format="plain")
+
+    assert logical == "text"
+    assert list(series) == ["9.17E+15", "1E5"]
+
+
+def test_excel_small_floats_with_negative_exponent_are_numbers() -> None:
+    series, logical, _ = _infer_full(["1e-05", "0.5"], number_format="plain")
+
+    assert logical == "numeric"
+    assert list(series) == [0.00001, 0.5]
+
+
+def test_mixed_types_wording_does_not_tell_users_to_break_ids() -> None:
+    """Review L9: for an identifier, keeping text is correct."""
+    values = [str(i) for i in range(1, 9)] + ["n/a?", "unknown"]
+    _, _, notes = _infer_full(values)
+
+    message = next(n for n in notes if n.code == "mixed_types").message
+    assert "identifier" in message
+
+
+def test_mixed_format_message_shows_both_readings() -> None:
+    _, _, notes = _infer_full(["1,500", "1.500", "2,000", "750"])
+
+    message = next(n for n in notes if n.code == "mixed_number_format").message
+    assert "could mean 1.5 or 1500" in message
+
+
+def test_identifier_header_detection_accepts_raw_headers() -> None:
+    values = [str(1000 + i) for i in range(30)]
+
+    _, logical, _ = _infer_named("Client ID", values)
+
+    assert logical == "text"

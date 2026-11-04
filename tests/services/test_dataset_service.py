@@ -304,3 +304,30 @@ def test_unusual_dataset_ingests_with_notes(service: DatasetService) -> None:
     assert columns["NIK0"].logical_type == "text"
     assert [n.code for n in columns["NIK0"].notes] == ["long_identifier"]
     assert columns["Catatan5"].logical_type == "text"  # all values missing
+
+
+def test_inspection_lists_headers(service: DatasetService) -> None:
+    csv = service.inspect_upload("a.csv", b"Kode,Nilai\n1,2\n")
+    xlsx = service.inspect_upload(SAMPLE_XLSX.name, SAMPLE_XLSX.read_bytes())
+
+    assert csv.sheets[0].columns == ["Kode", "Nilai"]
+    assert xlsx.sheets[1].columns == ["Departemen", "Kepala Departemen", "Lokasi"]
+
+
+def test_user_chosen_text_columns(service: DatasetService) -> None:
+    dataset_id = _ingest_bytes(
+        service, "t.csv", b"Pelanggan,Nilai\n1001,5\n1002,6\n", text_columns=["Pelanggan"]
+    )
+
+    columns = {c.name: c for c in service.columns(dataset_id)}
+    assert columns["pelanggan"].logical_type == "text"
+    assert [n.code for n in columns["pelanggan"].notes] == ["kept_as_text_by_user"]
+    assert columns["nilai"].logical_type == "integer"
+    assert service.get(dataset_id).text_columns == ["Pelanggan"]
+
+
+def test_unknown_text_column_is_rejected(service: DatasetService) -> None:
+    inspection = service.inspect_upload("t.csv", b"A,B\n1,2\n")
+
+    with pytest.raises(ValidationError, match="Nope"):
+        service.create_dataset(inspection.upload_id, None, None, text_columns=["Nope"])

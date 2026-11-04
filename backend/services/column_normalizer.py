@@ -30,7 +30,12 @@ class ColumnName:
     name: str
 
 
+_CAMEL_LOWER_UPPER = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")  # clientId -> client Id
+_CAMEL_ACRONYM = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")  # IDPelanggan -> ID Pelanggan
+
+
 def _slug(header: str) -> str:
+    header = _CAMEL_ACRONYM.sub(" ", _CAMEL_LOWER_UPPER.sub(" ", header))
     ascii_text = unicodedata.normalize("NFKD", header).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "_", ascii_text.lower()).strip("_")
 

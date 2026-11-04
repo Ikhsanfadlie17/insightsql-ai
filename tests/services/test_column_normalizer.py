@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 from backend.services.column_normalizer import normalize_columns
 
 
@@ -44,3 +46,20 @@ def test_names_are_valid_identifiers_and_bounded() -> None:
     for column in result:
         assert re.fullmatch(r"[a-z_][a-z0-9_]*", column.name)
         assert len(column.name) <= 63
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        ("ClientID", "client_id"),
+        ("CustomerID", "customer_id"),
+        ("IDPelanggan", "id_pelanggan"),
+        ("TanggalLayanan", "tanggal_layanan"),
+        ("ID Klien", "id_klien"),
+        ("NIK", "nik"),
+        ("customerName", "customer_name"),
+    ],
+)
+def test_camel_case_headers_are_split(header: str, expected: str) -> None:
+    """Review L6: CamelCase headers produced tokens such as "clientid" that matched nothing."""
+    assert normalize_columns([header])[0].name == expected

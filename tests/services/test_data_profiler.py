@@ -174,3 +174,10 @@ def test_profile_requires_ready_dataset(service: DatasetService) -> None:
 
     with pytest.raises(ValidationError):
         service.profile(record.id)
+
+
+def test_duplicate_note_makes_no_promise_about_later_analytics(profile: DatasetProfile) -> None:
+    """Review L1: the note must not claim behaviour of analytics that do not exist yet."""
+    note = next(n for n in profile.notes if n.code == "duplicate_rows")
+
+    assert "only affect" not in note.message

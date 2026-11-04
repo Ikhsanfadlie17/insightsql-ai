@@ -27,7 +27,9 @@ def _now() -> str:
 
 
 def _to_record(row: sqlite3.Row) -> DatasetRecord:
-    return DatasetRecord.model_validate(dict(row))
+    data = dict(row)
+    data["text_columns"] = json.loads(data.pop("text_columns_json", None) or "[]")
+    return DatasetRecord.model_validate(data)
 
 
 def _to_column(row: sqlite3.Row) -> DatasetColumn:
@@ -48,8 +50,8 @@ class DatasetRepository:
         with connect(self._db_path) as conn:
             conn.execute(
                 """INSERT INTO datasets (id, name, source_filename, sheet_name, status, error,
-                   row_count, column_count, created_at, number_format, date_order)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   row_count, column_count, created_at, number_format, date_order,
+                   text_columns_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     record.id,
                     record.name,
@@ -62,6 +64,7 @@ class DatasetRepository:
                     record.created_at.isoformat(),
                     record.number_format,
                     record.date_order,
+                    json.dumps(record.text_columns),
                 ),
             )
         return record

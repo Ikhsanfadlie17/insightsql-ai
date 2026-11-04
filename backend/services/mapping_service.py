@@ -71,7 +71,9 @@ class MappingService:
         """Validate the user's choice and store it as the confirmed mapping."""
         self._datasets.require_ready(dataset_id)
         columns = {c.name: c for c in self._repo.get_columns(dataset_id)}
-        self._validate(update, columns)
+        profile = self._datasets.profile(dataset_id)
+        empty = {c.name for c in profile.columns if c.null_count >= profile.row_count}
+        self._validate(update, columns, empty)
         mapping = ColumnMapping(
             **update.model_dump(), confirmed=True, confirmed_at=datetime.now(UTC)
         )
@@ -79,7 +81,9 @@ class MappingService:
         return self.state(dataset_id)
 
     @staticmethod
-    def _validate(update: MappingUpdate, columns: dict[str, DatasetColumn]) -> None:
+    def _validate(
+        update: MappingUpdate, columns: dict[str, DatasetColumn], empty: set[str]
+    ) -> None:
         seen: dict[str, str] = {}
         for role in ROLES:
             name = getattr(update, role)
@@ -94,6 +98,10 @@ class MappingService:
                 raise ValidationError(
                     f"Column '{column.original_name}' ({column.logical_type}) cannot be used "
                     f"as {label}: it must be {hint}."
+                )
+            if name in empty:
+                raise ValidationError(
+                    f"Column '{column.original_name}' has no values and cannot be used as {label}."
                 )
             if name in seen:
                 raise ValidationError(
@@ -139,8 +147,19 @@ class MappingService:
                     f"{id_profile.null_count:,} row(s) have no client ID. They are excluded "
                     "from client counts and client analytics.",
                 )
+            unconverted = next(
+                (n for n in id_profile.notes if n.code == "unconverted_values"), None
+            )
+            if unconverted is not None:
+                add(
+                    "warning",
+                    "client_id_unconverted",
+                    "Some client IDs could not be read as numbers and were stored as empty, "
+                    "so those clients are missing from client counts. Import the file again "
+                    f"with this column under 'Keep as text'. Details: {unconverted.message}",
+                )
             for note in id_profile.notes:
-                if note.level == "warning":
+                if note.level == "warning" and note.code != "unconverted_values":
                     add("warning", f"client_id_{note.code}", f"Client ID column: {note.message}")
             if mapping.client_name:
                 inconsistent = self._inconsistent_names(

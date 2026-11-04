@@ -123,7 +123,13 @@ changed silently:** every interpretation the user might disagree with produces a
 
 - Values are trimmed; blanks become missing.
 - **Identifiers stay text:** leading-zero integers (`00123`) and integers with 16+ digits
-  (e.g. NIK) are never converted to numbers, so no digit is lost during import.
+  (e.g. NIK), also when written with spaces (`0812 3456 7890`, `3201 2345 6789 0123`), are
+  never converted to numbers, so no digit is lost during import. Columns whose header
+  names an identifier (`ID`, `Kode`, `No`, `Nomor`, `NIK`, `NPWP`, `Telepon`, `HP`,
+  `Rekening`, …) stay text even when every value looks numeric (`identifier_kept_as_text`),
+  so a non-numeric ID such as `KL-77` among `1001, 1002` is never lost.
+- **Keep as text (import option):** the user can list any columns (by original header) to
+  keep as text, for identifiers the header rule does not recognise.
   - Excel keeps at most 15 significant digits for *numeric* cells. A 16+ digit value from
     Excel gets a warning that its last digits may already be wrong in the file and
     **cannot be recovered** (cells formatted as Text are exact; the two cannot be told
@@ -141,10 +147,16 @@ changed silently:** every interpretation the user might disagree with produces a
   with. The same applies to `1,234` in English style. A group never starts with 0, so
   `0.125` is a decimal. Values written in another style than the column's are rejected
   and reported, never rewritten. Integers are converted exactly.
+  - A column that mixes `1.500` and `1,500` single-group values stays text in `auto` mode
+    (`mixed_number_format`); choosing `id` or `en` at import converts it.
+  - Currency prefixes (`Rp`, `IDR`, `$`, `USD`) and the Indonesian `,-` suffix are removed
+    and reported (`currency_removed`). A column with more than one currency stays text
+    (`mixed_currency`). Spaces are only accepted as 3-digit group separators (`1 000 000`).
 - Excel numbers are already canonical (`4.125` is 4.125), so Excel imports use `plain`.
 - **Date order:** chosen at import. In `auto`, day-first if any first part > 12,
   month-first if any second part > 12; otherwise day-first with an
-  `ambiguous_date_order` warning. Impossible dates (`31/02/2026`) are reported.
+  `ambiguous_date_order` warning. A column proven to contain both orders gets a
+  `mixed_date_order` warning. Impossible dates (`31/02/2026`) are reported.
 - CSV encoding is chosen by decoding the whole file (UTF-8 → cp1252 → latin-1).
 
 Profiling (`services/data_profiler.py`) runs one DuckDB aggregate scan: per column null
@@ -164,9 +176,10 @@ suggests a client identity without header evidence.
 Suggestions are an **unsaved draft**. `PUT /datasets/{id}/column-mapping` stores the user's
 choice with `confirmed=true`; the server validates that each column exists, has a
 compatible type, and is used for one role only. Analytics (Phase 5) may only use a
-confirmed mapping. The mapping state also returns warnings (missing client IDs, long or
-scientific-notation IDs, client IDs with several names, name-only identity, history
-completeness, missing transaction dates) and the number of unique clients (confirmed
+confirmed mapping. Columns without any value cannot be confirmed for a role. The mapping
+state also returns warnings (missing client IDs, client IDs lost in number conversion with
+the "Keep as text" remedy, long or scientific-notation IDs, client IDs with several names,
+name-only identity, history completeness, missing transaction dates) and the number of unique clients (confirmed
 mappings only).
 
 ### 5.2 Natural-language question
@@ -214,7 +227,7 @@ All responses are JSON unless noted. Errors use `{"error": {"code": str, "messag
 |---|---|---|
 | `GET /health` | — | `{status, llm_configured: bool, model: str \| null}` |
 | `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count}]}` |
-| `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first}` | `DatasetRecord` (status `processing`) |
+| `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first, text_columns: [original headers]}` | `DatasetRecord` (status `processing`) |
 | `GET /datasets` | — | `DatasetRecord[]` |
 | `GET /datasets/{id}` | — | `DatasetRecord` |
 | `DELETE /datasets/{id}` | — | `204`; removes DuckDB file, metadata, history |

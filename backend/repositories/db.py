@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS datasets (
     column_count INTEGER,
     created_at TEXT NOT NULL,
     number_format TEXT NOT NULL DEFAULT 'auto',
-    date_order TEXT NOT NULL DEFAULT 'auto'
+    date_order TEXT NOT NULL DEFAULT 'auto',
+    text_columns_json TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS dataset_columns (
@@ -85,6 +86,7 @@ CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
 MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("datasets", "number_format", "TEXT NOT NULL DEFAULT 'auto'"),
     ("datasets", "date_order", "TEXT NOT NULL DEFAULT 'auto'"),
+    ("datasets", "text_columns_json", "TEXT NOT NULL DEFAULT '[]'"),
     ("dataset_columns", "notes_json", "TEXT NOT NULL DEFAULT '[]'"),
 )
 

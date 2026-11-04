@@ -214,6 +214,26 @@
 - Overview shows analysis counts / recent activity as "after Phase 6" (no fake numbers).
 - No re-import endpoint: changing the number format means importing the file again
   (the upload is kept for 24 h, but the UI asks for the file again).
+- Upload inspection returns the header row per sheet (`SheetInfo.columns`) for the
+  "Keep as text" import option (`text_columns`).
+
+**Phase 3 independent review — outcome:** 2 High, 3 Medium, 10 Low, 0 Critical.
+Fixed: H1 (spaced IDs/phones/NIK lost leading zeros), H2 (numeric-looking client IDs
+converted, non-numeric minority IDs lost: identifier-header rule + "Keep as text" option +
+mapping warning), M1 (mixed `1.500`/`1,500`), M2 (mixed currencies), M3 (`Rp …,-`),
+L1 (duplicate note promised future behaviour), L2 (actionable ragged-row error),
+L3 (mixed date order), L4 (empty column accepted as a role), L5 (Excel `1E5` text cells),
+L6 (CamelCase headers), L7 (duplicate headers indistinguishable in selectors),
+L8 (suggestion caption did not match the selection), L9 (`mixed_types` wording for IDs),
+L10 (real .xlsx 16-digit test added).
+Accepted / follow-up:
+- L1 (part): duplicate rows are counted after type conversion, so two rows that differ only
+  in values that failed conversion count as duplicates. Rare; the note now makes no claim
+  about later behaviour. Revisit in Task 14 when duplicates affect transaction counts.
+- A currency-prefixed value with a leading zero (`Rp 0123`) is converted to 123: a
+  currency amount is not an identifier.
+- Changing the number format or "keep as text" choice of an existing dataset requires
+  importing the file again (no re-import endpoint yet).
 
 ---
 

@@ -60,9 +60,9 @@ def _dataset_notes(
             ColumnNote(
                 level="warning",
                 code="duplicate_rows",
-                message=f"{duplicates:,} row(s) are exact duplicates of another row. "
-                "They are kept in the data; client analytics counts unique clients, so "
-                "duplicates only affect transaction counts.",
+                message=f"{duplicates:,} row(s) are exact duplicates of another row. They are "
+                "kept in the data. Check whether they are repeated transactions or export "
+                "errors; client counts use unique client IDs and are not inflated by them.",
             )
         )
     generated = [c for c in profile_columns if c.original_name.strip() == ""]

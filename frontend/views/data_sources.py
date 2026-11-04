@@ -9,6 +9,7 @@ import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.data_table import render_result
+from frontend.components.labels import column_labels, suggestion_caption
 from frontend.components.layout import (
     STATUS_LABELS,
     empty_state,
@@ -111,9 +112,31 @@ def _upload_section(api: ApiClient) -> None:
             list(DATE_ORDERS),
             format_func=DATE_ORDERS.__getitem__,
         )
+        headers = list(
+            dict.fromkeys(
+                h for s in sheets if s["name"] in chosen or not is_excel for h in s["columns"] if h
+            )
+        )
+        text_columns = st.multiselect(
+            "Keep as text",
+            headers,
+            help="Columns that must never be converted to numbers or dates, such as IDs, "
+            "codes, or phone numbers. Headers like 'ID', 'Kode', 'No', 'NIK' or 'Telepon' "
+            "are already kept as text automatically.",
+        )
 
         if st.button("Import", type="primary", disabled=not chosen, icon=":material/upload:"):
-            _import(api, inspection["upload_id"], chosen, name, number_format, date_order)
+            _import(
+                api, inspection["upload_id"], chosen, name, number_format, date_order, text_columns
+            )
+
+
+def _sheet_headers(sheet: str | None) -> list[str]:
+    inspection = st.session_state.get("inspection") or {}
+    for info in inspection.get("sheets", []):
+        if sheet is None or info["name"] == sheet:
+            return info.get("columns", [])
+    return []
 
 
 def _import(
@@ -123,12 +146,16 @@ def _import(
     name: str | None,
     number_format: str,
     date_order: str,
+    text_columns: list[str],
 ) -> None:
     try:
-        created = [
-            api.create_dataset(upload_id, sheet, name, number_format, date_order)
-            for sheet in sheets
-        ]
+        created = []
+        for sheet in sheets:
+            headers = set(_sheet_headers(sheet))
+            keep = [h for h in text_columns if h in headers]
+            created.append(
+                api.create_dataset(upload_id, sheet, name, number_format, date_order, keep)
+            )
         with st.spinner("Importing and profiling data…"):
             records = wait_for_datasets(api, [c["id"] for c in created])
     except ApiError as error:
@@ -177,7 +204,7 @@ def _profile_tab(profile: dict[str, Any]) -> None:
 
     table = pd.DataFrame(
         {
-            "Column": [c["original_name"] or c["name"] for c in profile["columns"]],
+            "Column": list(column_labels(profile["columns"]).values()),
             "Type": [TYPE_LABELS[c["logical_type"]] for c in profile["columns"]],
             "Missing": [f"{c['null_count']:,} ({c['null_pct']:.1f}%)" for c in profile["columns"]],
             "Unique": [c["unique_count"] for c in profile["columns"]],
@@ -235,16 +262,7 @@ def _mapping_tab(
                 format_func=lambda name: labels.get(name, name),
             )
             choices[role] = None if value == NOT_USED else value
-            top = suggestions.get(role) or []
-            if top:
-                best = top[0]
-                st.caption(
-                    f"Suggested: **{md_escape(best['original_name'])}** "
-                    f"({best['confidence']:.0%}) — "
-                    + "; ".join(md_escape(r) for r in best["reasons"])
-                )
-            else:
-                st.caption("No suggestion: choose a column if one fits.")
+            st.caption(suggestion_caption(suggestions.get(role) or [], choices[role], labels))
         submitted = st.form_submit_button("Confirm column mapping", type="primary")
 
     if submitted:
@@ -296,8 +314,7 @@ def _dataset_detail(api: ApiClient, dataset: dict[str, Any]) -> None:
         except ApiError as error:
             show_api_error(error)
         else:
-            labels = {c["name"]: c["original_name"] or c["name"] for c in columns}
-            _mapping_tab(api, dataset["id"], state, labels)
+            _mapping_tab(api, dataset["id"], state, column_labels(columns))
 
     with preview_tab:
         try:

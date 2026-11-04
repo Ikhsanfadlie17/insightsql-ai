@@ -35,23 +35,36 @@ MIXED_TYPE_THRESHOLD = 0.5
 _MAX_EXAMPLES = 3
 _EXAMPLE_CHARS = 30
 
-_LEADING_ZERO = re.compile(r"^0\d+$")
+_LEADING_ZERO = re.compile(r"^[+-]?0\d+$")
 _LONG_DIGITS = re.compile(r"^[+-]?\d{16,}$")
 _SCIENTIFIC = re.compile(r"^[+-]?\d(\.\d+)?[eE]\+?\d+$")
-_CURRENCY = re.compile(r"^(rp\.?|idr|usd|\$)\s*", re.IGNORECASE)
+_CURRENCY = re.compile(r"^(?P<cur>rp\.?|idr|us\$|usd|\$)\s*", re.IGNORECASE)
+_CURRENCY_CODES = {"rp": "IDR", "rp.": "IDR", "idr": "IDR", "usd": "USD", "us$": "USD", "$": "USD"}
+_DASH_SUFFIX = re.compile(r"[,.]-+$")  # "Rp 1.500.000,-" (no cents)
+_SPACE_GROUPS = re.compile(r"^[+-]?\d{1,3}( \d{3})+([.,]\d+)?$")  # "1 000 000"
 _INTEGRAL = re.compile(r"^[+-]?\d+(\.0+)?$")
 # A thousands group never starts with 0 ("0.125" is a decimal, not 125).
 _DOT_THOUSANDS = re.compile(r"^[+-]?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$")
 _COMMA_THOUSANDS = re.compile(r"^[+-]?[1-9]\d{0,2}(,\d{3})+(\.\d+)?$")
+_DOT_GROUPS_ONLY = re.compile(r"^[+-]?[1-9]\d{0,2}(\.\d{3})+$")
+_COMMA_GROUPS_ONLY = re.compile(r"^[+-]?[1-9]\d{0,2}(,\d{3})+$")
 _ID_STYLE, _EN_STYLE, _PLAIN_STYLE = (".", ","), (",", "."), ("", ".")
 # Full-value pattern per (thousands, decimal) style. Values written in another style
 # are rejected and reported instead of being rewritten (e.g. "1.5" under "1.234,5").
 _STYLE_PATTERNS: dict[tuple[str, str], re.Pattern[str]] = {
     _ID_STYLE: re.compile(r"^[+-]?([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?$"),
     _EN_STYLE: re.compile(r"^[+-]?([1-9]\d{0,2}(,\d{3})+|\d+)(\.\d+)?$"),
-    _PLAIN_STYLE: re.compile(r"^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$"),
+    # Excel cells: canonical numbers. Only negative exponents ("1e-05" for tiny floats);
+    # "9.17E+15" / "1E5" in an Excel sheet are text cells (codes or already-rounded IDs).
+    _PLAIN_STYLE: re.compile(r"^[+-]?\d+(\.\d+)?([eE]-\d+)?$"),
 }
 _EXPLICIT_STYLES = {"id": _ID_STYLE, "en": _EN_STYLE, "plain": _PLAIN_STYLE}
+# Header words of identifier columns (IDs, codes, phone numbers): never converted to numbers.
+_IDENTIFIER_WORDS = {
+    "id", "kode", "code", "no", "nomor", "nomer", "nik", "npwp", "nip", "nis", "telepon",
+    "telp", "phone", "hp", "handphone", "whatsapp", "wa", "rekening", "sku", "kodepos",
+    "zip", "postal",
+}  # fmt: skip
 _INT64_LIMIT = 2**63
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$")
 _PARTS_DATE = re.compile(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$")
@@ -127,11 +140,68 @@ def _to_number(text: str, style: tuple[str, str]) -> str:
     return text.replace(",", ".") if decimal == "," else text
 
 
+def _strip_decorations(values: pd.Series) -> pd.Series:
+    """Remove a currency prefix, a ",-" suffix, and spaces that separate 3-digit groups.
+
+    Spaces anywhere else are kept, so "1 2" or "0812 3456" never become numbers.
+    """
+    stripped = values.str.replace(_CURRENCY, "", regex=True).str.replace(
+        _DASH_SUFFIX, "", regex=True
+    )
+    grouped = stripped.str.fullmatch(_SPACE_GROUPS).fillna(False).astype(bool)
+    return stripped.where(~grouped, stripped.str.replace(" ", "", regex=False))
+
+
+def _currencies(values: pd.Series) -> set[str]:
+    found = values.str.extract(_CURRENCY)["cur"].dropna().str.lower()
+    return {_CURRENCY_CODES[c] for c in found}
+
+
+def _looks_like_identifier(values: pd.Series) -> bool:
+    """Leading zeros or 16+ digits, also when written with spaces (phones, NIK)."""
+    compact = values.str.replace(" ", "", regex=False)
+    return bool(compact.str.match(_LEADING_ZERO).any() or compact.str.match(_LONG_DIGITS).any())
+
+
+def _numeric_blockers(text: pd.Series, number_format: NumberFormat) -> list[ColumnNote]:
+    """Reasons a column must not be converted to numbers even if values parse."""
+    values = text.dropna()
+    notes: list[ColumnNote] = []
+    currencies = _currencies(values)
+    if len(currencies) > 1:
+        notes.append(
+            ColumnNote(
+                level="warning",
+                code="mixed_currency",
+                message=f"Values use more than one currency ({', '.join(sorted(currencies))}), "
+                "so the column was kept as text: adding them up would mix currencies.",
+            )
+        )
+    if number_format == "auto":
+        stripped = _strip_decorations(values)
+        dots = stripped[stripped.str.fullmatch(_DOT_GROUPS_ONLY).fillna(False).astype(bool)]
+        commas = stripped[stripped.str.fullmatch(_COMMA_GROUPS_ONLY).fillna(False).astype(bool)]
+        if len(dots) and len(commas):
+            notes.append(
+                ColumnNote(
+                    level="warning",
+                    code="mixed_number_format",
+                    message=f"Values such as {_quote(commas.iloc[0])} and {_quote(dots.iloc[0])} "
+                    "use different thousands separators, so a value like "
+                    f"{_quote(dots.iloc[0])} could mean "
+                    f"{float(_to_number(dots.iloc[0], _EN_STYLE)):g} or "
+                    f"{float(_to_number(dots.iloc[0], _ID_STYLE)):g}. The column was kept as text. "
+                    "Re-import choosing the Indonesian or English number format to convert it.",
+                )
+            )
+    return notes
+
+
 def _try_numeric(text: pd.Series, number_format: NumberFormat) -> _Attempt | None:
     values = text.dropna()
-    if values.str.match(_LEADING_ZERO).any() or values.str.match(_LONG_DIGITS).any():
+    if _looks_like_identifier(values):
         return None  # identifiers: handled by _identifier_notes
-    stripped = values.str.replace(_CURRENCY, "", regex=True).str.replace(" ", "", regex=False)
+    stripped = _strip_decorations(values)
     if number_format == "auto":
         style, ambiguous_example = _detect_style(stripped)
     else:
@@ -167,6 +237,16 @@ def _try_numeric(text: pd.Series, number_format: NumberFormat) -> _Attempt | Non
                 code="ambiguous_number_format",
                 message=f"Numbers like {_quote(ambiguous_example)} were read as {read_as}: "
                 f"the separator was treated as {meaning}. {fix}",
+            )
+        )
+    currencies = _currencies(values)
+    if currencies:
+        notes.append(
+            ColumnNote(
+                level="info",
+                code="currency_removed",
+                message=f"The currency symbol was removed; values are amounts in "
+                f"{next(iter(currencies))}.",
             )
         )
     return _Attempt(series, logical, ratio, notes)
@@ -209,6 +289,20 @@ def _try_date(text: pd.Series, date_order: DateOrder) -> _Attempt | None:
                         "file uses month/day, re-import with the month/day date order.",
                     )
                 )
+        if date_order == "auto" and (first > 12).any() and (second > 12).any():
+            day_example = values[parts.index[first > 12][0]]
+            month_example = values[parts.index[second > 12][0]]
+            notes.append(
+                ColumnNote(
+                    level="warning",
+                    code="mixed_date_order",
+                    message=f"This column contains both day/month dates (e.g. "
+                    f"{_quote(day_example)}) and month/day dates (e.g. {_quote(month_example)}). "
+                    "They were read as day/month, so ambiguous dates such as 03/04 may be "
+                    "wrong and month/day dates could not be read. Fix the source or "
+                    "re-import choosing the date order.",
+                )
+            )
 
     series = pd.Series(pd.NaT, index=text.index, dtype="datetime64[us]")
     series.loc[parsed.index] = parsed
@@ -229,7 +323,8 @@ def _try_boolean(text: pd.Series) -> _Attempt | None:
 def _identifier_notes(text: pd.Series, number_format: NumberFormat) -> list[ColumnNote]:
     values = text.dropna()
     notes: list[ColumnNote] = []
-    long_values = values[values.str.match(_LONG_DIGITS)]
+    compact = values.str.replace(" ", "", regex=False)
+    long_values = values[compact.str.match(_LONG_DIGITS)]
     if len(long_values):
         if number_format == "plain":
             notes.append(
@@ -271,21 +366,51 @@ def _identifier_notes(text: pd.Series, number_format: NumberFormat) -> list[Colu
 
 
 # ---------------------------------------------------------------------------- main
+def _is_identifier_header(name: str) -> bool:
+    return bool(set(re.split(r"[^a-z0-9]+", name.lower())) & _IDENTIFIER_WORDS)
+
+
 def _infer_column(
-    text: pd.Series, number_format: NumberFormat, date_order: DateOrder
+    name: str,
+    text: pd.Series,
+    number_format: NumberFormat,
+    date_order: DateOrder,
+    force_text: bool,
 ) -> tuple[pd.Series, LogicalType, int, list[ColumnNote]]:
     notes = _identifier_notes(text, number_format)
+    if force_text:
+        notes.append(
+            ColumnNote(
+                level="info",
+                code="kept_as_text_by_user",
+                message="Kept as text, as chosen at import.",
+            )
+        )
+        return text, "text", 0, notes
     if text.notna().sum() == 0:
         return text, "text", 0, notes
 
-    candidates = [
-        a
-        for a in (
-            _try_boolean(text),
-            _try_numeric(text, number_format),
-            _try_date(text, date_order),
+    blockers = _numeric_blockers(text, number_format)
+    numeric = None if blockers else _try_numeric(text, number_format)
+    notes.extend(blockers)
+    if (
+        numeric is not None
+        and numeric.ratio >= CONVERSION_THRESHOLD
+        and _is_identifier_header(name)
+    ):
+        # IDs and codes are never numbers: converting would drop non-numeric IDs
+        # (e.g. "KL-77" among "1001", "1002") and invite meaningless sums.
+        notes.append(
+            ColumnNote(
+                level="info",
+                code="identifier_kept_as_text",
+                message="The values look like numbers, but the header names an identifier "
+                "(ID, code, number, phone), so the column was kept as text.",
+            )
         )
-        if a is not None
+        numeric = None
+    candidates = [
+        a for a in (_try_boolean(text), numeric, _try_date(text, date_order)) if a is not None
     ]
     accepted = next((a for a in candidates if a.ratio >= CONVERSION_THRESHOLD), None)
     if accepted is None:
@@ -298,7 +423,9 @@ def _infer_column(
                     code="mixed_types",
                     message=f"{best.ratio:.0%} of values look like {_TYPE_WORDS[best.logical]}, "
                     f"but others do not (e.g. {_examples(bad)}), so the column was kept as "
-                    "text. Clean those values in the source to use it in calculations.",
+                    "text. If it is an identifier (such as an ID or code), text is the right "
+                    "type. Otherwise, clean those values in the source to use the column in "
+                    "calculations.",
                 )
             )
         return text, "text", 0, notes
@@ -321,6 +448,7 @@ def infer_types(
     df: pd.DataFrame,
     number_format: NumberFormat = "auto",
     date_order: DateOrder = "auto",
+    text_columns: set[str] | None = None,
 ) -> InferenceResult:
     """Infer and apply a logical type for every column.
 
@@ -330,6 +458,7 @@ def infer_types(
         number_format: ``auto`` (detect per column; CSV default), ``id`` (1.234,5),
             ``en`` (1,234.5), or ``plain`` (canonical numbers, used for Excel cells).
         date_order: ``auto``, ``day_first``, or ``month_first`` for d/m/y-style dates.
+        text_columns: Column labels the user chose to keep as text (no conversion).
 
     Returns:
         InferenceResult with converted columns, logical types, unconverted-value
@@ -339,7 +468,11 @@ def infer_types(
     result = InferenceResult(dataframe=out)
     for column in df.columns:
         series, logical, failed, notes = _infer_column(
-            _clean_text(df[column]), number_format, date_order
+            str(column),
+            _clean_text(df[column]),
+            number_format,
+            date_order,
+            column in (text_columns or set()),
         )
         out[column], result.types[column] = series, logical
         if failed:
