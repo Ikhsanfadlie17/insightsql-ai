@@ -282,7 +282,7 @@ The LLM never executes anything; the system prompt is one layer, not the securit
 
 `ValidatedSQL` is immutable and can only be created by `validate_sql` (a private token);
 `QueryExecutor.execute` raises `TypeError` for anything else. The attack corpus
-(`tests/security/attack_corpus.yaml`, 92 cases incl. syntactically valid bypass attempts
+(`tests/security/attack_corpus.yaml`, 102 cases incl. syntactically valid bypass attempts
 and every reproduction from the Phase 4 security review)
 and 20 accepted analytical queries are run on every test run.
 
