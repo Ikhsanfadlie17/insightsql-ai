@@ -30,7 +30,11 @@ class Settings(BaseSettings):
     query_timeout_seconds: float = Field(default=10.0, gt=0)
     max_result_rows: int = Field(default=5000, gt=0)
     query_threads: int = Field(default=2, gt=0, le=16)
-    query_memory_limit: str = "512MB"
+    query_memory_limit: str = "512MB"  # DuckDB's own (soft) limit
+    # Hard limits for the query worker process (it is killed when exceeded).
+    query_process_memory_mb: int = Field(default=1024, ge=128)
+    query_address_space_mb: int = Field(default=4096, ge=0)  # RLIMIT_AS; 0 disables
+    max_result_bytes: int = Field(default=20_000_000, gt=0)
     max_sql_repairs: int = Field(default=2, ge=0, le=2)
     max_question_chars: int = Field(default=1000, gt=0, le=5000)
     send_sample_values: bool = True

@@ -11,7 +11,7 @@ import pytest
 from backend.core.config import Settings
 from backend.core.errors import QueryExecutionError, QueryTimeoutError
 from backend.services import sql_validator
-from backend.services.query_executor import QueryExecutor, sanitize_error
+from backend.services.query_executor import QueryExecutor
 from backend.services.sql_validator import TableSchema, ValidatedSQL, validate_sql
 
 SCHEMA = TableSchema(columns={"id_klien": "text", "nilai": "integer", "tanggal": "date"})
@@ -121,36 +121,11 @@ def test_sandbox_blocks_dangerous_sql_even_without_the_validator(
         assert conn.execute("SELECT COUNT(*) FROM dataset").fetchone()[0] == 5000
 
 
-def test_errors_do_not_leak_values_or_paths(executor: QueryExecutor, dataset_path: Path) -> None:
-    with pytest.raises(QueryExecutionError) as caught:
-        executor.execute(
-            dataset_path, validate_sql("SELECT CAST(id_klien AS INTEGER) FROM dataset", SCHEMA)
-        )
-
-    message = caught.value.message
-    assert "KL-0000" not in message
-    assert str(dataset_path.parent) not in message
-    assert "convert" in message.lower()
-
-
 def test_missing_dataset_file_is_a_clean_error(executor: QueryExecutor, tmp_path: Path) -> None:
     with pytest.raises(QueryExecutionError) as caught:
         executor.execute(tmp_path / "missing.duckdb", validate_sql("SELECT 1", SCHEMA))
 
     assert str(tmp_path) not in caught.value.message
-
-
-@pytest.mark.parametrize(
-    ("raw", "forbidden"),
-    [
-        ("Conversion Error: Could not convert string 'KL-77' to INT32", "KL-77"),
-        ('Permission Error: Cannot access file "/etc/hosts" - disabled', "/etc/hosts"),
-        ('Binder Error: Referenced column "nik" not found\nLINE 1: SELECT nik', "LINE 1"),
-        ("Error near 3201234567890123 in value", "3201234567890123"),
-    ],
-)
-def test_sanitize_error(raw: str, forbidden: str) -> None:
-    assert forbidden not in sanitize_error(raw)
 
 
 def test_order_by_is_preserved_through_the_row_limit_wrapper(
@@ -177,3 +152,124 @@ def test_duplicate_output_column_names(executor: QueryExecutor, dataset_path: Pa
 
     assert result.row_count == 2
     assert len(result.columns) == 2
+
+
+# --- Phase 4 review regressions -----------------------------------------------------
+
+
+@pytest.fixture
+def pii_path(tmp_path: Path) -> Path:
+    path = tmp_path / "pii.duckdb"
+    with duckdb.connect(str(path)) as conn:
+        conn.execute(
+            "CREATE TABLE dataset AS SELECT * FROM (VALUES "
+            "('KL-4321', 4321, 'Jl. Merdeka No. 10\nRT 02 Jakarta', 'budi@example.com'), "
+            "('KL-0001', 1, 'Jl. Melati 5', 'sari@example.com')) "
+            "t(id_klien, nilai, alamat, email)"
+        )
+    return path
+
+
+LEAKS = ["KL-4321", "4321", "Merdeka", "Jakarta", "budi@example.com", "Melati", "KL-0"]
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT CAST(alamat AS INTEGER) FROM dataset",  # multi-line value in the error
+        "SELECT CAST(nilai AS UTINYINT) FROM dataset WHERE nilai = 4321",  # unquoted number
+        "SELECT error('NIK ' || id_klien || ' / ' || CAST(nilai AS VARCHAR)) FROM dataset",
+        "SELECT regexp_matches(id_klien, id_klien || '(') FROM dataset",
+        "SELECT make_date(2026, nilai, 1) FROM dataset",
+        "SELECT CAST(email AS DATE) FROM dataset",
+        "SELECT nilai // 0 FROM dataset",
+    ],
+)
+def test_error_messages_never_contain_data(
+    settings: Settings, pii_path: Path, sql: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Review H3: messages are chosen by error category; DuckDB text is never forwarded."""
+    caplog.set_level("DEBUG")
+    executor = QueryExecutor(settings)
+
+    with pytest.raises(QueryExecutionError) as caught:
+        executor.execute(pii_path, _unchecked(sql))
+
+    combined = caught.value.message + caplog.text
+    assert all(leak not in combined for leak in LEAKS), combined
+    assert str(pii_path.parent) not in combined
+    assert caught.value.message
+
+
+def test_conversion_errors_explain_the_fix(executor: QueryExecutor, pii_path: Path) -> None:
+    with pytest.raises(QueryExecutionError) as caught:
+        executor.execute(pii_path, _unchecked("SELECT CAST(alamat AS INTEGER) FROM dataset"))
+
+    assert "TRY_CAST" in caught.value.message
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT count(*) FROM (SELECT unnest(list_resize([1], 300000000, 1)))",
+        "SELECT length(lpad('', 3000000000, 'x'))",
+        "SELECT count(*) FROM repeat_row(1, num_rows = 100000000000)",
+    ],
+)
+def test_runaway_queries_are_stopped_by_hard_limits(
+    settings: Settings, dataset_path: Path, sql: str
+) -> None:
+    """Review H2: these ignore DuckDB's interrupt and memory_limit; the worker is killed."""
+    limited = settings.model_copy(
+        update={"query_timeout_seconds": 3.0, "query_process_memory_mb": 768}
+    )
+    started = time.perf_counter()
+
+    with pytest.raises((QueryExecutionError, QueryTimeoutError)):
+        QueryExecutor(limited).execute(dataset_path, _unchecked(sql))
+
+    assert time.perf_counter() - started < 8
+
+
+def test_memory_kill_has_a_clear_message(settings: Settings, dataset_path: Path) -> None:
+    limited = settings.model_copy(update={"query_process_memory_mb": 512})
+
+    with pytest.raises(QueryExecutionError) as caught:
+        QueryExecutor(limited).execute(
+            dataset_path,
+            _unchecked("SELECT count(*) FROM (SELECT unnest(list_resize([1], 300000000, 1)))"),
+        )
+
+    assert "memory" in caught.value.message.lower()
+
+
+def test_executor_runs_exactly_one_statement(executor: QueryExecutor, dataset_path: Path) -> None:
+    """Review Low: even if the validator were bypassed, smuggled statements do not run."""
+    smuggled = "SELECT 1) r; CREATE TEMP TABLE t AS SELECT * FROM dataset; SELECT * FROM (SELECT 1"
+
+    with pytest.raises(QueryExecutionError):
+        executor.execute(dataset_path, _unchecked(smuggled))
+
+
+def test_result_size_is_capped_in_bytes(settings: Settings, dataset_path: Path) -> None:
+    small = settings.model_copy(update={"max_result_bytes": 2_000})
+
+    with pytest.raises(QueryExecutionError) as caught:
+        QueryExecutor(small).execute(dataset_path, validate_sql("SELECT * FROM dataset", SCHEMA))
+
+    assert "too large" in caught.value.message.lower()
+
+
+def test_queries_run_in_a_separate_process(
+    executor: QueryExecutor, dataset_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The backend process never opens the dataset for LLM SQL itself."""
+    opened: list[str] = []
+    real_connect = duckdb.connect
+    monkeypatch.setattr(
+        duckdb, "connect", lambda *a, **k: opened.append("x") or real_connect(*a, **k)
+    )
+
+    executor.execute(dataset_path, validate_sql("SELECT COUNT(*) FROM dataset", SCHEMA))
+
+    assert opened == []
