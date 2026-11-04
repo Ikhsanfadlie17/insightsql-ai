@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     openai_insight_model: str | None = None
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     llm_max_retries: int = Field(default=2, ge=0, le=5)
+    llm_total_timeout_seconds: float = Field(default=90.0, gt=0, le=900)  # incl. retries
     llm_max_output_tokens: int = Field(default=1500, gt=0, le=16000)
 
     data_dir: Path = Path("data")

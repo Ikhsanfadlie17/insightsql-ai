@@ -50,5 +50,10 @@ class FakeLLMClient:
             raise item
         parsed = item(call) if callable(item) and not isinstance(item, BaseModel) else item
         return LLMResponse(
-            parsed=parsed, usage=self.usage, model=model or self.model, latency_ms=1.0, attempts=1
+            # Like a provider, report the model that answered (may differ from the alias asked).
+            parsed=parsed,
+            usage=self.usage,
+            model=self.model,
+            latency_ms=1.0,
+            attempts=1,
         )

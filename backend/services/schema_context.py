@@ -1,15 +1,17 @@
 """The dataset description sent to the LLM: schema and aggregates, never raw records.
 
 What is sent per column: SQL name, original header, type, confirmed role, share of
-missing values, number of distinct values, aggregate statistics (min/max/mean or a
-date range) and, only for low-cardinality non-sensitive categories, up to five
-example values.
+missing values, number of distinct values, the mean of non-sensitive numbers, the
+date range of non-personal date columns, and up to five example values **only**
+for category columns (an allowlist: headers such as Departemen, Status, Jenis,
+Kategori, Produk, ... or a confirmed department / service type / status role).
 
-Never sent: individual numbers, values of identity columns (client ID / name),
-values or statistics of columns whose header or values look personal (NIK,
-phone, e-mail, address, names, birth dates, account numbers, ...). Headers and
-values come from the user's file, so they are placed in a JSON data block that the
-prompt marks as untrusted data.
+Never sent: individual records or numbers (no min/max), values of identity columns
+(client ID / name), values or statistics of columns whose header or values look
+personal (NIK, phone, e-mail, address, names, people, health, income, birth dates,
+account numbers, ...). Headers and values come from the user's file, so they are
+placed in a JSON data block (with <, >, & escaped) that the prompt marks as
+untrusted data.
 """
 
 from __future__ import annotations
@@ -38,7 +40,22 @@ _SENSITIVE_WORDS = {
     "hp", "handphone", "whatsapp", "wa", "email", "mail", "alamat", "address", "jalan",
     "nama", "name", "lahir", "birth", "dob", "ibu", "mother", "rekening", "account",
     "iban", "card", "kartu", "password", "pin", "gaji", "salary", "agama", "religion",
+    "ultah", "pelanggan", "customer", "klien", "client", "nasabah", "pasien", "patient",
+    "karyawan", "pegawai", "employee", "staff", "pic", "kontak", "contact", "domisili",
+    "tinggal", "diagnosis", "penyakit", "medis", "medical", "penghasilan", "income",
+    "pendapatan_pribadi", "keterangan", "catatan", "notes", "note", "komentar", "comment",
 }  # fmt: skip
+# Allowlist: only columns whose header names a category may include example values.
+_CATEGORY_WORDS = {
+    "departemen", "department", "dept", "divisi", "division", "unit", "bagian", "cabang",
+    "branch", "bidang", "region", "wilayah", "status", "state", "jenis", "tipe", "type",
+    "kategori", "category", "layanan", "service", "produk", "product", "paket", "package",
+    "program", "metode", "method", "channel", "kanal", "segmen", "segment", "kelas",
+    "class", "tingkat", "level", "prioritas", "priority", "sumber", "source",
+}  # fmt: skip
+_CATEGORY_ROLES = {"department", "service_type", "status"}
+_DATE_WORDS = {"tanggal", "tgl", "date", "periode", "period", "bulan", "month", "tahun",
+               "year", "waktu", "time", "transaksi", "transaction", "order", "invoice"}  # fmt: skip
 # Identifier words: values withheld (codes and IDs identify people or companies).
 _IDENTIFIER_WORDS = {"id", "kode", "code", "no", "nomor", "nomer", "nip", "nis", "sku", "uuid"}
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
@@ -89,7 +106,12 @@ def _looks_personal(column: ColumnProfile) -> bool:
 def _context_column(column: ColumnProfile, role: str | None, send_samples: bool) -> ContextColumn:
     tokens = _tokens(column)
     identity_role = role in {"client_id", "client_name"}
-    sensitive = bool(tokens & _SENSITIVE_WORDS) or identity_role or _looks_personal(column)
+    category_role = role in _CATEGORY_ROLES or role == "transaction_date" or role == "revenue"
+    sensitive = (
+        identity_role
+        or _looks_personal(column)
+        or (bool(tokens & _SENSITIVE_WORDS) and not category_role)
+    )
     identifier = bool(tokens & _IDENTIFIER_WORDS) or any(
         n.code in {"long_identifier", "scientific_notation", "identifier_kept_as_text"}
         for n in column.notes
@@ -106,15 +128,17 @@ def _context_column(column: ColumnProfile, role: str | None, send_samples: bool)
     if sensitive:
         return item  # no values, no statistics
     if column.logical_type in {"integer", "numeric"}:
-        item.min, item.max = column.min, column.max
-        item.mean = round(column.mean, 2) if column.mean is not None else None
+        if not identifier:  # an average of IDs is meaningless; min/max are never sent
+            item.mean = round(column.mean, 2) if column.mean is not None else None
     elif column.logical_type in {"date", "datetime"}:
-        item.min, item.max = column.date_min, column.date_max
+        if role == "transaction_date" or tokens & _DATE_WORDS:
+            item.min, item.max = column.date_min, column.date_max
     elif (
         send_samples
         and not identifier
         and column.logical_type in {"text", "boolean"}
         and column.unique_count <= MAX_CATEGORY_VALUES
+        and (role in _CATEGORY_ROLES or tokens & _CATEGORY_WORDS)
     ):
         item.examples = [v.value[:MAX_EXAMPLE_CHARS] for v in column.top_values[:MAX_EXAMPLES]]
     return item
@@ -209,7 +233,13 @@ def _column_json(column: ContextColumn) -> str:
         value = getattr(column, key)
         if value is not None:
             data[key] = value
-    return json.dumps(data, ensure_ascii=False)
+    # Escape <, >, & so file text can never close or open the <data> block.
+    return (
+        json.dumps(data, ensure_ascii=False)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 def render_schema_context(context: SchemaContext) -> str:

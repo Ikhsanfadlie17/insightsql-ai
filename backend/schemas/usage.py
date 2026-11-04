@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from backend.services.llm.cost import CostStatus
 
@@ -31,6 +31,7 @@ class UsageRecord(BaseModel):
     error_message: str | None = None
     prompt_version: str | None = None
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def retry_count(self) -> int:
         """Retries after the first attempt."""

@@ -194,3 +194,72 @@ def test_summary_separates_known_and_unknown_costs(
     assert summary.totals.requests_without_cost == 2
     assert {row.key for row in summary.by_purpose} == {"sql_generation", "insight", "sql_repair"}
     assert {row.key for row in summary.by_model} == {"fake-model", "unknown-model"}
+
+
+# --- Phase 4 review regressions -------------------------------------------------------
+def test_unexpected_exceptions_are_recorded(settings: Settings, repo: UsageRepository) -> None:
+    """Review M2: every request is recorded, including non-LLMError failures."""
+    fake = FakeLLMClient(responses=[RuntimeError("boom")])
+
+    with pytest.raises(RuntimeError):
+        _gateway(settings, repo, fake).complete(
+            purpose="sql_generation", system="s", user="u", schema=Out
+        )
+
+    record = repo.list_requests(limit=1)[0]
+    assert (record.status, record.error_code) == ("error", "internal_error")
+    assert "boom" not in (record.error_message or "")
+
+
+def test_usage_of_unusable_output_is_recorded_with_cost(
+    settings: Settings, repo: UsageRepository
+) -> None:
+    """Review M3."""
+    from backend.core.errors import LLMOutputError
+
+    error = LLMOutputError(
+        "unusable",
+        attempts=1,
+        usage=TokenUsage(input_tokens=1000, output_tokens=500, cached_tokens=0),
+        model="fake-model",
+    )
+    fake = FakeLLMClient(responses=[error])
+
+    with pytest.raises(LLMOutputError):
+        _gateway(settings, repo, fake).complete(
+            purpose="sql_generation", system="s", user="u", schema=Out
+        )
+
+    record = repo.list_requests(limit=1)[0]
+    assert (record.status, record.input_tokens, record.output_tokens) == ("error", 1000, 500)
+    assert record.est_cost_usd == pytest.approx(0.006)
+    assert record.cost_status == "estimated"
+
+
+def test_retry_count_is_serialized(settings: Settings, repo: UsageRepository) -> None:
+    fake = FakeLLMClient(responses=[LLMRateLimitError("x", attempts=3)])
+
+    with pytest.raises(LLMRateLimitError):
+        _gateway(settings, repo, fake).complete(
+            purpose="sql_generation", system="s", user="u", schema=Out
+        )
+
+    assert repo.list_requests(limit=1)[0].model_dump()["retry_count"] == 2
+
+
+def test_price_falls_back_to_the_requested_model_id(
+    settings: Settings, repo: UsageRepository
+) -> None:
+    """Providers often report a dated snapshot id; prices are usually keyed by the alias."""
+    fake = FakeLLMClient(
+        responses=[Out(answer="ok")],
+        model="fake-model-2026-11-01",
+        usage=TokenUsage(input_tokens=1000, output_tokens=500, cached_tokens=0),
+    )
+
+    _, record = _gateway(settings, repo, fake).complete(
+        purpose="sql_generation", system="s", user="u", schema=Out, model="fake-model"
+    )
+
+    assert record.model == "fake-model-2026-11-01"
+    assert record.est_cost_usd == pytest.approx(0.006)

@@ -84,9 +84,17 @@ class LLMError(AppError):
     code = "llm_error"
     status_code = 502
 
-    def __init__(self, message: str, attempts: int = 1) -> None:
+    def __init__(
+        self,
+        message: str,
+        attempts: int = 1,
+        usage: object | None = None,
+        model: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.attempts = attempts
+        self.usage = usage  # TokenUsage billed for an unusable answer, if known
+        self.model = model
 
 
 class LLMTimeoutError(LLMError):
@@ -100,6 +108,13 @@ class LLMRateLimitError(LLMError):
     """The provider kept rate limiting requests (after bounded retries)."""
 
     code = "llm_rate_limited"
+    status_code = 429
+
+
+class LLMQuotaError(LLMError):
+    """The provider account has no remaining quota or credits (not retried)."""
+
+    code = "llm_quota_exceeded"
     status_code = 429
 
 

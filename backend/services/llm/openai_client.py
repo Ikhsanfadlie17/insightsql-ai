@@ -3,8 +3,13 @@
 * Key and model come only from settings (environment); nothing is hard-coded.
 * The SDK's own retries are disabled; this client retries timeouts, connection
   errors, rate limits, and 5xx responses at most ``llm_max_retries`` times with
-  exponential backoff (honouring ``Retry-After`` up to a cap). Other errors are
-  not retried.
+  exponential backoff, within ``llm_total_timeout_seconds`` overall. A
+  ``Retry-After`` longer than the backoff cap and ``insufficient_quota`` fail fast.
+  Other errors are not retried.
+* The answer is parsed here (not by the SDK) so token usage is kept even when the
+  answer is incomplete, refused, or invalid: those tokens are billed. The strict
+  JSON schema comes from the SDK helper ``type_to_text_format_param`` (private
+  module; the SDK version is pinned and tests cover the request shape).
 * Requests are sent with ``store=False``.
 * Prompts, responses, provider error bodies, and the API key are never logged or
   put into exception messages: provider error text can echo the prompt.
@@ -20,12 +25,14 @@ from collections.abc import Callable
 import httpx
 import openai
 import pydantic
+from openai.lib._parsing._responses import type_to_text_format_param
 
 from backend.core.config import Settings
 from backend.core.errors import (
     LLMError,
     LLMNotConfiguredError,
     LLMOutputError,
+    LLMQuotaError,
     LLMRateLimitError,
     LLMTimeoutError,
 )
@@ -62,10 +69,40 @@ def _backoff(attempt: int, error: Exception) -> float:
     return min(delay + random.uniform(0, delay / 2), BACKOFF_CAP_SECONDS)
 
 
+def _is_quota_error(error: Exception) -> bool:
+    body = getattr(error, "body", None)
+    code = body.get("code") or body.get("type") if isinstance(body, dict) else None
+    return isinstance(error, openai.RateLimitError) and code == "insufficient_quota"
+
+
+def _usage(response: object) -> TokenUsage | None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    details = getattr(usage, "input_tokens_details", None)
+    return TokenUsage(
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cached_tokens=getattr(details, "cached_tokens", None) if details is not None else None,
+    )
+
+
+def _refused(response: object) -> bool:
+    for item in getattr(response, "output", None) or []:
+        for content in getattr(item, "content", None) or []:
+            if getattr(content, "type", None) == "refusal":
+                return True
+    return False
+
+
 def _final_error(error: Exception, attempts: int) -> LLMError:
     if isinstance(error, openai.APITimeoutError | openai.APIConnectionError):
         return LLMTimeoutError(
             "The AI provider did not respond in time. Please try again.", attempts=attempts
+        )
+    if _is_quota_error(error):
+        return LLMQuotaError(
+            "The AI provider account has no remaining quota or credits.", attempts=attempts
         )
     if isinstance(error, openai.RateLimitError):
         return LLMRateLimitError(
@@ -105,58 +142,70 @@ class OpenAIClient:
         model_id = model or self._settings.openai_model
         max_attempts = self._settings.llm_max_retries + 1
         started = time.perf_counter()
+        text_config = {"format": type_to_text_format_param(schema)}
         for attempt in range(max_attempts):
+            attempts = attempt + 1
             try:
-                response = self._client.responses.parse(
+                response = self._client.responses.create(
                     model=model_id,
                     instructions=system,
                     input=user,
-                    text_format=schema,
+                    text=text_config,
                     store=False,
                     max_output_tokens=self._settings.llm_max_output_tokens,
                 )
             except _RETRYABLE as error:
-                if attempt + 1 < max_attempts:
-                    delay = _backoff(attempt, error)
-                    logger.warning(
-                        "LLM request failed (%s); retry %d/%d in %.1fs",
-                        type(error).__name__,
-                        attempt + 1,
-                        max_attempts - 1,
-                        delay,
-                    )
-                    self._sleep(delay)
-                    continue
-                raise _final_error(error, attempt + 1) from None
+                delay = _backoff(attempt, error)
+                hinted = _retry_after(error)
+                elapsed = time.perf_counter() - started
+                give_up = (
+                    attempts >= max_attempts
+                    or _is_quota_error(error)
+                    or (hinted is not None and hinted > BACKOFF_CAP_SECONDS)
+                    or elapsed + delay > self._settings.llm_total_timeout_seconds
+                )
+                if give_up:
+                    raise _final_error(error, attempts) from None
+                logger.warning(
+                    "LLM request failed (%s); retry %d/%d in %.1fs",
+                    type(error).__name__,
+                    attempts,
+                    max_attempts - 1,
+                    delay,
+                )
+                self._sleep(delay)
+                continue
             except openai.APIStatusError as error:
                 logger.warning("LLM request rejected: HTTP %s", error.status_code)
-                raise _final_error(error, attempt + 1) from None
-            except (openai.APIError, pydantic.ValidationError, ValueError) as error:
-                logger.warning("LLM response unusable: %s", type(error).__name__)
-                raise LLMOutputError(
-                    "The AI provider returned an answer in an unexpected format.",
-                    attempts=attempt + 1,
-                ) from None
-
-            parsed = response.output_parsed
-            if parsed is None:
-                raise LLMOutputError(
-                    "The AI provider did not return a usable answer (it may have refused).",
-                    attempts=attempt + 1,
-                )
-            usage = None
-            if response.usage is not None:
-                details = response.usage.input_tokens_details
-                usage = TokenUsage(
-                    input_tokens=response.usage.input_tokens,
-                    output_tokens=response.usage.output_tokens,
-                    cached_tokens=details.cached_tokens if details is not None else None,
-                )
-            return LLMResponse(
-                parsed=parsed,
-                usage=usage,
-                model=response.model or model_id,
-                latency_ms=(time.perf_counter() - started) * 1000,
-                attempts=attempt + 1,
-            )
+                raise _final_error(error, attempts) from None
+            except openai.OpenAIError as error:
+                logger.warning("LLM request failed: %s", type(error).__name__)
+                raise LLMError("The AI provider request failed.", attempts=attempts) from None
+            return self._parse(response, schema, model_id, started, attempts)
         raise AssertionError("unreachable")  # pragma: no cover
+
+    @staticmethod
+    def _parse(
+        response: object, schema: type[T], model_id: str, started: float, attempts: int
+    ) -> LLMResponse[T]:
+        usage = _usage(response)
+        model_name = getattr(response, "model", None) or model_id
+
+        def unusable(message: str) -> LLMOutputError:
+            return LLMOutputError(message, attempts=attempts, usage=usage, model=model_name)
+
+        if getattr(response, "status", None) == "incomplete":
+            raise unusable("The AI answer was cut off before it was complete.")
+        if _refused(response):
+            raise unusable("The AI provider declined to answer this request.")
+        try:
+            parsed = schema.model_validate_json(getattr(response, "output_text", "") or "")
+        except (pydantic.ValidationError, ValueError):
+            raise unusable("The AI provider returned an answer in an unexpected format.") from None
+        return LLMResponse(
+            parsed=parsed,
+            usage=usage,
+            model=model_name,
+            latency_ms=(time.perf_counter() - started) * 1000,
+            attempts=attempts,
+        )

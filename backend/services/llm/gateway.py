@@ -11,7 +11,7 @@ from backend.core.config import Settings
 from backend.core.errors import LLMError, LLMNotConfiguredError
 from backend.repositories.usage_repo import UsageRepository
 from backend.schemas.usage import UsageRecord
-from backend.services.llm.client import LLMClient, LLMResponse, T
+from backend.services.llm.client import LLMClient, LLMResponse, T, TokenUsage
 from backend.services.llm.cost import PricingConfig, cost_status, estimate_cost
 
 logger = logging.getLogger(__name__)
@@ -80,20 +80,45 @@ class LLMGateway:
                 system=system, user=user, schema=schema, model=model
             )
         except LLMError as error:
-            record = UsageRecord(
-                **base,
-                model=model_id,
-                status="error",
-                attempts=error.attempts,
-                cost_status="unavailable_no_usage",
-                latency_ms=(time.perf_counter() - started) * 1000,
-                error_code=error.code,
-                error_message=error.message[:200],
+            usage = error.usage if isinstance(error.usage, TokenUsage) else None
+            answered_by = error.model or model_id
+            price_model = self._price_model(answered_by, model_id)
+            self._repo.add(
+                UsageRecord(
+                    **base,
+                    model=answered_by,
+                    status="error",
+                    attempts=error.attempts,
+                    input_tokens=usage.input_tokens if usage else None,
+                    output_tokens=usage.output_tokens if usage else None,
+                    cached_tokens=usage.cached_tokens if usage else None,
+                    est_cost_usd=estimate_cost(usage, price_model, self._pricing),
+                    cost_status=cost_status(usage, price_model, self._pricing),
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                    error_code=error.code,
+                    error_message=error.message[:200],
+                )
             )
-            self._repo.add(record)
             logger.warning("LLM %s request failed: %s", purpose, error.code)
             raise
+        except Exception:
+            # Unexpected failure: record it without its message (it may contain anything).
+            self._repo.add(
+                UsageRecord(
+                    **base,
+                    model=model_id,
+                    status="error",
+                    attempts=1,
+                    cost_status="unavailable_no_usage",
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                    error_code="internal_error",
+                    error_message="Unexpected error while calling the AI provider.",
+                )
+            )
+            logger.exception("LLM %s request failed unexpectedly", purpose)
+            raise
 
+        price_model = self._price_model(response.model, model_id)
         record = UsageRecord(
             **base,
             model=response.model,
@@ -102,8 +127,8 @@ class LLMGateway:
             input_tokens=response.usage.input_tokens if response.usage else None,
             output_tokens=response.usage.output_tokens if response.usage else None,
             cached_tokens=response.usage.cached_tokens if response.usage else None,
-            est_cost_usd=estimate_cost(response.usage, response.model, self._pricing),
-            cost_status=cost_status(response.usage, response.model, self._pricing),
+            est_cost_usd=estimate_cost(response.usage, price_model, self._pricing),
+            cost_status=cost_status(response.usage, price_model, self._pricing),
             latency_ms=response.latency_ms,
         )
         self._repo.add(record)
@@ -111,3 +136,10 @@ class LLMGateway:
             "LLM %s request ok: model=%s attempts=%d", purpose, response.model, response.attempts
         )
         return response, record
+
+    def _price_model(self, answered_by: str, requested: str) -> str:
+        """Price by the reported model id; fall back to the requested id only when the
+        reported id is a dated snapshot of it (e.g. "model-2026-11-01" for "model")."""
+        if answered_by in self._pricing.models or not answered_by.startswith(requested):
+            return answered_by
+        return requested

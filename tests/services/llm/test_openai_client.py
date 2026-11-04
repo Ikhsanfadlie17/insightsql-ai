@@ -230,3 +230,97 @@ def test_no_secrets_or_prompts_in_logs_or_errors(
     assert SECRET_KEY not in combined
     assert PROMPT_SENTINEL not in combined
     assert "question" not in caught.value.message
+
+
+# --- Phase 4 review regressions -------------------------------------------------------
+def _incomplete_body() -> dict:
+    body = _ok_body(text='{"intent": "sql", "sq')  # truncated JSON
+    body["status"] = "incomplete"
+    body["incomplete_details"] = {"reason": "max_output_tokens"}
+    body["usage"]["input_tokens"], body["usage"]["output_tokens"] = 5000, 1500
+    return body
+
+
+def test_incomplete_output_keeps_billed_usage(llm_settings: Settings) -> None:
+    """Review M3: tokens billed for an unusable answer must still be recorded."""
+    with pytest.raises(LLMOutputError) as caught:
+        _call(_client(llm_settings, lambda r: httpx.Response(200, json=_incomplete_body())))
+
+    assert caught.value.usage is not None
+    assert (caught.value.usage.input_tokens, caught.value.usage.output_tokens) == (5000, 1500)
+
+
+def test_refusal_keeps_usage(llm_settings: Settings) -> None:
+    body = _ok_body()
+    body["output"][0]["content"] = [{"type": "refusal", "refusal": "I can't help with that."}]
+
+    with pytest.raises(LLMOutputError) as caught:
+        _call(_client(llm_settings, lambda r: httpx.Response(200, json=body)))
+
+    assert caught.value.usage is not None and caught.value.usage.input_tokens == 120
+
+
+def test_invalid_json_keeps_usage(llm_settings: Settings) -> None:
+    with pytest.raises(LLMOutputError) as caught:
+        _call(_client(llm_settings, lambda r: httpx.Response(200, json=_ok_body(text="nope"))))
+
+    assert caught.value.usage is not None
+
+
+def test_insufficient_quota_is_not_retried(llm_settings: Settings) -> None:
+    from backend.core.errors import LLMQuotaError
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        error = {"message": "quota", "type": "insufficient_quota", "code": "insufficient_quota"}
+        return httpx.Response(429, json={"error": error})
+
+    with pytest.raises(LLMQuotaError):
+        _call(_client(llm_settings, handler))
+
+    assert calls["n"] == 1
+
+
+def test_long_retry_after_fails_fast(llm_settings: Settings) -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(
+            429, headers={"retry-after": "3600"}, json={"error": {"message": "x"}}
+        )
+
+    sleeps: list[float] = []
+    with pytest.raises(LLMRateLimitError):
+        _call(_client(llm_settings, handler, sleeps))
+
+    assert calls["n"] == 1 and sleeps == []
+
+
+def test_total_deadline_bounds_retries(llm_settings: Settings) -> None:
+    tight = llm_settings.model_copy(update={"llm_total_timeout_seconds": 1.0})
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(503, json={"error": {"message": "x"}})
+
+    with pytest.raises(LLMError):
+        _call(_client(tight, handler))  # backoff (>= 1 s) would exceed the deadline
+
+    assert calls["n"] == 1
+
+
+def test_request_uses_strict_schema(llm_settings: Settings) -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["text"] = json.loads(request.content)["text"]
+        return httpx.Response(200, json=_ok_body())
+
+    _call(_client(llm_settings, handler))
+
+    assert seen["text"]["format"]["strict"] is True
+    assert seen["text"]["format"]["schema"]["additionalProperties"] is False
