@@ -25,6 +25,20 @@ class ApiClient:
     def __init__(self, base_url: str, transport: httpx.BaseTransport | None = None) -> None:
         self._http = httpx.Client(base_url=base_url, timeout=DEFAULT_TIMEOUT, transport=transport)
 
+    def _download(self, method: str, path: str, **kwargs: Any) -> bytes:
+        """Like ``_request``, but returns the raw body (export files)."""
+        try:
+            response = self._http.request(method, path, **kwargs)
+        except httpx.HTTPError as exc:
+            raise ApiError(
+                "backend_unreachable",
+                "The InsightSQL AI backend is not reachable. Is it running?",
+                0,
+            ) from exc
+        if response.is_error:
+            raise self._to_error(response)
+        return response.content
+
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         try:
             response = self._http.request(method, path, **kwargs)
@@ -203,6 +217,30 @@ class ApiClient:
     def get_analysis(self, analysis_id: str) -> dict[str, Any]:
         """``GET /analyses/{id}``."""
         return self._request("GET", f"/analyses/{analysis_id}")
+
+    # ---------------------------------------------------------------- exports
+    def export_analysis(self, analysis_id: str, fmt: str) -> bytes:
+        """``GET /analyses/{id}/export?format=`` (csv, xlsx, pdf, sql)."""
+        return self._download(
+            "GET", f"/analyses/{analysis_id}/export", params={"format": fmt}, timeout=60.0
+        )
+
+    def export_client_analytics(
+        self, dataset_id: str, previous: dict, current: dict, dedupe: bool, fmt: str
+    ) -> bytes:
+        """``POST /datasets/{id}/client-analytics/export?format=``."""
+        body = {
+            "previous": previous,
+            "current": current,
+            "options": {"dedupe_exact_duplicates": dedupe},
+        }
+        return self._download(
+            "POST",
+            f"/datasets/{dataset_id}/client-analytics/export",
+            params={"format": fmt},
+            json=body,
+            timeout=60.0,
+        )
 
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
         """``GET /conversations/{id}``."""

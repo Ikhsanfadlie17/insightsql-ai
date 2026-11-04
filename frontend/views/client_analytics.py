@@ -13,6 +13,7 @@ import streamlit as st
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.charts import NEUTRAL, SERIES_COLORS, render_chart
 from frontend.components.data_table import render_result
+from frontend.components.downloads import download_buttons
 from frontend.components.formatting import fmt_int, fmt_pct, fmt_signed_pct
 from frontend.components.layout import empty_state, md_escape, page_header, show_api_error
 from frontend.components.notes import render_notes
@@ -377,6 +378,16 @@ def main() -> None:
     _kpis(r)
     _charts(r)
     _transactions(r)
+    st.caption("Export this comparison with its periods, definitions, and template SQL")
+    download_buttons(
+        api,
+        f"client analytics {previous['label']} vs {current['label']}",
+        key="ca_download",
+        dataset_id=active["id"],
+        previous=previous,
+        current=current,
+        dedupe=dedupe,
+    )
     _definitions(r)
     st.divider()
     _trend(api, active["id"], dedupe)

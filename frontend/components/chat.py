@@ -8,6 +8,7 @@ import streamlit as st
 
 from frontend.components.charts import render_chart
 from frontend.components.data_table import render_result
+from frontend.components.downloads import download_buttons
 from frontend.components.formatting import fmt_int, fmt_number, fmt_pct, fmt_signed_pct
 from frontend.components.layout import md_escape
 from frontend.components.notes import render_notes
@@ -99,8 +100,22 @@ def _usage(usage: dict[str, Any]) -> str:
     )
 
 
-def render_analysis(analysis: dict[str, Any]) -> None:
-    """One question and its answer as chat messages."""
+def _downloads(api: Any, analysis: dict[str, Any]) -> None:
+    formats = ["csv", "xlsx", "pdf"] if analysis.get("table") else []
+    if analysis.get("sql"):
+        formats.append("sql")
+    if formats:
+        download_buttons(
+            api,
+            analysis["question"],
+            key=f"dl_{analysis['analysis_id']}",
+            formats=formats,
+            analysis_id=analysis["analysis_id"],
+        )
+
+
+def render_analysis(analysis: dict[str, Any], api: Any | None = None) -> None:
+    """One question and its answer as chat messages; ``api`` enables download buttons."""
     with st.chat_message("user"):
         st.markdown(md_escape(analysis["question"]))
     with st.chat_message("assistant"):
@@ -144,4 +159,6 @@ def render_analysis(analysis: dict[str, Any]) -> None:
                     )
                     st.caption(label)
                     st.code(analysis["sql"], language="sql")
+        if api is not None and status == "answered":
+            _downloads(api, analysis)
         st.caption(_usage(analysis.get("usage") or {}))

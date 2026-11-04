@@ -74,6 +74,13 @@ class MappingRequiredError(AppError):
     status_code = 409
 
 
+class NothingToExportError(AppError):
+    """The requested export has no content (e.g. a clarifying question has no table)."""
+
+    code = "nothing_to_export"
+    status_code = 409
+
+
 class LLMNotConfiguredError(AppError):
     """AI features were requested but no API key / model is configured."""
 

@@ -99,3 +99,33 @@ def test_create_dataset_sends_text_columns() -> None:
         return httpx.Response(201, json={"id": "d1"})
 
     _client(handler).create_dataset("u1", text_columns=["Kode"])
+
+
+def test_export_downloads_return_bytes() -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.path, request.url.params.get("format")))
+        if request.method == "POST":
+            seen.append(json.loads(request.content))
+        return httpx.Response(200, content=b"%PDF-1.4", headers={"content-type": "application/pdf"})
+
+    api = _client(handler)
+    period = {"label": "2025", "start": "2025-01-01", "end": "2026-01-01"}
+
+    assert api.export_analysis("a1", "pdf") == b"%PDF-1.4"
+    assert api.export_client_analytics("d1", period, period, True, "xlsx") == b"%PDF-1.4"
+    assert seen[0] == ("GET", "/analyses/a1/export", "pdf")
+    assert seen[1] == ("POST", "/datasets/d1/client-analytics/export", "xlsx")
+    assert seen[2]["options"] == {"dedupe_exact_duplicates": True}
+
+
+def test_export_error_is_an_api_error() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        body = {"error": {"code": "nothing_to_export", "message": "No table."}}
+        return httpx.Response(409, json=body)
+
+    with pytest.raises(ApiError) as caught:
+        _client(handler).export_analysis("a1", "csv")
+
+    assert caught.value.code == "nothing_to_export"

@@ -107,7 +107,7 @@ def _conversation(api: ApiClient, dataset_id: str, conversation_id: str) -> None
     if st.session_state.get(_CONFIRM) == conversation_id:
         _delete_controls(api, conversation)
     for analysis in conversation["analyses"]:
-        render_analysis(analysis)
+        render_analysis(analysis, api=api)
 
 
 def main() -> None:

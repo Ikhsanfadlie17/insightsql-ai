@@ -156,7 +156,7 @@ def main() -> None:
             else:
                 show_api_error(error)
     for analysis in analyses:
-        render_analysis(analysis)
+        render_analysis(analysis, api=api)
 
     if not analyses and configured:
         st.markdown("**Try a question**")
