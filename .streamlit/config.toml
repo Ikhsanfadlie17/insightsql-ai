@@ -1,0 +1,19 @@
+# Streamlit configuration. Palette from the ui-ux-pro-max "Minimalism & Swiss" design system.
+[theme]
+base = "light"
+primaryColor = "#1E40AF"
+backgroundColor = "#F8FAFC"
+secondaryBackgroundColor = "#F1F5F9"
+textColor = "#0F172A"
+font = "Fira Sans:https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "Fira Code:https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap, monospace"
+
+[server]
+# Matches the backend MAX_UPLOAD_MB default; the backend enforces the real limit.
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

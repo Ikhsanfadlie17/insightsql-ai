@@ -1,0 +1,79 @@
+/* InsightSQL AI design tokens (ui-ux-pro-max: Minimalism & Swiss Style, dense dashboard). */
+/* Fonts (Fira Sans / Fira Code) are set in .streamlit/config.toml, not here: a
+   global font-family rule would also override the Material Symbols icon font. */
+
+:root {
+  --color-primary: #1E40AF;
+  --color-secondary: #3B82F6;
+  --color-accent: #D97706;
+  --color-background: #F8FAFC;
+  --color-card: #FFFFFF;
+  --color-foreground: #0F172A;
+  --color-muted-foreground: #475569;
+  --color-border: #E2E8F0;
+  --color-ring: #1E40AF;
+  --radius: 10px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+}
+
+/* Page rhythm */
+.block-container {
+  padding-top: var(--space-3);
+  max-width: 1400px;
+}
+
+h1 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-foreground);
+}
+
+/* KPI cards */
+[data-testid="stMetric"] {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+}
+
+[data-testid="stMetricValue"] {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+[data-testid="stMetricLabel"] {
+  color: var(--color-muted-foreground);
+}
+
+/* Bordered containers act as cards */
+[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--color-card);
+  border-radius: var(--radius);
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+  border-right: 1px solid var(--color-border);
+}
+
+/* Visible keyboard focus (WCAG 2.4.7) */
+button:focus-visible,
+[role="tab"]:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-ring) !important;
+  outline-offset: 2px;
+}
+
+button {
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
