@@ -75,9 +75,38 @@ class LLMNotConfiguredError(AppError):
 
 
 class LLMError(AppError):
-    """The LLM provider failed or returned an unusable response."""
+    """The LLM provider failed or returned an unusable response.
+
+    ``attempts`` counts requests made, including retries, for usage tracking.
+    Messages never contain provider response bodies (they can echo the prompt).
+    """
 
     code = "llm_error"
+    status_code = 502
+
+    def __init__(self, message: str, attempts: int = 1) -> None:
+        super().__init__(message)
+        self.attempts = attempts
+
+
+class LLMTimeoutError(LLMError):
+    """The provider did not answer within the timeout (after bounded retries)."""
+
+    code = "llm_timeout"
+    status_code = 504
+
+
+class LLMRateLimitError(LLMError):
+    """The provider kept rate limiting requests (after bounded retries)."""
+
+    code = "llm_rate_limited"
+    status_code = 429
+
+
+class LLMOutputError(LLMError):
+    """The provider answered, but not with the required structured output."""
+
+    code = "llm_invalid_output"
     status_code = 502
 
 

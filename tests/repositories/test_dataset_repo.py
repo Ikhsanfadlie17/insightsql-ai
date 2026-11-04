@@ -60,7 +60,7 @@ def test_schema_has_all_metadata_tables(tmp_path: Path) -> None:
         "column_mappings",
         "conversations",
         "analyses",
-        "llm_usage",
+        "llm_requests",
     } <= tables
 
 

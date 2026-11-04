@@ -64,21 +64,29 @@ CREATE TABLE IF NOT EXISTS analyses (
     created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS llm_usage (
+CREATE TABLE IF NOT EXISTS llm_requests (
     id TEXT PRIMARY KEY,
-    analysis_id TEXT REFERENCES analyses(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL,
     purpose TEXT NOT NULL,
+    dataset_id TEXT,
+    analysis_id TEXT,
     model TEXT NOT NULL,
-    input_tokens INTEGER NOT NULL,
-    output_tokens INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('success', 'error')),
+    attempts INTEGER NOT NULL,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    cached_tokens INTEGER,
     est_cost_usd REAL,
+    cost_status TEXT NOT NULL,
     latency_ms REAL NOT NULL,
-    created_at TEXT NOT NULL
+    error_code TEXT,
+    error_message TEXT,
+    prompt_version TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversations_dataset ON conversations(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_analyses_conversation ON analyses(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
+CREATE INDEX IF NOT EXISTS idx_llm_requests_created ON llm_requests(created_at);
 """
 
 # Columns added after the first release: (table, column, definition). Applied to
@@ -92,6 +100,12 @@ MIGRATIONS: tuple[tuple[str, str, str], ...] = (
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
+    # llm_usage (Phase 1 design) was never written to; llm_requests replaces it.
+    legacy = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'llm_usage'"
+    ).fetchone()
+    if legacy and conn.execute("SELECT COUNT(*) FROM llm_usage").fetchone()[0] == 0:
+        conn.execute("DROP TABLE llm_usage")
     for table, column, definition in MIGRATIONS:
         existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         if column not in existing:

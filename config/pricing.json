@@ -1,1 +1,6 @@
-{}
+{
+  "currency": "USD",
+  "updated": null,
+  "source": "Fill in from your provider's current pricing page. Prices change; nothing here is assumed.",
+  "models": {}
+}
