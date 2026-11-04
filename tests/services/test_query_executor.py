@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
@@ -231,6 +232,11 @@ def test_runaway_queries_are_stopped_by_hard_limits(
     assert time.perf_counter() - started < 8
 
 
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="The RSS watchdog reads /proc (Linux only). Elsewhere the worker is still stopped "
+    "by the wall-clock timeout, with a timeout message instead of a memory message.",
+)
 def test_memory_kill_has_a_clear_message(settings: Settings, dataset_path: Path) -> None:
     limited = settings.model_copy(update={"query_process_memory_mb": 512})
 

@@ -64,8 +64,14 @@ Catatan path: plan masih menyebut `frontend/pages/...`; folder yang benar adalah
 ## 4. Setup lokal
 
 Kebutuhan: Git, Python **3.13**, (opsional) Node.js 18+ untuk e2e Playwright. Di Windows
-disarankan **WSL2**: watchdog memori worker query membaca `/proc` (Linux); di macOS/Windows
-hanya timeout dan batas lain yang berlaku, sehingga beberapa test sandbox bisa berbeda.
+disarankan **WSL2**: watchdog memori worker query membaca `/proc` (Linux). Di Windows/macOS
+query yang memakan memori tetap dihentikan oleh timeout (10 s), tetapi memori bisa membengkak
+selama itu; test `test_memory_kill_has_a_clear_message` di-skip di luar Linux (terverifikasi di
+Windows 2026-11-04: tanpa skip, test itu menerima timeout, bukan pesan memori). Deployment
+(Docker) memakai Linux. Watchdog lintas platform (mis. `psutil`) = kandidat Phase 7/8.
+Di Windows `cmd`: aktifkan venv dengan `.venv\Scripts\activate.bat`, set variabel dengan
+`set BACKEND_URL=http://localhost:8000`; di PowerShell `.venv\Scripts\Activate.ps1` dan
+`$env:BACKEND_URL = "http://localhost:8000"`. Pakai `py -3.13 -m venv .venv`.
 
 ```bash
 git clone https://github.com/Ikhsanfadlie17/AI-Powered-Data-Analytics-Business-Intelligence-Platform.git
@@ -74,7 +80,7 @@ python3.13 -m venv .venv
 source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 cp .env.example .env                 # isi OPENAI_API_KEY dan OPENAI_MODEL bila ingin uji AI
-python -m pytest -q                  # harus: 757 passed
+python -m pytest -q                  # Linux/WSL: 757 passed; Windows/macOS: 756 passed, 1 skipped
 ruff check backend tests frontend scripts
 ```
 
