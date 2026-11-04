@@ -1,0 +1,796 @@
+ID Klien,Nama Klien,Tanggal Layanan,Departemen,Jenis Layanan,Pendapatan (Rp),Status
+KL-0019,CV Mandiri Pangan,03/01/2023,Pelatihan,Pelatihan Karyawan,8200000.0,Selesai
+KL-0105,PT Utama Finansial,03/01/2023,Teknologi Informasi,Implementasi ERP,104500000.0,Selesai
+KL-0010,PT Karya Finansial,05/01/2023,Perpajakan,Pelaporan SPT,6500000.0,Selesai
+KL-0075,PT Sentosa Logistik,05/01/2023,Teknologi Informasi,Implementasi ERP,86500000.0,Selesai
+KL-0105,PT Utama Finansial,08/01/2023,Pelatihan,Pelatihan Karyawan,13400000.0,Selesai
+KL-0064,PT Global Logistik,16/01/2023,Audit,Audit Internal,39200000.0,Selesai
+KL-0003,PT Utama Logistik,18/01/2023,Pelatihan,Workshop Manajemen,13900000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,24/01/2023,Pelatihan,Workshop Manajemen,30800000.0,Selesai
+KL-0010,PT Karya Finansial,04/02/2023,Perpajakan,Pelaporan SPT,8900000.0,Selesai
+KL-0103, PT Prima Teknologi Berkah  ,12/02/2023,Konsultasi Bisnis,Konsultasi Strategi,,Selesai
+KL-0028,PT Nusantara Farmasi,16/02/2023,Audit,Audit Internal,35400000.0,Selesai
+KL-0131,PT Mandiri Retail,18/02/2023,Perpajakan,Pelaporan SPT,6100000.0,Selesai
+KL-0010,PT Karya Finansial,24/02/2023,Perpajakan,Konsultasi Pajak,10100000.0,Selesai
+KL-0001,PT Makmur Media,01/03/2023,Pelatihan,Pelatihan Karyawan,9400000.0,Proses
+KL-0060,CV Mitra Finansial,07/03/2023,Perpajakan,Konsultasi Pajak,11800000.0,Selesai
+KL-0142,CV Utama Agro,07/03/2023,Audit,Audit Internal,41100000.0,Selesai
+KL-0095,PT Maju Media,13/03/2023,Audit,Audit Keuangan,44700000.0,Selesai
+KL-0135,PT Mandiri Teknologi Abadi,13/03/2023,Konsultasi Bisnis,Riset Pasar,34200000.0,Selesai
+,PT Makmur Finansial,16/03/2023,Teknologi Informasi,Implementasi ERP,63500000.0,Selesai
+KL-0045,PT Utama Teknologi,19/03/2023,Perpajakan,Konsultasi Pajak,21600000.0,Selesai
+KL-0114,PT Jaya Agro,19/03/2023,Pelatihan,Pelatihan Karyawan,9600000.0,Selesai
+KL-0019,CV Mandiri Pangan,21/03/2023,Pelatihan,Pelatihan Karyawan,10200000.0,Proses
+KL-0049,CV Sejahtera Agro,25/03/2023,Konsultasi Bisnis,Konsultasi Strategi,,Selesai
+KL-0076,PT Karya Retail,28/03/2023,Audit,Audit Keuangan,72800000.0,Selesai
+KL-0112,PT Jaya Teknologi,28/03/2023,Teknologi Informasi,Implementasi ERP,58000000.0,Selesai
+KL-0002,CV Prima Energi,05/04/2023,Perpajakan,Pelaporan SPT,10400000.0,Proses
+KL-0008,CV Maju Media,07/04/2023,Audit,Audit Internal,25400000.0,Selesai
+KL-0103, PT Prima Teknologi Berkah  ,11/04/2023,Konsultasi Bisnis,Konsultasi Strategi,71000000.0,Selesai
+KL-0019,CV Mandiri Pangan,16/04/2023,Pelatihan,Workshop Manajemen,20800000.0,Selesai
+KL-0077,PT Global Finansial Cahaya,16/04/2023,Audit,Audit Keuangan,132900000.0,Selesai
+KL-0003,PT Utama Logistik,19/04/2023,Pelatihan,Workshop Manajemen,11200000.0,Selesai
+KL-0061,PT Cahaya Konstruksi Prima,23/04/2023,Teknologi Informasi,Implementasi ERP,81000000.0,Proses
+KL-0020,PT Berkah Logistik,27/04/2023,Pelatihan,Workshop Manajemen,28100000.0,Selesai
+KL-0075,PT Sentosa Logistik,27/04/2023,Teknologi Informasi,Audit Sistem TI,26800000.0,Selesai
+KL-0076,PT Karya Retail,28/04/2023,Audit,Audit Internal,54900000.0,Selesai
+KL-0046,CV Jaya Logistik,01/05/2023,Pelatihan,Pelatihan Karyawan,16100000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,01/05/2023,Konsultasi Bisnis,Riset Pasar,26000000.0,Selesai
+KL-0075,PT Sentosa Logistik,04/05/2023,Teknologi Informasi,Audit Sistem TI,35000000.0,Dibatalkan
+KL-0014,CV Prima Logistik,05/05/2023,Perpajakan,Pelaporan SPT,6200000.0,Selesai
+KL-0020,PT Berkah Logistik,15/05/2023,Pelatihan,Pelatihan Karyawan,14800000.0,Selesai
+,CV Prima Logistik,16/05/2023,Konsultasi Bisnis,Riset Pasar,8400000.0,Selesai
+KL-0114,PT Jaya Agro,17/05/2023,Pelatihan,Workshop Manajemen,13600000.0,Selesai
+,CV Mitra Finansial,19/05/2023,Perpajakan,Pelaporan SPT,7800000.0,Proses
+KL-0028,PT Nusantara Farmasi,23/05/2023,Audit,Audit Internal,16400000.0,Selesai
+KL-0070,CV Sentosa Teknologi,23/05/2023,Audit,Audit Internal,42900000.0,Selesai
+KL-0003,PT Utama Logistik,10/06/2023,Pelatihan,Workshop Manajemen,14900000.0,Selesai
+,CV Sinar Agro,13/06/2023,Audit,Audit Internal,41300000.0,Selesai
+KL-0024,CV Cahaya Retail,17/06/2023,Teknologi Informasi,Audit Sistem TI,18600000.0,Selesai
+KL-0058,PT Sejahtera Pangan,17/06/2023,Perpajakan,Pelaporan SPT,15600000.0,Selesai
+KL-0046,CV Jaya Logistik,19/06/2023,Pelatihan,Pelatihan Karyawan,10800000.0,Selesai
+KL-0077,PT Global Finansial Cahaya,19/06/2023,Audit,Audit Keuangan,93500000.0,Proses
+KL-0142,CV Utama Agro,20/06/2023,Audit,Audit Internal,31100000.0,Proses
+KL-0131,PT Mandiri Retail,26/06/2023,Perpajakan,Konsultasi Pajak,12900000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,30/06/2023,Konsultasi Bisnis,Konsultasi Strategi,34400000.0,Selesai
+KL-0112,PT Jaya Teknologi,04/07/2023,Konsultasi Bisnis,Konsultasi Strategi,62200000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,05/07/2023,Perpajakan,Pelaporan SPT,13100000.0,Selesai
+KL-0136,PT Sejahtera Energi,06/07/2023,Teknologi Informasi,Audit Sistem TI,41700000.0,Selesai
+KL-0114,PT Jaya Agro,07/07/2023,Pelatihan,Workshop Manajemen,12700000.0,Selesai
+KL-0126,PT Nusantara Retail Prima,14/07/2023,Pelatihan,Pelatihan Karyawan,18500000.0,Proses
+KL-0131,PT Mandiri Retail,22/07/2023,Perpajakan,Konsultasi Pajak,22100000.0,Dibatalkan
+KL-0060,CV Mitra Finansial,23/07/2023,Perpajakan,Pelaporan SPT,7100000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,24/07/2023,Pelatihan,Workshop Manajemen,40500000.0,Selesai
+KL-0078,PT Abadi Energi Sentosa,26/07/2023,Audit,Audit Keuangan,86300000.0,Selesai
+KL-0078,PT Abadi Energi Sentosa,26/07/2023,Pelatihan,Pelatihan Karyawan,12900000.0,Selesai
+KL-0058,PT Sejahtera Pangan,28/07/2023,Perpajakan,Konsultasi Pajak,17900000.0,Proses
+KL-0078,PT Abadi Energi Sentosa,01/08/2023,Audit,Audit Keuangan,59800000.0,Selesai
+KL-0008,CV Maju Media,02/08/2023,Konsultasi Bisnis,Riset Pasar,30100000.0,Proses
+KL-0061,PT Cahaya Konstruksi Prima,03/08/2023,Teknologi Informasi,Implementasi ERP,189100000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,04/08/2023,Konsultasi Bisnis,Riset Pasar,40200000.0,Selesai
+KL-0114,PT Jaya Agro,10/08/2023,Pelatihan,Workshop Manajemen,12500000.0,Selesai
+KL-0061,PT Cahaya Konstruksi Prima,12/08/2023,Teknologi Informasi,Implementasi ERP,106500000.0,Selesai
+KL-0070,CV Sentosa Teknologi,12/08/2023,Audit,Audit Internal,52000000.0,Selesai
+KL-0076,PT Karya Retail,13/08/2023,Audit,Audit Keuangan,91900000.0,Selesai
+KL-0078,PT Abadi Energi Sentosa,13/08/2023,Audit,Audit Keuangan,48600000.0,Selesai
+KL-0095,PT Maju Media,14/08/2023,Konsultasi Bisnis,Riset Pasar,28300000.0,Selesai
+KL-0049,CV Sejahtera Agro,17/08/2023,Konsultasi Bisnis,Konsultasi Strategi,64400000.0,Selesai
+KL-0002,CV Prima Energi,18/08/2023,Perpajakan,Konsultasi Pajak,16900000.0,Selesai
+KL-0105,PT Utama Finansial,20/08/2023,Teknologi Informasi,Audit Sistem TI,43600000.0,Proses
+KL-0001,PT Makmur Media,22/08/2023,Pelatihan,Workshop Manajemen,19400000.0,Selesai
+KL-0096,PT Berkah Finansial Prima,22/08/2023,Teknologi Informasi,Implementasi ERP,51900000.0,Selesai
+KL-0088,PT Makmur Finansial,25/08/2023,Teknologi Informasi,Audit Sistem TI,51400000.0,Selesai
+KL-0003,PT Utama Logistik,26/08/2023,Pelatihan,Pelatihan Karyawan,9800000.0,Selesai
+KL-0078,PT Abadi Energi Sentosa,27/08/2023,Pelatihan,Workshop Manajemen,15700000.0,Proses
+KL-0140,PT Mandiri Energi Sejahtera,28/08/2023,Perpajakan,Pelaporan SPT,6900000.0,Proses
+KL-0112,PT Jaya Teknologi,29/08/2023,Teknologi Informasi,Audit Sistem TI,42900000.0,Selesai
+KL-0008,CV Maju Media,02/09/2023,Audit,Audit Internal,42900000.0,Selesai
+KL-0095,PT Maju Media,04/09/2023,Konsultasi Bisnis,Konsultasi Strategi,29300000.0,Selesai
+KL-0020,PT Berkah Logistik,18/09/2023,Pelatihan,Workshop Manajemen,33700000.0,Selesai
+KL-0135,PT Mandiri Teknologi Abadi,20/09/2023,Konsultasi Bisnis,Riset Pasar,28800000.0,Proses
+KL-0131,PT Mandiri Retail,22/09/2023,Perpajakan,Konsultasi Pajak,18200000.0,Proses
+KL-0028,PT Nusantara Farmasi,24/09/2023,Audit,Audit Internal,16800000.0,Selesai
+KL-0114,PT Jaya Agro,24/09/2023,Pelatihan,Workshop Manajemen,17400000.0,Selesai
+KL-0010,PT Karya Finansial,25/09/2023,Perpajakan,Pelaporan SPT,,Selesai
+KL-0097,PT Maju Konstruksi Global,27/09/2023,Pelatihan,Workshop Manajemen,26300000.0,Selesai
+KL-0010,PT Karya Finansial,28/09/2023,Perpajakan,Konsultasi Pajak,5900000.0,Selesai
+KL-0078,PT Abadi Energi Sentosa,29/09/2023,Audit,Audit Keuangan,45000000.0,Proses
+KL-0114,PT Jaya Agro,29/09/2023,Pelatihan,Workshop Manajemen,22300000.0,Selesai
+KL-0061,PT Cahaya Konstruksi Prima,01/10/2023,Pelatihan,Workshop Manajemen,20100000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,02/10/2023,Konsultasi Bisnis,Riset Pasar,34400000.0,Selesai
+KL-0024,CV Cahaya Retail,03/10/2023,Pelatihan,Workshop Manajemen,31400000.0,Selesai
+KL-0136,PT Sejahtera Energi,04/10/2023,Teknologi Informasi,Implementasi ERP,69300000.0,Proses
+KL-0039,PT Makmur Energi,08/10/2023,Pelatihan,Pelatihan Karyawan,14500000.0,Selesai
+KL-0135,PT Mandiri Teknologi Abadi,13/10/2023,Konsultasi Bisnis,Riset Pasar,49300000.0,Selesai
+KL-0114,PT Jaya Agro,17/10/2023,Pelatihan,Workshop Manajemen,21900000.0,Selesai
+KL-0142,CV Utama Agro,19/10/2023,Audit,Audit Internal,72000000.0,Selesai
+KL-0001,PT Makmur Media,20/10/2023,Teknologi Informasi,Audit Sistem TI,25700000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,20/10/2023,Pelatihan,Workshop Manajemen,37900000.0,Dibatalkan
+KL-0114,PT Jaya Agro,21/10/2023,Pelatihan,Pelatihan Karyawan,13600000.0,Selesai
+KL-0119,PT Karya Farmasi,23/10/2023,Perpajakan,Pelaporan SPT,6700000.0,Selesai
+KL-0126,PT Nusantara Retail Prima,24/10/2023,Pelatihan,Workshop Manajemen,18000000.0,Selesai
+KL-0072,PT Cahaya Finansial,25/10/2023,Teknologi Informasi,Implementasi ERP,93300000.0,Selesai
+KL-0003,PT Utama Logistik,27/10/2023,Konsultasi Bisnis,Riset Pasar,32700000.0,Selesai
+KL-0134,PT Sejahtera Farmasi,28/10/2023,Perpajakan,Konsultasi Pajak,13500000.0,Proses
+KL-0003,PT Utama Logistik,10/11/2023,Pelatihan,Pelatihan Karyawan,15900000.0,Dibatalkan
+KL-0010,PT Karya Finansial,10/11/2023,Perpajakan,Pelaporan SPT,8900000.0,Selesai
+KL-0114,PT Jaya Agro,11/11/2023,Pelatihan,Workshop Manajemen,20000000.0,Selesai
+KL-0070,CV Sentosa Teknologi,15/11/2023,Audit,Audit Internal,44800000.0,Proses
+KL-0088,PT Makmur Finansial,15/11/2023,Audit,Audit Internal,27700000.0,Selesai
+KL-0039,PT Makmur Energi,19/11/2023,Pelatihan,Workshop Manajemen,9200000.0,Selesai
+KL-0077,PT Global Finansial Cahaya,21/11/2023,Audit,Audit Internal,39000000.0,Selesai
+KL-0136,PT Sejahtera Energi,21/11/2023,Konsultasi Bisnis,Riset Pasar,33400000.0,Selesai
+KL-0078,PT Abadi Energi Sentosa,23/11/2023,Audit,Audit Keuangan,80100000.0,Selesai
+KL-0072,PT Cahaya Finansial,25/11/2023,Perpajakan,Konsultasi Pajak,8300000.0,Selesai
+KL-0131,PT Mandiri Retail,25/11/2023,Perpajakan,Pelaporan SPT,11500000.0,Selesai
+KL-0045,PT Utama Teknologi,26/11/2023,Perpajakan,Konsultasi Pajak,12200000.0,Selesai
+KL-0020,PT Berkah Logistik,27/11/2023,Pelatihan,Workshop Manajemen,12400000.0,Selesai
+KL-0003,PT Utama Logistik,04/12/2023,Konsultasi Bisnis,Konsultasi Strategi,58800000.0,Selesai
+KL-0028,PT Nusantara Farmasi,06/12/2023,Pelatihan,Workshop Manajemen,13300000.0,Proses
+KL-0088,PT Makmur Finansial,06/12/2023,Teknologi Informasi,Implementasi ERP,97600000.0,Dibatalkan
+KL-0095,PT Maju Media,09/12/2023,Konsultasi Bisnis,Konsultasi Strategi,47200000.0,Selesai
+KL-0060,CV Mitra Finansial,10/12/2023,Perpajakan,Konsultasi Pajak,14500000.0,Selesai
+KL-0075,PT Sentosa Logistik,16/12/2023,Teknologi Informasi,Implementasi ERP,66100000.0,Selesai
+KL-0045,PT Utama Teknologi,21/12/2023,Teknologi Informasi,Audit Sistem TI,15800000.0,Selesai
+KL-0062,CV Global Pangan,07/01/2024,Audit,Audit Internal,37600000.0,Selesai
+KL-0028,PT Nusantara Farmasi,09/01/2024,Konsultasi Bisnis,Konsultasi Strategi,51300000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,10/01/2024,Pelatihan,Pelatihan Karyawan,9000000.0,Selesai
+KL-0140,PT Mandiri Energi Sejahtera,14/01/2024,Perpajakan,Konsultasi Pajak,11300000.0,Selesai
+KL-0028,PT Nusantara Farmasi,15/01/2024,Audit,Audit Keuangan,84200000.0,Selesai
+KL-0001,PT Makmur Media,16/01/2024,Pelatihan,Workshop Manajemen,20900000.0,Selesai
+KL-0020,PT Berkah Logistik,20/01/2024,Pelatihan,Workshop Manajemen,20000000.0,Selesai
+KL-0142,CV Utama Agro,20/01/2024,Audit,Audit Internal,17400000.0,Selesai
+KL-0039,PT Makmur Energi,27/01/2024,Pelatihan,Workshop Manajemen,21700000.0,Selesai
+KL-0046,CV Jaya Logistik,27/01/2024,Pelatihan,Pelatihan Karyawan,12400000.0,Selesai
+KL-0092,CV Jaya Agro,03/02/2024,Audit,Audit Keuangan,78100000.0,Selesai
+KL-0101,PT Mitra Retail Jaya,03/02/2024,Pelatihan,Pelatihan Karyawan,17100000.0,Selesai
+KL-0020,PT Berkah Logistik,05/02/2024,Teknologi Informasi,Audit Sistem TI,30800000.0,Selesai
+KL-0115,PT Berkah Media Maju,09/02/2024,Pelatihan,Workshop Manajemen,20500000.0,Selesai
+KL-0019,CV Mandiri Pangan,12/02/2024,Pelatihan,Workshop Manajemen,18500000.0,Dibatalkan
+KL-0058,PT Sejahtera Pangan,15/02/2024,Perpajakan,Pelaporan SPT,21700000.0,Selesai
+KL-0037,PT Mandiri Energi,16/02/2024,Konsultasi Bisnis,Riset Pasar,40300000.0,Selesai
+KL-0039,PT Makmur Energi,19/02/2024,Pelatihan,Pelatihan Karyawan,9300000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,22/02/2024,Pelatihan,Pelatihan Karyawan,15800000.0,Selesai
+KL-0115,PT Berkah Media Maju,23/02/2024,Pelatihan,Pelatihan Karyawan,9300000.0,Proses
+KL-0019,CV Mandiri Pangan,26/02/2024,Pelatihan,Workshop Manajemen,31700000.0,Selesai
+KL-0070,CV Sentosa Teknologi,26/02/2024,Audit,Audit Keuangan,104800000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,26/02/2024,Konsultasi Bisnis,Riset Pasar,29500000.0,Selesai
+KL-0028,PT Nusantara Farmasi,29/02/2024,Audit,Audit Internal,32900000.0,Selesai
+KL-0089,PT KARYA PANGAN,02/03/2024,Konsultasi Bisnis,Riset Pasar,26600000.0,Selesai
+KL-0150,CV Sinar Agro,05/03/2024,Audit,Audit Keuangan,112400000.0,Selesai
+KL-0101,PT Mitra Retail Jaya,10/03/2024,Pelatihan,Pelatihan Karyawan,12200000.0,Selesai
+KL-0095,PT Maju Media,11/03/2024,Konsultasi Bisnis,Riset Pasar,21900000.0,Selesai
+KL-0091,CV Sinar Pangan,12/03/2024,Teknologi Informasi,Implementasi ERP,59200000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,15/03/2024,Konsultasi Bisnis,Riset Pasar,21100000.0,Dibatalkan
+KL-0120,PT Utama Pangan,16/03/2024,Teknologi Informasi,Implementasi ERP,148500000.0,Selesai
+KL-0010,PT Karya Finansial,17/03/2024,Perpajakan,Konsultasi Pajak,13300000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,23/03/2024,Perpajakan,Konsultasi Pajak,17200000.0,Selesai
+KL-0116,PT Abadi Logistik,27/03/2024,Konsultasi Bisnis,Riset Pasar,25700000.0,Selesai
+KL-0140,PT Mandiri Energi Sejahtera,29/03/2024,Perpajakan,Pelaporan SPT,7000000.0,Selesai
+KL-0001,PT Makmur Media,30/03/2024,Pelatihan,Pelatihan Karyawan,8600000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,30/03/2024,Pelatihan,Pelatihan Karyawan,11400000.0,Selesai
+KL-0001,PT Makmur Media,30/03/2024,Pelatihan,Pelatihan Karyawan,8600000.0,Selesai
+KL-0091,CV Sinar Pangan,02/04/2024,Teknologi Informasi,Implementasi ERP,78000000.0,Proses
+KL-0150,CV Sinar Agro,09/04/2024,Audit,Audit Keuangan,86300000.0,Selesai
+KL-0150,CV Sinar Agro,09/04/2024,Audit,Audit Keuangan,86300000.0,Selesai
+KL-0120,PT Utama Pangan,13/04/2024,Konsultasi Bisnis,Konsultasi Strategi,69300000.0,Selesai
+KL-0079,PT Utama Media,14/04/2024,Teknologi Informasi,Audit Sistem TI,56200000.0,Selesai
+KL-0105,PT Utama Finansial,17/04/2024,Perpajakan,Pelaporan SPT,9200000.0,Selesai
+KL-0003,PT Utama Logistik,19/04/2024,Teknologi Informasi,Audit Sistem TI,17800000.0,Selesai
+KL-0094,PT Karya Energi,25/04/2024,Audit,Audit Keuangan,79900000.0,Dibatalkan
+KL-0005,PT Makmur Teknologi,26/04/2024,Pelatihan,Pelatihan Karyawan,10200000.0,Selesai
+KL-0129,PT Jaya Finansial,27/04/2024,Audit,Audit Keuangan,84200000.0,Selesai
+KL-0114,PT Jaya Agro,29/04/2024,Audit,Audit Keuangan,119700000.0,Selesai
+KL-0095,PT Maju Media,01/05/2024,Konsultasi Bisnis,Riset Pasar,40900000.0,Selesai
+KL-0076,PT Karya Retail,18/05/2024,Audit,Audit Keuangan,79500000.0,Selesai
+KL-0140,PT Mandiri Energi Sejahtera,21/05/2024,Teknologi Informasi,Audit Sistem TI,25500000.0,Selesai
+KL-0070,CV Sentosa Teknologi,22/05/2024,Audit,Audit Keuangan,100700000.0,Selesai
+KL-0093,PT Mitra Pangan,22/05/2024,Konsultasi Bisnis,Konsultasi Strategi,50300000.0,Dibatalkan
+KL-0026,PT Jaya Retail,23/05/2024,Pelatihan,Workshop Manajemen,11600000.0,Selesai
+KL-0105,PT Utama Finansial,29/05/2024,Teknologi Informasi,Implementasi ERP,65600000.0,Selesai
+KL-0003,PT Utama Logistik,31/05/2024,Pelatihan,Workshop Manajemen,13900000.0,Selesai
+KL-0037,PT Mandiri Energi,07/06/2024,Teknologi Informasi,Implementasi ERP,82800000.0,Selesai
+KL-0039,PT Makmur Energi,08/06/2024,Pelatihan,Pelatihan Karyawan,10200000.0,Proses
+KL-0054,PT Mandiri Farmasi,16/06/2024,Pelatihan,Pelatihan Karyawan,12700000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,17/06/2024,Teknologi Informasi,Audit Sistem TI,34400000.0,Selesai
+KL-0026,PT Jaya Retail,18/06/2024,Teknologi Informasi,Implementasi ERP,100000000.0,Selesai
+KL-0087,PT Sentosa Media,20/06/2024,Konsultasi Bisnis,Konsultasi Strategi,58600000.0,Selesai
+KL-0005,PT Makmur Teknologi,21/06/2024,Pelatihan,Workshop Manajemen,17200000.0,Selesai
+KL-0037,PT Mandiri Energi,23/06/2024,Teknologi Informasi,Audit Sistem TI,43400000.0,Selesai
+KL-0046,CV Jaya Logistik,29/06/2024,Perpajakan,Pelaporan SPT,8600000.0,Selesai
+KL-0010,PT Karya Finansial,03/07/2024,Pelatihan,Workshop Manajemen,14600000.0,Selesai
+KL-0142,CV Utama Agro,05/07/2024,Audit,Audit Internal,49600000.0,Selesai
+KL-0089,PT Karya Pangan,07/07/2024,Konsultasi Bisnis,Riset Pasar,87500000.0,Selesai
+KL-0062,CV Global Pangan,10/07/2024,Audit,Audit Keuangan,51100000.0,Selesai
+KL-0045,PT Utama Teknologi,12/07/2024,Konsultasi Bisnis,Konsultasi Strategi,46600000.0,Selesai
+KL-0092,CV Jaya Agro,12/07/2024,Audit,Audit Keuangan,105000000.0,Selesai
+KL-0137,PT Global Retail Karya,14/07/2024,Perpajakan,Pelaporan SPT,6000000.0,Selesai
+KL-0112,PT Jaya Teknologi,15/07/2024,Teknologi Informasi,Implementasi ERP,87700000.0,Selesai
+KL-0037,PT Mandiri Energi,21/07/2024,Teknologi Informasi,Audit Sistem TI,23300000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,22/07/2024,Konsultasi Bisnis,Konsultasi Strategi,42800000.0,Selesai
+KL-0129,PT Jaya Finansial,23/07/2024,Audit,Audit Keuangan,90200000.0,Proses
+KL-0005,PT Makmur Teknologi,28/07/2024,Pelatihan,Workshop Manajemen,8900000.0,Selesai
+KL-0120,PT Utama Pangan,09/08/2024,Konsultasi Bisnis,Riset Pasar,33300000.0,Selesai
+KL-0051,PT Sinar Teknologi Berkah,10/08/2024,Perpajakan,Pelaporan SPT,11600000.0,Selesai
+KL-0103,PT PRIMA TEKNOLOGI BERKAH,11/08/2024,Pelatihan,Pelatihan Karyawan,11700000.0,Proses
+KL-0065,PT Nusantara Logistik,14/08/2024,Teknologi Informasi,Audit Sistem TI,42400000.0,Selesai
+KL-0003,PT Utama Logistik,15/08/2024,Pelatihan,Pelatihan Karyawan,10300000.0,Selesai
+KL-0114,PT Jaya Agro,18/08/2024,Pelatihan,Pelatihan Karyawan,10300000.0,Dibatalkan
+KL-0150,CV Sinar Agro,25/08/2024,Audit,Audit Internal,31300000.0,Selesai
+KL-0116,PT Abadi Logistik,26/08/2024,Konsultasi Bisnis,Riset Pasar,28000000.0,Selesai
+KL-0120,PT Utama Pangan,26/08/2024,Konsultasi Bisnis,Konsultasi Strategi,40300000.0,Selesai
+KL-0101,PT Mitra Retail Jaya,31/08/2024,Pelatihan,Workshop Manajemen,23700000.0,Selesai
+KL-0143,PT Global Farmasi,02/09/2024,Audit,Audit Internal,41300000.0,Selesai
+KL-0095,PT Maju Media,03/09/2024,Konsultasi Bisnis,Riset Pasar,,Selesai
+KL-0003,PT Utama Logistik,04/09/2024,Pelatihan,Pelatihan Karyawan,14200000.0,Selesai
+KL-0093,PT Mitra Pangan,06/09/2024,Konsultasi Bisnis,Riset Pasar,28700000.0,Selesai
+KL-0129,PT Jaya Finansial,17/09/2024,Audit,Audit Internal,73100000.0,Proses
+KL-0003,PT Utama Logistik,19/09/2024,Pelatihan,Pelatihan Karyawan,15300000.0,Dibatalkan
+KL-0115,PT Berkah Media Maju,20/09/2024,Pelatihan,Workshop Manajemen,,Selesai
+KL-0094,PT Karya Energi,21/09/2024,Konsultasi Bisnis,Riset Pasar,17500000.0,Proses
+KL-0092,CV Jaya Agro,28/09/2024,Audit,Audit Keuangan,28500000.0,Selesai
+KL-0033,CV Sentosa Energi,30/09/2024,Pelatihan,Pelatihan Karyawan,11200000.0,Selesai
+KL-0065,PT Nusantara Logistik,05/10/2024,Teknologi Informasi,Audit Sistem TI,32700000.0,Selesai
+KL-0077,PT Global Finansial Cahaya,05/10/2024,Audit,Audit Internal,45100000.0,Proses
+KL-0083,CV Sejahtera Agro Cahaya,05/10/2024,Konsultasi Bisnis,Konsultasi Strategi,24500000.0,Selesai
+KL-0112,PT Jaya Teknologi,05/10/2024,Teknologi Informasi,Implementasi ERP,121200000.0,Selesai
+KL-0070,CV Sentosa Teknologi,06/10/2024,Audit,Audit Keuangan,79100000.0,Selesai
+KL-0129,PT Jaya Finansial,08/10/2024,Audit,Audit Keuangan,68100000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,09/10/2024,Perpajakan,Konsultasi Pajak,15400000.0,Selesai
+KL-0142,CV Utama Agro,10/10/2024,Audit,Audit Internal,45500000.0,Selesai
+KL-0065,PT Nusantara Logistik,14/10/2024,Teknologi Informasi,Audit Sistem TI,23100000.0,Selesai
+KL-0065,PT Nusantara Logistik,14/10/2024,Teknologi Informasi,Audit Sistem TI,23100000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,15/10/2024,Konsultasi Bisnis,Riset Pasar,43200000.0,Selesai
+KL-0114,PT Jaya Agro,16/10/2024,Pelatihan,Pelatihan Karyawan,12300000.0,Selesai
+KL-0037,PT Mandiri Energi,17/10/2024,Teknologi Informasi,Implementasi ERP,49900000.0,Dibatalkan
+KL-0026,PT Jaya Retail,20/10/2024,Teknologi Informasi,Implementasi ERP,129700000.0,Proses
+KL-0058,PT Sejahtera Pangan,22/10/2024,Perpajakan,Konsultasi Pajak,12600000.0,Selesai
+KL-0131,PT Mandiri Retail,22/10/2024,Perpajakan,Konsultasi Pajak,6400000.0,Selesai
+KL-0070,CV Sentosa Teknologi,05/11/2024,Audit,Audit Internal,31300000.0,Selesai
+KL-0150,CV Sinar Agro,06/11/2024,Audit,Audit Keuangan,41500000.0,Selesai
+KL-0089,PT Karya Pangan,08/11/2024,Konsultasi Bisnis,Konsultasi Strategi,49000000.0,Dibatalkan
+KL-0120,PT Utama Pangan,12/11/2024,Konsultasi Bisnis,Riset Pasar,20200000.0,Selesai
+KL-0103,PT PRIMA TEKNOLOGI BERKAH,13/11/2024,Konsultasi Bisnis,Konsultasi Strategi,62500000.0,Proses
+KL-0131,PT Mandiri Retail,19/11/2024,Perpajakan,Konsultasi Pajak,11400000.0,Selesai
+KL-0003,PT Utama Logistik,20/11/2024,Pelatihan,Workshop Manajemen,13500000.0,Selesai
+KL-0107,PT Maju Finansial Cahaya,21/11/2024,Audit,Audit Keuangan,78600000.0,Proses
+KL-0112,PT Jaya Teknologi,21/11/2024,Konsultasi Bisnis,Konsultasi Strategi,54700000.0,Selesai
+KL-0050,PT Mitra Retail,24/11/2024,Audit,Audit Internal,43400000.0,Selesai
+KL-0093,PT Mitra Pangan,24/11/2024,Konsultasi Bisnis,Riset Pasar,29400000.0,Proses
+KL-0143,PT Global Farmasi,25/11/2024,Perpajakan,Pelaporan SPT,9200000.0,Selesai
+KL-0090,PT Mitra Finansial Maju,30/11/2024,Audit,Audit Internal,31700000.0,Dibatalkan
+KL-0094,PT Karya Energi,30/11/2024,Audit,Audit Keuangan,50600000.0,Selesai
+KL-0120,PT Utama Pangan,02/12/2024,Konsultasi Bisnis,Konsultasi Strategi,41100000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,05/12/2024,Audit,Audit Keuangan,58000000.0,Selesai
+KL-0005,PT Makmur Teknologi,09/12/2024,Pelatihan,Workshop Manajemen,27900000.0,Selesai
+KL-0140,PT Mandiri Energi Sejahtera,10/12/2024,Perpajakan,Konsultasi Pajak,9600000.0,Selesai
+KL-0095,PT Maju Media,11/12/2024,Konsultasi Bisnis,Riset Pasar,25700000.0,Proses
+KL-0051,PT Sinar Teknologi Berkah,14/12/2024,Teknologi Informasi,Audit Sistem TI,35400000.0,Selesai
+KL-0105,PT Utama Finansial,19/12/2024,Teknologi Informasi,Audit Sistem TI,26500000.0,Selesai
+KL-0046,CV Jaya Logistik,20/12/2024,Audit,Audit Keuangan,91700000.0,Selesai
+KL-0073,PT Makmur Media Karya,28/12/2024,Teknologi Informasi,Audit Sistem TI,42700000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,30/12/2024,Teknologi Informasi,Audit Sistem TI,54800000.0,Selesai
+KL-0137,PT Global Retail Karya,31/12/2024,Perpajakan,Konsultasi Pajak,24400000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,02/01/2025,Pelatihan,Pelatihan Karyawan,9600000.0,Selesai
+KL-0021,PT Nusantara Agro,03/01/2025,Konsultasi Bisnis,Konsultasi Strategi,26600000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,04/01/2025,Konsultasi Bisnis,Konsultasi Strategi,106400000.0,Selesai
+KL-0058,PT Sejahtera Pangan,06/01/2025,Perpajakan,Konsultasi Pajak,18100000.0,Selesai
+KL-0139,PT Cahaya Teknologi,07/01/2025,Audit,Audit Keuangan,64900000.0,Selesai
+KL-0086,CV Sentosa Energi Prima,08/01/2025,Teknologi Informasi,Implementasi ERP,55600000.0,Selesai
+KL-0023,PT Cahaya Retail,10/01/2025,Perpajakan,Konsultasi Pajak,9800000.0,Selesai
+KL-0142,CV Utama Agro,11/01/2025,Audit,Audit Keuangan,86500000.0,Proses
+KL-0146,PT Berkah Agro Berkah,11/01/2025,Pelatihan,Pelatihan Karyawan,16000000.0,Selesai
+KL-0063,CV Mitra Energi,12/01/2025,Audit,Audit Keuangan,44300000.0,Selesai
+KL-0130,PT Nusantara Retail Mandiri,14/01/2025,Pelatihan,Pelatihan Karyawan,13100000.0,Selesai
+KL-0113,PT Global Media,15/01/2025,Pelatihan,Pelatihan Karyawan,10200000.0,Proses
+KL-0150,CV Sinar Agro,15/01/2025,Audit,Audit Keuangan,66700000.0,Dibatalkan
+KL-0069,PT Global Finansial Sinar,17/01/2025,Konsultasi Bisnis,Konsultasi Strategi,65000000.0,Selesai
+KL-0068,PT Karya Media,19/01/2025,Teknologi Informasi,Audit Sistem TI,56500000.0,Proses
+KL-0070,CV Sentosa Teknologi,22/01/2025,Audit,Audit Internal,32300000.0,Selesai
+KL-0139,PT Cahaya Teknologi,25/01/2025,Konsultasi Bisnis,Konsultasi Strategi,,Proses
+KL-0133,PT Makmur Energi Karya,26/01/2025,Konsultasi Bisnis,Konsultasi Strategi,31700000.0,Selesai
+KL-0013,CV Global Farmasi,27/01/2025,Konsultasi Bisnis,Konsultasi Strategi,53400000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,28/01/2025,Pelatihan,Workshop Manajemen,13300000.0,Dibatalkan
+KL-0045,PT Utama Teknologi,29/01/2025,Audit,Audit Internal,44600000.0,Selesai
+,PT Global Retail,02/02/2025,Perpajakan,Konsultasi Pajak,17500000.0,Dibatalkan
+KL-0043,PT Makmur Pangan,04/02/2025,Teknologi Informasi,Implementasi ERP,97300000.0,Proses
+KL-0082,PT Cahaya Media,04/02/2025,Perpajakan,Konsultasi Pajak,25900000.0,Selesai
+KL-0054,PT. Mandiri Farmasi,05/02/2025,Pelatihan,Workshop Manajemen,15100000.0,Dibatalkan
+KL-0099,CV Jaya Logistik Utama,06/02/2025,Pelatihan,Pelatihan Karyawan,9400000.0,Selesai
+KL-0003,PT Utama Logistik,07/02/2025,Audit,Audit Keuangan,,Selesai
+KL-0022,PT Prima Farmasi,07/02/2025,Teknologi Informasi,Audit Sistem TI,34000000.0,Selesai
+KL-0058,PT Sejahtera Pangan,09/02/2025,Perpajakan,Pelaporan SPT,,Selesai
+KL-0087,PT Sentosa Media,09/02/2025,Perpajakan,Konsultasi Pajak,15000000.0,Selesai
+KL-0019,CV Mandiri Pangan,10/02/2025,Pelatihan,Pelatihan Karyawan,7000000.0,Selesai
+KL-0069,PT Global Finansial Sinar,11/02/2025,Perpajakan,Konsultasi Pajak,14800000.0,Selesai
+KL-0127,PT Makmur Pangan Global,13/02/2025,Audit,Audit Keuangan,64800000.0,Selesai
+KL-0041,PT Prima Teknologi,14/02/2025,Pelatihan,Pelatihan Karyawan,11900000.0,Proses
+KL-0059,PT Mandiri Farmasi Nusantara,14/02/2025,Perpajakan,Pelaporan SPT,10700000.0,Selesai
+KL-0076,PT Karya Retail,14/02/2025,Konsultasi Bisnis,Riset Pasar,36300000.0,Selesai
+KL-0114,PT Jaya Agro,16/02/2025,Perpajakan,Pelaporan SPT,5900000.0,Selesai
+KL-0010,PT Karya Finansial,17/02/2025,Perpajakan,Pelaporan SPT,9000000.0,Selesai
+KL-0022,PT Prima Farmasi,18/02/2025,Teknologi Informasi,Audit Sistem TI,39800000.0,Selesai
+KL-0091,CV Sinar Pangan,21/02/2025,Teknologi Informasi,Implementasi ERP,71000000.0,Selesai
+KL-0006,PT Utama Retail,24/02/2025,Perpajakan,Konsultasi Pajak,18200000.0,Selesai
+KL-0055,PT Nusantara Pangan,25/02/2025,Perpajakan,Konsultasi Pajak,9600000.0,Selesai
+KL-0149,PT Sejahtera Finansial Maju,25/02/2025,Teknologi Informasi,Audit Sistem TI,27400000.0,Selesai
+KL-0117,CV Sinar Media,01/03/2025,Teknologi Informasi,Audit Sistem TI,25100000.0,Selesai
+KL-0117,CV Sinar Media,02/03/2025,Teknologi Informasi,Implementasi ERP,87800000.0,Selesai
+KL-0039,PT Makmur Energi,05/03/2025,Pelatihan,Pelatihan Karyawan,,Selesai
+KL-0018,pt sentosa finansial,06/03/2025,Teknologi Informasi,Audit Sistem TI,49400000.0,Proses
+KL-0098,PT Utama Energi,10/03/2025,Pelatihan,Pelatihan Karyawan,22300000.0,Selesai
+KL-0091,CV Sinar Pangan,12/03/2025,Teknologi Informasi,Audit Sistem TI,60800000.0,Selesai
+KL-0076,PT Karya Retail,15/03/2025,Audit,Audit Keuangan,49600000.0,Selesai
+KL-0047,CV Sinar Logistik,16/03/2025,Pelatihan,Pelatihan Karyawan,15000000.0,Proses
+KL-0043,PT Makmur Pangan,17/03/2025,Pelatihan,Pelatihan Karyawan,11100000.0,Selesai
+KL-0023,PT Cahaya Retail,19/03/2025,Perpajakan,Konsultasi Pajak,13400000.0,Selesai
+KL-0039,PT Makmur Energi,19/03/2025,Pelatihan,Pelatihan Karyawan,12800000.0,Selesai
+KL-0120,PT Utama Pangan,19/03/2025,Konsultasi Bisnis,Konsultasi Strategi,39800000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,25/03/2025,Teknologi Informasi,Implementasi ERP,148400000.0,Selesai
+KL-0105,PT Utama Finansial,26/03/2025,Teknologi Informasi,Audit Sistem TI,30900000.0,Selesai
+KL-0012,PT Global Retail,01/04/2025,Perpajakan,Pelaporan SPT,4100000.0,Selesai
+KL-0103, PT Prima Teknologi Berkah  ,01/04/2025,Konsultasi Bisnis,Konsultasi Strategi,60900000.0,Proses
+KL-0047,CV Sinar Logistik,02/04/2025,Teknologi Informasi,Implementasi ERP,95500000.0,Selesai
+KL-0090,PT Mitra Finansial Maju,04/04/2025,Audit,Audit Keuangan,44400000.0,Selesai
+KL-0057,PT Abadi Energi,05/04/2025,Konsultasi Bisnis,Riset Pasar,29300000.0,Proses
+KL-0038,PT Cahaya Konstruksi,07/04/2025,Audit,Audit Internal,51600000.0,Selesai
+KL-0124,PT Prima Teknologi Abadi,07/04/2025,Audit,Audit Keuangan,68900000.0,Proses
+KL-0124,PT Prima Teknologi Abadi,07/04/2025,Audit,Audit Keuangan,68900000.0,Proses
+KL-0059,PT Mandiri Farmasi Nusantara,11/04/2025,Perpajakan,Konsultasi Pajak,8200000.0,Selesai
+KL-0146,PT Berkah Agro Berkah,11/04/2025,Pelatihan,Workshop Manajemen,9400000.0,Selesai
+KL-0058,PT Sejahtera Pangan,12/04/2025,Perpajakan,Konsultasi Pajak,9600000.0,Selesai
+KL-0057,PT Abadi Energi,13/04/2025,Konsultasi Bisnis,Konsultasi Strategi,18100000.0,Selesai
+KL-0007,PT Mandiri Teknologi,17/04/2025,Perpajakan,Konsultasi Pajak,11000000.0,Proses
+KL-0098,PT Utama Energi,18/04/2025,Pelatihan,Pelatihan Karyawan,13900000.0,Selesai
+KL-0061,PT Cahaya Konstruksi Prima,19/04/2025,Teknologi Informasi,Implementasi ERP,65000000.0,Selesai
+KL-0100,PT Cahaya Agro,19/04/2025,Konsultasi Bisnis,Konsultasi Strategi,27900000.0,Selesai
+KL-0112,PT Jaya Teknologi,19/04/2025,Teknologi Informasi,Audit Sistem TI,26500000.0,Selesai
+KL-0061,PT Cahaya Konstruksi Prima,19/04/2025,Teknologi Informasi,Implementasi ERP,65000000.0,Selesai
+KL-0004,PT Nusantara Teknologi,20/04/2025,Audit,Audit Keuangan,37800000.0,Selesai
+KL-0029,PT Berkah Agro,20/04/2025,Pelatihan,Pelatihan Karyawan,13600000.0,Selesai
+KL-0121,PT Sentosa Media Sentosa,26/04/2025,Audit,Audit Keuangan,60400000.0,Selesai
+KL-0007,PT Mandiri Teknologi,27/04/2025,Teknologi Informasi,Implementasi ERP,112600000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,28/04/2025,Teknologi Informasi,Implementasi ERP,74700000.0,Selesai
+KL-0114,PT Jaya Agro,29/04/2025,Pelatihan,Workshop Manajemen,18400000.0,Selesai
+KL-0012,PT Global Retail,30/04/2025,Konsultasi Bisnis,Riset Pasar,24600000.0,Selesai
+KL-0070,CV Sentosa Teknologi,04/05/2025,Audit,Audit Internal,44600000.0,Selesai
+KL-0047,CV Sinar Logistik,05/05/2025,Konsultasi Bisnis,Riset Pasar,35500000.0,Proses
+KL-0028,PT Nusantara Farmasi,06/05/2025,Audit,Audit Keuangan,41200000.0,Dibatalkan
+KL-0121,PT Sentosa Media Sentosa,06/05/2025,Audit,Audit Internal,25600000.0,Selesai
+KL-0137,PT Global Retail Karya,06/05/2025,Perpajakan,Konsultasi Pajak,13300000.0,Selesai
+KL-0044,PT Maju Konstruksi,08/05/2025,Audit,Audit Keuangan,49700000.0,Selesai
+KL-0076,PT Karya Retail,09/05/2025,Audit,Audit Keuangan,76200000.0,Selesai
+KL-0136,PT Sejahtera Energi,10/05/2025,Teknologi Informasi,Audit Sistem TI,79800000.0,Selesai
+KL-0114,PT Jaya Agro,11/05/2025,Audit,Audit Internal,31300000.0,Proses
+KL-0122,CV Karya Pangan,16/05/2025,Perpajakan,Konsultasi Pajak,13000000.0,Selesai
+KL-0070,CV Sentosa Teknologi,19/05/2025,Audit,Audit Internal,39400000.0,Selesai
+KL-0112,PT Jaya Teknologi,19/05/2025,Teknologi Informasi,Audit Sistem TI,39000000.0,Selesai
+KL-0142,CV Utama Agro,19/05/2025,Audit,Audit Keuangan,35500000.0,Selesai
+KL-0010,PT Karya Finansial,21/05/2025,Perpajakan,Pelaporan SPT,10800000.0,Selesai
+KL-0061,PT Cahaya Konstruksi Prima,21/05/2025,Teknologi Informasi,Audit Sistem TI,18300000.0,Selesai
+KL-0033,CV Sentosa Energi,25/05/2025,Teknologi Informasi,Implementasi ERP,163500000.0,Selesai
+KL-0015,PT Sentosa Retail,26/05/2025,Audit,Audit Keuangan,46300000.0,Selesai
+KL-0086,CV Sentosa Energi Prima,27/05/2025,Teknologi Informasi,Implementasi ERP,74700000.0,Selesai
+KL-0129,PT Jaya Finansial,28/05/2025,Perpajakan,Pelaporan SPT,7500000.0,Dibatalkan
+KL-0117,CV Sinar Media,31/05/2025,Konsultasi Bisnis,Riset Pasar,30500000.0,Dibatalkan
+KL-0002,CV Prima Energi,01/06/2025,Perpajakan,Konsultasi Pajak,14600000.0,Selesai
+KL-0086,CV Sentosa Energi Prima,01/06/2025,Teknologi Informasi,Audit Sistem TI,32000000.0,Selesai
+KL-0086,CV Sentosa Energi Prima,01/06/2025,Teknologi Informasi,Implementasi ERP,126400000.0,Selesai
+KL-0117,CV Sinar Media,02/06/2025,Teknologi Informasi,Audit Sistem TI,60200000.0,Proses
+KL-0032,PT Berkah Finansial,03/06/2025,Perpajakan,Pelaporan SPT,9100000.0,Selesai
+KL-0038,PT Cahaya Konstruksi,03/06/2025,Audit,Audit Internal,26800000.0,Selesai
+KL-0121,PT Sentosa Media Sentosa,07/06/2025,Audit,Audit Keuangan,67100000.0,Dibatalkan
+KL-0015,PT Sentosa Retail,09/06/2025,Pelatihan,Workshop Manajemen,19200000.0,Selesai
+KL-0047,CV Sinar Logistik,10/06/2025,Teknologi Informasi,Audit Sistem TI,60400000.0,Dibatalkan
+KL-0111,CV Sinar Pangan Maju,10/06/2025,Konsultasi Bisnis,Riset Pasar,28100000.0,Selesai
+KL-0109,CV Maju Finansial,12/06/2025,Audit,Audit Internal,36200000.0,Selesai
+KL-0021,PT Nusantara Agro,13/06/2025,Konsultasi Bisnis,Konsultasi Strategi,46800000.0,Proses
+KL-0020,PT Berkah Logistik,15/06/2025,Audit,Audit Internal,,Selesai
+KL-0010,PT Karya Finansial,20/06/2025,Perpajakan,Pelaporan SPT,11000000.0,Selesai
+KL-0025,PT Jaya Konstruksi,20/06/2025,Konsultasi Bisnis,Riset Pasar,38700000.0,Selesai
+,PT Nusantara Retail Mandiri,22/06/2025,Pelatihan,Pelatihan Karyawan,16200000.0,Selesai
+KL-0147,PT Maju Energi,22/06/2025,Konsultasi Bisnis,Riset Pasar,30200000.0,Selesai
+KL-0023,PT Cahaya Retail,23/06/2025,Konsultasi Bisnis,Konsultasi Strategi,64000000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,24/06/2025,Konsultasi Bisnis,Riset Pasar,17100000.0,Selesai
+KL-0006,PT Utama Retail,25/06/2025,Perpajakan,Pelaporan SPT,5800000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,29/06/2025,Perpajakan,Pelaporan SPT,6000000.0,Dibatalkan
+KL-0124,PT Prima Teknologi Abadi,30/06/2025,Audit,Audit Keuangan,55100000.0,Selesai
+KL-0015,PT Sentosa Retail,01/07/2025,Konsultasi Bisnis,Konsultasi Strategi,43400000.0,Proses
+KL-0073,PT Makmur Media Karya,01/07/2025,Teknologi Informasi,Audit Sistem TI,45800000.0,Selesai
+KL-0076,PT Karya Retail,01/07/2025,Audit,Audit Internal,29500000.0,Selesai
+KL-0111,CV Sinar Pangan Maju,08/07/2025,Konsultasi Bisnis,Konsultasi Strategi,28300000.0,Proses
+KL-0058,PT Sejahtera Pangan,09/07/2025,Perpajakan,Konsultasi Pajak,13500000.0,Selesai
+KL-0147,PT Maju Energi,09/07/2025,Konsultasi Bisnis,Riset Pasar,27500000.0,Selesai
+KL-0058,PT Sejahtera Pangan,09/07/2025,Perpajakan,Konsultasi Pajak,13500000.0,Selesai
+KL-0004,PT Nusantara Teknologi,13/07/2025,Teknologi Informasi,Implementasi ERP,36700000.0,Selesai
+KL-0139,PT Cahaya Teknologi,16/07/2025,Teknologi Informasi,Implementasi ERP,66900000.0,Dibatalkan
+KL-0041,PT Prima Teknologi,17/07/2025,Pelatihan,Workshop Manajemen,29200000.0,Selesai
+KL-0019,CV Mandiri Pangan,21/07/2025,Pelatihan,Workshop Manajemen,20100000.0,Selesai
+KL-0084,PT Cahaya Konstruksi Global,23/07/2025,Teknologi Informasi,Implementasi ERP,93700000.0,Selesai
+KL-0115,PT Berkah Media Maju,26/07/2025,Pelatihan,Workshop Manajemen,17600000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,27/07/2025,Pelatihan,Workshop Manajemen,21800000.0,Selesai
+KL-0003,PT Utama Logistik,29/07/2025,Pelatihan,Pelatihan Karyawan,,Selesai
+KL-0046,CV Jaya Logistik,03/08/2025,Pelatihan,Workshop Manajemen,11200000.0,Selesai
+KL-0063,CV Mitra Energi,04/08/2025,Audit,Audit Internal,41200000.0,Proses
+KL-0148,PT Sejahtera Media,04/08/2025,Teknologi Informasi,Implementasi ERP,122800000.0,Selesai
+KL-0063,CV Mitra Energi,04/08/2025,Audit,Audit Internal,41200000.0,Proses
+KL-0116,PT Abadi Logistik,09/08/2025,Konsultasi Bisnis,Konsultasi Strategi,62200000.0,Selesai
+KL-0093,PT Mitra Pangan,10/08/2025,Konsultasi Bisnis,Riset Pasar,32800000.0,Selesai
+KL-0111,CV Sinar Pangan Maju,12/08/2025,Konsultasi Bisnis,Riset Pasar,17200000.0,Selesai
+KL-0065,PT Nusantara Logistik,13/08/2025,Teknologi Informasi,Implementasi ERP,47200000.0,Selesai
+KL-0021,PT Nusantara Agro,14/08/2025,Teknologi Informasi,Audit Sistem TI,21300000.0,Selesai
+KL-0037,PT Mandiri Energi,18/08/2025,Teknologi Informasi,Implementasi ERP,69800000.0,Selesai
+KL-0005,PT Makmur Teknologi,20/08/2025,Pelatihan,Pelatihan Karyawan,8400000.0,Selesai
+KL-0032,PT Berkah Finansial,21/08/2025,Perpajakan,Pelaporan SPT,8900000.0,Dibatalkan
+KL-0115,PT Berkah Media Maju,21/08/2025,Pelatihan,Workshop Manajemen,15300000.0,Selesai
+KL-0149,PT Sejahtera Finansial Maju,23/08/2025,Teknologi Informasi,Implementasi ERP,,Selesai
+KL-0114,PT Jaya Agro,27/08/2025,Pelatihan,Pelatihan Karyawan,10900000.0,Selesai
+KL-0073,PT Makmur Media Karya,29/08/2025,Teknologi Informasi,Audit Sistem TI,42300000.0,Selesai
+KL-0146,PT Berkah Agro Berkah,01/09/2025,Pelatihan,Pelatihan Karyawan,13700000.0,Selesai
+KL-0052,PT Global Finansial,02/09/2025,Perpajakan,Konsultasi Pajak,8000000.0,Selesai
+KL-0037,PT Mandiri Energi,06/09/2025,Teknologi Informasi,Implementasi ERP,69700000.0,Selesai
+KL-0073,PT Makmur Media Karya,07/09/2025,Teknologi Informasi,Audit Sistem TI,49600000.0,Selesai
+KL-0068,PT Karya Media,08/09/2025,Pelatihan,Workshop Manajemen,,Selesai
+KL-0045,PT Utama Teknologi,09/09/2025,Perpajakan,Konsultasi Pajak,17900000.0,Selesai
+KL-0045,PT Utama Teknologi,09/09/2025,Perpajakan,Konsultasi Pajak,12100000.0,Selesai
+KL-0045,PT Utama Teknologi,15/09/2025,Perpajakan,Pelaporan SPT,6700000.0,Selesai
+KL-0116,PT Abadi Logistik,15/09/2025,Konsultasi Bisnis,Riset Pasar,25700000.0,Selesai
+KL-0063,CV Mitra Energi,16/09/2025,Audit,Audit Internal,42200000.0,Proses
+KL-0021,PT Nusantara Agro,17/09/2025,Perpajakan,Konsultasi Pajak,13000000.0,Selesai
+KL-0044,PT Maju Konstruksi,17/09/2025,Audit,Audit Internal,33100000.0,Selesai
+KL-0099,CV Jaya Logistik Utama,19/09/2025,Audit,Audit Keuangan,76000000.0,Proses
+KL-0015,PT Sentosa Retail,20/09/2025,Konsultasi Bisnis,Konsultasi Strategi,31300000.0,Selesai
+KL-0001,PT Makmur Media,21/09/2025,Pelatihan,Workshop Manajemen,29900000.0,Selesai
+KL-0095,PT Maju Media,21/09/2025,Konsultasi Bisnis,Konsultasi Strategi,48200000.0,Proses
+KL-0139,PT Cahaya Teknologi,23/09/2025,Audit,Audit Internal,39600000.0,Proses
+KL-0052,PT Global Finansial,24/09/2025,Pelatihan,Workshop Manajemen,15900000.0,Proses
+KL-0129,PT Jaya Finansial,24/09/2025,Perpajakan,Pelaporan SPT,8000000.0,Selesai
+KL-0149,PT Sejahtera Finansial Maju,24/09/2025,Teknologi Informasi,Audit Sistem TI,40700000.0,Selesai
+KL-0054,PT Mandiri Farmasi,27/09/2025,Pelatihan,Pelatihan Karyawan,10000000.0,Selesai
+KL-0148,PT Sejahtera Media,29/09/2025,Konsultasi Bisnis,Konsultasi Strategi,37600000.0,Selesai
+KL-0052,PT Global Finansial,03/10/2025,Pelatihan,Workshop Manajemen,40300000.0,Selesai
+,PT Global Finansial Sinar,03/10/2025,Perpajakan,Konsultasi Pajak,7300000.0,Selesai
+KL-0114,PT Jaya Agro,04/10/2025,Pelatihan,Workshop Manajemen,10100000.0,Selesai
+KL-0100,pt cahaya agro,06/10/2025,Konsultasi Bisnis,Konsultasi Strategi,27400000.0,Dibatalkan
+KL-0038,PT Cahaya Konstruksi,11/10/2025,Audit,Audit Internal,45100000.0,Selesai
+KL-0076,PT Karya Retail,12/10/2025,Audit,Audit Keuangan,63100000.0,Selesai
+KL-0040,CV Cahaya Agro,13/10/2025,Audit,Audit Keuangan,90500000.0,Proses
+KL-0045,PT Utama Teknologi,13/10/2025,Perpajakan,Konsultasi Pajak,,Selesai
+KL-0043,PT Makmur Pangan,15/10/2025,Konsultasi Bisnis,Riset Pasar,29100000.0,Dibatalkan
+KL-0019,CV Mandiri Pangan,16/10/2025,Pelatihan,Workshop Manajemen,20400000.0,Proses
+KL-0105,PT Utama Finansial,16/10/2025,Teknologi Informasi,Audit Sistem TI,62800000.0,Selesai
+KL-0002,CV Prima Energi,21/10/2025,Perpajakan,Konsultasi Pajak,9000000.0,Selesai
+KL-0129,PT Jaya Finansial,22/10/2025,Audit,Audit Keuangan,73700000.0,Selesai
+KL-0028,PT Nusantara Farmasi,23/10/2025,Audit,Audit Keuangan,115000000.0,Selesai
+KL-0149,PT Sejahtera Finansial Maju,23/10/2025,Teknologi Informasi,Audit Sistem TI,25400000.0,Selesai
+KL-0020,PT Berkah Logistik,28/10/2025,Pelatihan,Workshop Manajemen,19300000.0,Selesai
+KL-0012,PT Global Retail,29/10/2025,Perpajakan,Pelaporan SPT,9200000.0,Selesai
+KL-0091,CV Sinar Pangan,29/10/2025,Teknologi Informasi,Implementasi ERP,56100000.0,Selesai
+KL-0029,PT Berkah Agro,30/10/2025,Konsultasi Bisnis,Riset Pasar,40100000.0,Proses
+KL-0063,CV Mitra Energi,01/11/2025,Audit,Audit Keuangan,47800000.0,Selesai
+KL-0098,PT Utama Energi,02/11/2025,Pelatihan,Pelatihan Karyawan,10400000.0,Selesai
+KL-0093,PT Mitra Pangan,04/11/2025,Konsultasi Bisnis,Riset Pasar,32300000.0,Selesai
+KL-0070,CV Sentosa Teknologi,07/11/2025,Audit,Audit Keuangan,56300000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,07/11/2025,Konsultasi Bisnis,Riset Pasar,29700000.0,Selesai
+KL-0001,PT Makmur Media,08/11/2025,Pelatihan,Pelatihan Karyawan,9000000.0,Selesai
+KL-0120,PT Utama Pangan,09/11/2025,Konsultasi Bisnis,Riset Pasar,30100000.0,Selesai
+KL-0136,PT Sejahtera Energi,09/11/2025,Teknologi Informasi,Audit Sistem TI,26600000.0,Selesai
+KL-0102,CV Berkah Logistik,13/11/2025,Perpajakan,Pelaporan SPT,5300000.0,Selesai
+KL-0068,PT Karya Media,21/11/2025,Pelatihan,Pelatihan Karyawan,12100000.0,Selesai
+KL-0032,PT Berkah Finansial,24/11/2025,Perpajakan,Konsultasi Pajak,12200000.0,Selesai
+KL-0105,PT Utama Finansial,25/11/2025,Teknologi Informasi,Audit Sistem TI,48700000.0,Selesai
+KL-0032,PT Berkah Finansial,26/11/2025,Pelatihan,Workshop Manajemen,17400000.0,Selesai
+KL-0054,PT Mandiri Farmasi,26/11/2025,Pelatihan,Workshop Manajemen,28000000.0,Selesai
+KL-0007,PT Mandiri Teknologi,28/11/2025,Perpajakan,Konsultasi Pajak,30700000.0,Selesai
+KL-0122,CV Karya Pangan,28/11/2025,Perpajakan,Konsultasi Pajak,23100000.0,Selesai
+KL-0127,PT Makmur Pangan Global,29/11/2025,Audit,Audit Internal,44400000.0,Selesai
+KL-0030,PT Utama Logistik Prima,30/11/2025,Konsultasi Bisnis,Konsultasi Strategi,56500000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,01/12/2025,Teknologi Informasi,Audit Sistem TI,39800000.0,Proses
+KL-0149,PT Sejahtera Finansial Maju,01/12/2025,Teknologi Informasi,Implementasi ERP,69600000.0,Selesai
+KL-0052,PT Global Finansial,05/12/2025,Pelatihan,Pelatihan Karyawan,12400000.0,Selesai
+KL-0120,PT Utama Pangan,05/12/2025,Konsultasi Bisnis,Konsultasi Strategi,33900000.0,Selesai
+KL-0006,PT Utama Retail,06/12/2025,Perpajakan,Konsultasi Pajak,10100000.0,Selesai
+KL-0086,CV Sentosa Energi Prima,06/12/2025,Teknologi Informasi,Implementasi ERP,93500000.0,Selesai
+KL-0091,CV Sinar Pangan,07/12/2025,Teknologi Informasi,Implementasi ERP,69900000.0,Selesai
+KL-0149,PT Sejahtera Finansial Maju,09/12/2025,Teknologi Informasi,Audit Sistem TI,20800000.0,Selesai
+KL-0044,PT Maju Konstruksi,11/12/2025,Audit,Audit Keuangan,49800000.0,Selesai
+KL-0010,PT Karya Finansial,15/12/2025,Perpajakan,Konsultasi Pajak,10600000.0,Selesai
+KL-0105,PT Utama Finansial,16/12/2025,Teknologi Informasi,Implementasi ERP,88700000.0,Selesai
+KL-0042,PT Abadi Farmasi,17/12/2025,Pelatihan,Pelatihan Karyawan,15600000.0,Proses
+KL-0029,PT Berkah Agro,18/12/2025,Konsultasi Bisnis,Konsultasi Strategi,71600000.0,Proses
+KL-0127,PT Makmur Pangan Global,19/12/2025,Teknologi Informasi,Implementasi ERP,62400000.0,Selesai
+KL-0029,PT Berkah Agro,20/12/2025,Konsultasi Bisnis,Konsultasi Strategi,60800000.0,Selesai
+KL-0105,PT Utama Finansial,20/12/2025,Teknologi Informasi,Implementasi ERP,86400000.0,Selesai
+KL-0102,CV Berkah Logistik,21/12/2025,Perpajakan,Konsultasi Pajak,,Selesai
+KL-0005,PT Makmur Teknologi,23/12/2025,Pelatihan,Pelatihan Karyawan,8700000.0,Selesai
+KL-0018,PT Sentosa Finansial,23/12/2025,Teknologi Informasi,Audit Sistem TI,37600000.0,Selesai
+KL-0057,PT Abadi Energi,23/12/2025,Konsultasi Bisnis,Riset Pasar,25200000.0,Selesai
+KL-0106,PT Maju Teknologi,24/12/2025,Teknologi Informasi,Implementasi ERP,74500000.0,Selesai
+KL-0115,PT Berkah Media Maju,26/12/2025,Pelatihan,Pelatihan Karyawan,18900000.0,Selesai
+KL-0055,PT Nusantara Pangan,27/12/2025,Konsultasi Bisnis,Konsultasi Strategi,43500000.0,Selesai
+KL-0113,PT Global Media,28/12/2025,Pelatihan,Pelatihan Karyawan,11800000.0,Selesai
+KL-0121,PT Sentosa Media Sentosa,28/12/2025,Audit,Audit Keuangan,69400000.0,Selesai
+KL-0027,CV Nusantara Pangan,02/01/2026,Perpajakan,Konsultasi Pajak,16400000.0,Selesai
+KL-0089, PT Karya Pangan  ,04/01/2026,Konsultasi Bisnis,Riset Pasar,20600000.0,Dibatalkan
+KL-0070,CV Sentosa Teknologi,05/01/2026,Audit,Audit Internal,22000000.0,Proses
+KL-0009,PT Berkah Teknologi,06/01/2026,Audit,Audit Keuangan,85000000.0,Selesai
+KL-0016,PT Sinar Teknologi,07/01/2026,Perpajakan,Konsultasi Pajak,9700000.0,Selesai
+KL-0039,PT Makmur Energi,08/01/2026,Pelatihan,Workshop Manajemen,20600000.0,Selesai
+KL-0067,PT Makmur Retail,08/01/2026,Pelatihan,Pelatihan Karyawan,,Proses
+KL-0102,CV Berkah Logistik,08/01/2026,Perpajakan,Pelaporan SPT,6400000.0,Selesai
+KL-0140,PT Mandiri Energi Sejahtera,08/01/2026,Perpajakan,Konsultasi Pajak,13800000.0,Selesai
+KL-0006,PT Utama Retail,10/01/2026,Perpajakan,Pelaporan SPT,4500000.0,Selesai
+KL-0080,PT Jaya Pangan,10/01/2026,Teknologi Informasi,Audit Sistem TI,18000000.0,Selesai
+KL-0028,PT Nusantara Farmasi,11/01/2026,Audit,Audit Keuangan,49900000.0,Dibatalkan
+KL-0027,CV Nusantara Pangan,12/01/2026,Perpajakan,Pelaporan SPT,14100000.0,Selesai
+KL-0118,PT Karya Logistik,12/01/2026,Teknologi Informasi,Audit Sistem TI,26200000.0,Selesai
+KL-0104,PT Cahaya Logistik,13/01/2026,Audit,Audit Keuangan,38300000.0,Proses
+KL-0142,CV Utama Agro,13/01/2026,Audit,Audit Keuangan,50900000.0,Proses
+KL-0010,PT Karya Finansial,14/01/2026,Perpajakan,Konsultasi Pajak,10500000.0,Dibatalkan
+KL-0101,PT Mitra Retail Jaya,15/01/2026,Pelatihan,Pelatihan Karyawan,7200000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,15/01/2026,Teknologi Informasi,Audit Sistem TI,45800000.0,Selesai
+KL-0074,PT Global Retail Sentosa,16/01/2026,Perpajakan,Konsultasi Pajak,16800000.0,Proses
+KL-0076,PT Karya Retail,16/01/2026,Audit,Audit Keuangan,71500000.0,Proses
+KL-0084,PT Cahaya Konstruksi Global,17/01/2026,Teknologi Informasi,Audit Sistem TI,27400000.0,Dibatalkan
+KL-0112,PT Jaya Teknologi,17/01/2026,Teknologi Informasi,Audit Sistem TI,83700000.0,Selesai
+KL-0027,CV Nusantara Pangan,18/01/2026,Teknologi Informasi,Implementasi ERP,120100000.0,Selesai
+KL-0138,PT Mitra Farmasi,18/01/2026,Konsultasi Bisnis,Riset Pasar,23600000.0,Selesai
+KL-0011,PT Makmur Konstruksi,19/01/2026,Pelatihan,Pelatihan Karyawan,,Selesai
+KL-0092,CV Jaya Agro,20/01/2026,Audit,Audit Keuangan,60600000.0,Selesai
+KL-0067,PT Makmur Retail,21/01/2026,Pelatihan,Pelatihan Karyawan,29500000.0,Proses
+KL-0067,PT Makmur Retail,22/01/2026,Pelatihan,Workshop Manajemen,30500000.0,Selesai
+KL-0101,PT Mitra Retail Jaya,22/01/2026,Pelatihan,Pelatihan Karyawan,16300000.0,Proses
+KL-0085,PT Sejahtera Finansial,23/01/2026,Audit,Audit Keuangan,68600000.0,Selesai
+KL-0007,PT Mandiri Teknologi,24/01/2026,Perpajakan,Pelaporan SPT,9000000.0,Selesai
+KL-0113,PT Global Media,25/01/2026,Pelatihan,Pelatihan Karyawan,9400000.0,Selesai
+KL-0016,PT Sinar Teknologi,28/01/2026,Perpajakan,Pelaporan SPT,10100000.0,Selesai
+KL-0026,PT Jaya Retail,29/01/2026,Teknologi Informasi,Audit Sistem TI,29600000.0,Selesai
+KL-0066,PT Abadi Energi Berkah,30/01/2026,Audit,Audit Keuangan,70400000.0,Proses
+KL-0076,PT Karya Retail,31/01/2026,Audit,Audit Keuangan,50600000.0,Selesai
+KL-0147,PT Maju Energi,31/01/2026,Konsultasi Bisnis,Riset Pasar,24500000.0,Selesai
+KL-0046,CV Jaya Logistik,02/02/2026,Pelatihan,Pelatihan Karyawan,11400000.0,Selesai
+KL-0144,PT Cahaya Energi,04/02/2026,Teknologi Informasi,Implementasi ERP,115900000.0,Selesai
+KL-0031,PT Karya Teknologi,07/02/2026,Pelatihan,Pelatihan Karyawan,11100000.0,Selesai
+KL-0150,CV Sinar Agro,07/02/2026,Audit,Audit Internal,36000000.0,Proses
+KL-0025,PT Jaya Konstruksi,08/02/2026,Konsultasi Bisnis,Konsultasi Strategi,54900000.0,Selesai
+KL-0034,PT Sentosa Energi,08/02/2026,Audit,Audit Keuangan,48300000.0,Selesai
+KL-0047,CV Sinar Logistik,08/02/2026,Teknologi Informasi,Audit Sistem TI,47600000.0,Proses
+KL-0034,PT Sentosa Energi,08/02/2026,Audit,Audit Keuangan,48300000.0,Selesai
+KL-0009,PT Berkah Teknologi,10/02/2026,Konsultasi Bisnis,Riset Pasar,19400000.0,Selesai
+KL-0111,CV Sinar Pangan Maju,14/02/2026,Konsultasi Bisnis,Konsultasi Strategi,60900000.0,Selesai
+KL-0068,PT Karya Media,15/02/2026,Pelatihan,Pelatihan Karyawan,5500000.0,Selesai
+KL-0114,PT Jaya Agro,17/02/2026,Pelatihan,Pelatihan Karyawan,13200000.0,Selesai
+KL-0011,PT Makmur Konstruksi,18/02/2026,Konsultasi Bisnis,Konsultasi Strategi,65000000.0,Selesai
+KL-0005,PT Makmur Teknologi,19/02/2026,Pelatihan,Pelatihan Karyawan,8400000.0,Selesai
+KL-0012,PT Global Retail,19/02/2026,Perpajakan,Konsultasi Pajak,10000000.0,Selesai
+KL-0041,PT Prima Teknologi,19/02/2026,Pelatihan,Workshop Manajemen,23900000.0,Selesai
+KL-0007,PT Mandiri Teknologi,20/02/2026,Perpajakan,Pelaporan SPT,5100000.0,Selesai
+KL-0081,PT Mitra Finansial,21/02/2026,Konsultasi Bisnis,Konsultasi Strategi,27300000.0,Selesai
+KL-0015,PT Sentosa Retail,22/02/2026,Konsultasi Bisnis,Riset Pasar,25300000.0,Dibatalkan
+KL-0031,PT Karya Teknologi,22/02/2026,Pelatihan,Workshop Manajemen,21300000.0,Selesai
+KL-0023,PT Cahaya Retail,24/02/2026,Perpajakan,Konsultasi Pajak,14500000.0,Selesai
+KL-0009,PT Berkah Teknologi,26/02/2026,Teknologi Informasi,Implementasi ERP,67000000.0,Selesai
+KL-0010,PT Karya Finansial,26/02/2026,Perpajakan,Pelaporan SPT,6900000.0,Selesai
+KL-0108,PT Nusantara Agro Abadi,26/02/2026,Pelatihan,Workshop Manajemen,28100000.0,Selesai
+KL-0085,PT Sejahtera Finansial,27/02/2026,Audit,Audit Internal,48600000.0,Selesai
+KL-0029,PT Berkah Agro,01/03/2026,Konsultasi Bisnis,Riset Pasar,16200000.0,Selesai
+KL-0089,PT Karya Pangan,01/03/2026,Konsultasi Bisnis,Konsultasi Strategi,39200000.0,Selesai
+KL-0057,PT Abadi Energi,02/03/2026,Konsultasi Bisnis,Riset Pasar,25500000.0,Selesai
+KL-0076,PT Karya Retail,02/03/2026,Audit,Audit Keuangan,99100000.0,Proses
+KL-0128,PT Utama Pangan Sentosa,02/03/2026,Audit,Audit Internal,43700000.0,Selesai
+KL-0083,CV Sejahtera Agro Cahaya,03/03/2026,Konsultasi Bisnis,Riset Pasar,28300000.0,Selesai
+KL-0114,PT Jaya Agro,04/03/2026,Pelatihan,Pelatihan Karyawan,8900000.0,Selesai
+KL-0114,PT Jaya Agro,04/03/2026,Pelatihan,Pelatihan Karyawan,8900000.0,Selesai
+KL-0111,CV Sinar Pangan Maju,05/03/2026,Konsultasi Bisnis,Riset Pasar,28400000.0,Selesai
+KL-0026,PT Jaya Retail,07/03/2026,Teknologi Informasi,Audit Sistem TI,29900000.0,Selesai
+KL-0063,CV Mitra Energi,07/03/2026,Konsultasi Bisnis,Riset Pasar,18400000.0,Selesai
+KL-0029,PT Berkah Agro,08/03/2026,Konsultasi Bisnis,Riset Pasar,28100000.0,Proses
+KL-0011,PT Makmur Konstruksi,09/03/2026,Konsultasi Bisnis,Konsultasi Strategi,69600000.0,Selesai
+KL-0084,PT Cahaya Konstruksi Global,09/03/2026,Teknologi Informasi,Implementasi ERP,120200000.0,Selesai
+KL-0094,PT Karya Energi,09/03/2026,Audit,Audit Keuangan,137000000.0,Selesai
+KL-0108,PT Nusantara Agro Abadi,10/03/2026,Konsultasi Bisnis,Konsultasi Strategi,58200000.0,Selesai
+KL-0036,pt abadi teknologi,13/03/2026,Konsultasi Bisnis,Konsultasi Strategi,61600000.0,Selesai
+KL-0144,PT Cahaya Energi,15/03/2026,Teknologi Informasi,Audit Sistem TI,69100000.0,Selesai
+KL-0018,pt sentosa finansial,16/03/2026,Teknologi Informasi,Audit Sistem TI,36300000.0,Proses
+KL-0046,CV Jaya Logistik,17/03/2026,Pelatihan,Workshop Manajemen,10200000.0,Selesai
+KL-0004,PT Nusantara Teknologi,18/03/2026,Konsultasi Bisnis,Konsultasi Strategi,52100000.0,Selesai
+KL-0129,PT Jaya Finansial,19/03/2026,Audit,Audit Keuangan,69000000.0,Selesai
+KL-0132,PT Sentosa Pangan,21/03/2026,Konsultasi Bisnis,Konsultasi Strategi,66800000.0,Selesai
+KL-0053,PT Berkah Media,23/03/2026,Perpajakan,Konsultasi Pajak,13800000.0,Selesai
+KL-0123,PT Nusantara Retail,23/03/2026,Pelatihan,Pelatihan Karyawan,8300000.0,Proses
+KL-0053,PT Berkah Media,24/03/2026,Pelatihan,Pelatihan Karyawan,10900000.0,Selesai
+KL-0034,PT Sentosa Energi,26/03/2026,Audit,Audit Keuangan,49200000.0,Selesai
+KL-0143,PT Global Farmasi,26/03/2026,Teknologi Informasi,Audit Sistem TI,33400000.0,Selesai
+KL-0107,PT Maju Finansial Cahaya,27/03/2026,Perpajakan,Pelaporan SPT,11100000.0,Selesai
+KL-0041,PT Prima Teknologi,30/03/2026,Pelatihan,Workshop Manajemen,24100000.0,Selesai
+KL-0011,PT Makmur Konstruksi,31/03/2026,Konsultasi Bisnis,Riset Pasar,17500000.0,Selesai
+KL-0065,PT Nusantara Logistik,31/03/2026,Teknologi Informasi,Audit Sistem TI,48100000.0,Dibatalkan
+KL-0070,CV Sentosa Teknologi,31/03/2026,Audit,Audit Internal,30800000.0,Selesai
+KL-0099,CV Jaya Logistik Utama,01/04/2026,Pelatihan,Pelatihan Karyawan,17400000.0,Selesai
+KL-0041,PT Prima Teknologi,04/04/2026,Pelatihan,Workshop Manajemen,,Selesai
+KL-0063,CV Mitra Energi,05/04/2026,Audit,Audit Keuangan,104400000.0,Selesai
+KL-0085,PT Sejahtera Finansial,05/04/2026,Audit,Audit Internal,,Selesai
+KL-0127,PT Makmur Pangan Global,05/04/2026,Audit,Audit Keuangan,66300000.0,Proses
+KL-0029,PT Berkah Agro,06/04/2026,Konsultasi Bisnis,Konsultasi Strategi,37200000.0,Selesai
+KL-0130,PT Nusantara Retail Mandiri,07/04/2026,Pelatihan,Pelatihan Karyawan,9000000.0,Selesai
+KL-0101,PT Mitra Retail Jaya,08/04/2026,Perpajakan,Konsultasi Pajak,14700000.0,Dibatalkan
+KL-0053,PT Berkah Media,10/04/2026,Perpajakan,Konsultasi Pajak,9400000.0,Selesai
+KL-0068,PT Karya Media,10/04/2026,Pelatihan,Pelatihan Karyawan,17900000.0,Selesai
+KL-0096,PT Berkah Finansial Prima,11/04/2026,Perpajakan,Konsultasi Pajak,16300000.0,Selesai
+KL-0020,PT Berkah Logistik,13/04/2026,Pelatihan,Pelatihan Karyawan,14200000.0,Selesai
+KL-0044,PT Maju Konstruksi,14/04/2026,Audit,Audit Internal,43000000.0,Selesai
+KL-0102,CV Berkah Logistik,14/04/2026,Perpajakan,Konsultasi Pajak,12600000.0,Selesai
+KL-0016,PT Sinar Teknologi,15/04/2026,Perpajakan,Konsultasi Pajak,13000000.0,Selesai
+KL-0076,PT Karya Retail,17/04/2026,Audit,Audit Internal,63700000.0,Proses
+KL-0029,PT Berkah Agro,19/04/2026,Konsultasi Bisnis,Konsultasi Strategi,40200000.0,Selesai
+KL-0050,PT Mitra Retail,20/04/2026,Teknologi Informasi,Implementasi ERP,76700000.0,Selesai
+KL-0073,PT Makmur Media Karya,20/04/2026,Teknologi Informasi,Implementasi ERP,56800000.0,Selesai
+KL-0126,PT Nusantara Retail Prima,22/04/2026,Pelatihan,Pelatihan Karyawan,6000000.0,Dibatalkan
+KL-0126,PT Nusantara Retail Prima,22/04/2026,Pelatihan,Pelatihan Karyawan,6000000.0,Dibatalkan
+KL-0032,PT Berkah Finansial,23/04/2026,Perpajakan,Pelaporan SPT,11300000.0,Selesai
+KL-0095,PT Maju Media,25/04/2026,Konsultasi Bisnis,Konsultasi Strategi,49200000.0,Selesai
+KL-0015,PT Sentosa Retail,30/04/2026,Konsultasi Bisnis,Konsultasi Strategi,71300000.0,Selesai
+KL-0027,CV Nusantara Pangan,30/04/2026,Audit,Audit Internal,45600000.0,Selesai
+KL-0035,PT Sentosa Energi Maju,30/04/2026,Audit,Audit Keuangan,28700000.0,Selesai
+KL-0081,PT Mitra Finansial,30/04/2026,Konsultasi Bisnis,Konsultasi Strategi,40900000.0,Selesai
+KL-0046,CV Jaya Logistik,01/05/2026,Pelatihan,Workshop Manajemen,23300000.0,Selesai
+KL-0138,PT Mitra Farmasi,01/05/2026,Teknologi Informasi,Audit Sistem TI,61800000.0,Selesai
+KL-0080,PT Jaya Pangan,03/05/2026,Teknologi Informasi,Audit Sistem TI,28500000.0,Selesai
+KL-0031,PT Karya Teknologi,04/05/2026,Pelatihan,Pelatihan Karyawan,26200000.0,Dibatalkan
+KL-0127,PT Makmur Pangan Global,04/05/2026,Audit,Audit Internal,35300000.0,Selesai
+KL-0005,PT Makmur Teknologi,05/05/2026,Pelatihan,Pelatihan Karyawan,6900000.0,Selesai
+KL-0044,PT Maju Konstruksi,05/05/2026,Audit,Audit Keuangan,69300000.0,Selesai
+KL-0047,CV Sinar Logistik,05/05/2026,Teknologi Informasi,Implementasi ERP,151000000.0,Selesai
+KL-0125,PT Makmur Pangan Karya,09/05/2026,Teknologi Informasi,Implementasi ERP,62200000.0,Selesai
+KL-0103,PT PRIMA TEKNOLOGI BERKAH,13/05/2026,Konsultasi Bisnis,Riset Pasar,35600000.0,Selesai
+KL-0122,CV Karya Pangan,13/05/2026,Perpajakan,Konsultasi Pajak,10400000.0,Selesai
+KL-0110,PT Utama Agro,14/05/2026,Teknologi Informasi,Implementasi ERP,105200000.0,Selesai
+KL-0103,PT PRIMA TEKNOLOGI BERKAH,15/05/2026,Konsultasi Bisnis,Riset Pasar,25000000.0,Selesai
+KL-0138,PT Mitra Farmasi,15/05/2026,Konsultasi Bisnis,Riset Pasar,48600000.0,Selesai
+KL-0127,PT Makmur Pangan Global,18/05/2026,Audit,Audit Internal,27000000.0,Selesai
+KL-0053,PT Berkah Media,19/05/2026,Perpajakan,Konsultasi Pajak,16300000.0,Selesai
+KL-0150,CV Sinar Agro,21/05/2026,Audit,Audit Internal,28500000.0,Selesai
+KL-0084,PT Cahaya Konstruksi Global,22/05/2026,Teknologi Informasi,Implementasi ERP,74400000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,23/05/2026,Perpajakan,Konsultasi Pajak,,Selesai
+KL-0051,PT Sinar Teknologi Berkah,24/05/2026,Konsultasi Bisnis,Riset Pasar,29400000.0,Selesai
+KL-0099,CV Jaya Logistik Utama,24/05/2026,Audit,Audit Keuangan,,Selesai
+KL-0140,PT Mandiri Energi Sejahtera,24/05/2026,Perpajakan,Konsultasi Pajak,6200000.0,Proses
+KL-0082,PT Cahaya Media,25/05/2026,Perpajakan,Pelaporan SPT,11300000.0,Selesai
+KL-0034,PT Sentosa Energi,26/05/2026,Audit,Audit Internal,44900000.0,Selesai
+KL-0107,PT Maju Finansial Cahaya,26/05/2026,Audit,Audit Keuangan,123600000.0,Selesai
+KL-0034,PT Sentosa Energi,27/05/2026,Audit,Audit Keuangan,67200000.0,Selesai
+KL-0051,PT Sinar Teknologi Berkah,27/05/2026,Konsultasi Bisnis,Riset Pasar,10300000.0,Selesai
+KL-0126,PT Nusantara Retail Prima,27/05/2026,Audit,Audit Internal,39100000.0,Selesai
+KL-0099,CV Jaya Logistik Utama,29/05/2026,Pelatihan,Workshop Manajemen,22800000.0,Selesai
+KL-0112,PT Jaya Teknologi,29/05/2026,Teknologi Informasi,Audit Sistem TI,57100000.0,Selesai
+KL-0060,CV Mitra Finansial,30/05/2026,Perpajakan,Konsultasi Pajak,11300000.0,Selesai
+KL-0076,PT Karya Retail,30/05/2026,Audit,Audit Internal,45800000.0,Selesai
+KL-0010,PT Karya Finansial,31/05/2026,Perpajakan,Pelaporan SPT,4000000.0,Selesai
+KL-0025,PT Jaya Konstruksi,01/06/2026,Teknologi Informasi,Implementasi ERP,92800000.0,Selesai
+KL-0066,PT Abadi Energi Berkah,01/06/2026,Audit,Audit Keuangan,92500000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,01/06/2026,Konsultasi Bisnis,Riset Pasar,54200000.0,Selesai
+KL-0102,CV Berkah Logistik,03/06/2026,Perpajakan,Pelaporan SPT,,Dibatalkan
+KL-0051,PT Sinar Teknologi Berkah,08/06/2026,Audit,Audit Keuangan,44400000.0,Selesai
+KL-0108,PT Nusantara Agro Abadi,08/06/2026,Perpajakan,Pelaporan SPT,7400000.0,Selesai
+KL-0102,CV Berkah Logistik,09/06/2026,Perpajakan,Konsultasi Pajak,15600000.0,Selesai
+KL-0129,PT Jaya Finansial,10/06/2026,Audit,Audit Keuangan,56400000.0,Selesai
+KL-0135,PT Mandiri Teknologi Abadi,11/06/2026,Konsultasi Bisnis,Konsultasi Strategi,71900000.0,Selesai
+KL-0020,PT Berkah Logistik,13/06/2026,Pelatihan,Workshop Manajemen,19400000.0,Selesai
+KL-0141,PT Cahaya Media Global,13/06/2026,Perpajakan,Konsultasi Pajak,11700000.0,Selesai
+KL-0028,PT Nusantara Farmasi,15/06/2026,Pelatihan,Pelatihan Karyawan,9300000.0,Proses
+KL-0047,CV Sinar Logistik,16/06/2026,Teknologi Informasi,Audit Sistem TI,42900000.0,Selesai
+KL-0094,PT Karya Energi,16/06/2026,Audit,Audit Internal,45700000.0,Proses
+KL-0124,PT Prima Teknologi Abadi,16/06/2026,Audit,Audit Keuangan,60300000.0,Selesai
+KL-0126,PT Nusantara Retail Prima,16/06/2026,Pelatihan,Pelatihan Karyawan,,Proses
+KL-0070,CV Sentosa Teknologi,18/06/2026,Audit,Audit Keuangan,26200000.0,Selesai
+KL-0081,PT Mitra Finansial,18/06/2026,Konsultasi Bisnis,Konsultasi Strategi,74400000.0,Selesai
+KL-0080,PT Jaya Pangan,19/06/2026,Audit,Audit Keuangan,50100000.0,Dibatalkan
+KL-0074,PT Global Retail Sentosa,21/06/2026,Konsultasi Bisnis,Konsultasi Strategi,56700000.0,Selesai
+KL-0100,PT Cahaya Agro,22/06/2026,Audit,Audit Internal,37200000.0,Selesai
+KL-0110,PT Utama Agro,22/06/2026,Konsultasi Bisnis,Konsultasi Strategi,65600000.0,Proses
+KL-0006,PT Utama Retail,23/06/2026,Perpajakan,Konsultasi Pajak,10500000.0,Proses
+KL-0083,CV Sejahtera Agro Cahaya,23/06/2026,Konsultasi Bisnis,Konsultasi Strategi,64300000.0,Selesai
+KL-0001,PT Makmur Media,28/06/2026,Teknologi Informasi,Implementasi ERP,62700000.0,Selesai
+KL-0031,PT Karya Teknologi,29/06/2026,Pelatihan,Pelatihan Karyawan,8900000.0,Selesai
+KL-0091,CV Sinar Pangan,30/06/2026,Pelatihan,Workshop Manajemen,7700000.0,Selesai
+KL-0032,PT Berkah Finansial,01/07/2026,Perpajakan,Pelaporan SPT,4900000.0,Selesai
+KL-0096,PT Berkah Finansial Prima,01/07/2026,Perpajakan,Konsultasi Pajak,9700000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,04/07/2026,Perpajakan,Konsultasi Pajak,32500000.0,Selesai
+KL-0106,PT Maju Teknologi,04/07/2026,Perpajakan,Konsultasi Pajak,19300000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,04/07/2026,Perpajakan,Konsultasi Pajak,32500000.0,Selesai
+KL-0023,pt cahaya retail,05/07/2026,Perpajakan,Konsultasi Pajak,33300000.0,Selesai
+KL-0105,PT Utama Finansial,05/07/2026,Teknologi Informasi,Implementasi ERP,81500000.0,Selesai
+KL-0011,PT Makmur Konstruksi,07/07/2026,Perpajakan,Pelaporan SPT,6600000.0,Selesai
+KL-0036,PT Abadi Teknologi,09/07/2026,Audit,Audit Keuangan,53700000.0,Selesai
+KL-0045,PT Utama Teknologi,09/07/2026,Perpajakan,Konsultasi Pajak,33200000.0,Selesai
+KL-0020,PT Berkah Logistik,10/07/2026,Pelatihan,Workshop Manajemen,,Selesai
+KL-0039,PT Makmur Energi,12/07/2026,Pelatihan,Workshop Manajemen,10700000.0,Selesai
+KL-0050,PT Mitra Retail,12/07/2026,Teknologi Informasi,Implementasi ERP,62000000.0,Selesai
+KL-0147,PT Maju Energi,12/07/2026,Konsultasi Bisnis,Konsultasi Strategi,65800000.0,Selesai
+KL-0125,PT Makmur Pangan Karya,18/07/2026,Teknologi Informasi,Implementasi ERP,96800000.0,Selesai
+KL-0103,pt prima teknologi berkah,20/07/2026,Konsultasi Bisnis,Riset Pasar,29600000.0,Selesai
+KL-0118,PT Karya Logistik,21/07/2026,Perpajakan,Pelaporan SPT,7400000.0,Selesai
+KL-0143,PT Global Farmasi,22/07/2026,Audit,Audit Internal,79300000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,25/07/2026,Konsultasi Bisnis,Konsultasi Strategi,47900000.0,Proses
+KL-0145,PT Berkah Logistik Jaya,25/07/2026,Teknologi Informasi,Audit Sistem TI,45100000.0,Selesai
+KL-0104,PT Cahaya Logistik,26/07/2026,Audit,Audit Keuangan,62700000.0,Selesai
+KL-0048,CV Cahaya Finansial,28/07/2026,Teknologi Informasi,Implementasi ERP,81000000.0,Selesai
+KL-0142,CV Utama Agro,28/07/2026,Perpajakan,Konsultasi Pajak,22200000.0,Selesai
+KL-0001,PT Makmur Media,29/07/2026,Pelatihan,Pelatihan Karyawan,13300000.0,Selesai
+KL-0045,PT Utama Teknologi,30/07/2026,Perpajakan,Konsultasi Pajak,11400000.0,Selesai
+KL-0097,PT Maju Konstruksi Global,02/08/2026,Pelatihan,Pelatihan Karyawan,14500000.0,Selesai
+KL-0051,PT Sinar Teknologi Berkah,04/08/2026,Audit,Audit Keuangan,35900000.0,Selesai
+KL-0105,PT Utama Finansial,04/08/2026,Pelatihan,Workshop Manajemen,11400000.0,Dibatalkan
+KL-0134,PT Sejahtera Farmasi,04/08/2026,Perpajakan,Pelaporan SPT,8600000.0,Selesai
+KL-0105,PT Utama Finansial,04/08/2026,Pelatihan,Workshop Manajemen,11400000.0,Dibatalkan
+KL-0070,CV Sentosa Teknologi,08/08/2026,Audit,Audit Keuangan,54400000.0,Selesai
+KL-0029,PT Berkah Agro,09/08/2026,Konsultasi Bisnis,Konsultasi Strategi,50600000.0,Proses
+KL-0050,PT Mitra Retail,14/08/2026,Teknologi Informasi,Implementasi ERP,148200000.0,Selesai
+KL-0015,PT Sentosa Retail,15/08/2026,Konsultasi Bisnis,Riset Pasar,33700000.0,Dibatalkan
+KL-0027,CV Nusantara Pangan,15/08/2026,Perpajakan,Konsultasi Pajak,7000000.0,Selesai
+KL-0089,pt karya pangan,15/08/2026,Konsultasi Bisnis,Konsultasi Strategi,33600000.0,Selesai
+KL-0128,PT Utama Pangan Sentosa,15/08/2026,Audit,Audit Internal,,Proses
+KL-0132,PT Sentosa Pangan,15/08/2026,Konsultasi Bisnis,Riset Pasar,24000000.0,Selesai
+KL-0134,PT Sejahtera Farmasi,15/08/2026,Perpajakan,Konsultasi Pajak,14600000.0,Selesai
+KL-0003,PT Utama Logistik,17/08/2026,Audit,Audit Internal,29200000.0,Selesai
+KL-0111,CV Sinar Pangan Maju,18/08/2026,Konsultasi Bisnis,Riset Pasar,52600000.0,Selesai
+KL-0085,PT Sejahtera Finansial,19/08/2026,Audit,Audit Internal,67700000.0,Selesai
+KL-0028,PT Nusantara Farmasi,20/08/2026,Audit,Audit Keuangan,73000000.0,Selesai
+KL-0094,PT Karya Energi,20/08/2026,Audit,Audit Internal,56500000.0,Selesai
+KL-0136,PT Sejahtera Energi,20/08/2026,Teknologi Informasi,Audit Sistem TI,24600000.0,Selesai
+KL-0063,CV Mitra Energi,21/08/2026,Audit,Audit Internal,,Selesai
+KL-0109,CV Maju Finansial,21/08/2026,Audit,Audit Keuangan,73900000.0,Selesai
+KL-0017,PT Maju Finansial,22/08/2026,Konsultasi Bisnis,Riset Pasar,14300000.0,Selesai
+KL-0011,PT Makmur Konstruksi,23/08/2026,Konsultasi Bisnis,Konsultasi Strategi,78500000.0,Dibatalkan
+KL-0091,CV Sinar Pangan,24/08/2026,Teknologi Informasi,Implementasi ERP,69200000.0,Selesai
+KL-0070,CV Sentosa Teknologi,25/08/2026,Audit,Audit Internal,29500000.0,Selesai
+KL-0109,CV Maju Finansial,25/08/2026,Audit,Audit Internal,46800000.0,Selesai
+KL-0070,CV Sentosa Teknologi,25/08/2026,Audit,Audit Internal,29500000.0,Selesai
+KL-0079,PT Utama Media,01/09/2026,Perpajakan,Pelaporan SPT,10200000.0,Selesai
+KL-0080,PT Jaya Pangan,04/09/2026,Teknologi Informasi,Audit Sistem TI,25000000.0,Selesai
+KL-0103,PT Prima Teknologi Berkah,07/09/2026,Konsultasi Bisnis,Konsultasi Strategi,33900000.0,Dibatalkan
+KL-0142,CV Utama Agro,09/09/2026,Audit,Audit Internal,57200000.0,Selesai
+KL-0147,PT Maju Energi,09/09/2026,Konsultasi Bisnis,Riset Pasar,29900000.0,Selesai
+KL-0041,PT Prima Teknologi,10/09/2026,Pelatihan,Workshop Manajemen,18800000.0,Proses
+KL-0123,PT Nusantara Retail,15/09/2026,Pelatihan,Pelatihan Karyawan,6800000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,16/09/2026,Perpajakan,Pelaporan SPT,9200000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,16/09/2026,Perpajakan,Konsultasi Pajak,17800000.0,Proses
+KL-0105,PT Utama Finansial,16/09/2026,Teknologi Informasi,Audit Sistem TI,22400000.0,Selesai
+KL-0118,PT Karya Logistik,16/09/2026,Pelatihan,Pelatihan Karyawan,16100000.0,Selesai
+KL-0129,PT Jaya Finansial,18/09/2026,Audit,Audit Keuangan,42800000.0,Selesai
+KL-0016,PT Sinar Teknologi,19/09/2026,Perpajakan,Pelaporan SPT,5500000.0,Selesai
+KL-0092,CV Jaya Agro,19/09/2026,Audit,Audit Internal,25700000.0,Selesai
+KL-0101,PT Mitra Retail Jaya,19/09/2026,Audit,Audit Internal,22400000.0,Selesai
+KL-0050,PT Mitra Retail,20/09/2026,Teknologi Informasi,Audit Sistem TI,50100000.0,Selesai
+KL-0050,PT Mitra Retail,20/09/2026,Teknologi Informasi,Implementasi ERP,82000000.0,Selesai
+KL-0001,PT Makmur Media,25/09/2026,Pelatihan,Workshop Manajemen,25600000.0,Proses
+KL-0003,PT Utama Logistik,25/09/2026,Pelatihan,Pelatihan Karyawan,12800000.0,Selesai
+KL-0113,PT Global Media,26/09/2026,Pelatihan,Pelatihan Karyawan,9600000.0,Proses
+KL-0011,PT Makmur Konstruksi,30/09/2026,Konsultasi Bisnis,Konsultasi Strategi,28800000.0,Selesai
+KL-0031,PT Karya Teknologi,02/10/2026,Pelatihan,Workshop Manajemen,25200000.0,Proses
+KL-0136,PT Sejahtera Energi,02/10/2026,Teknologi Informasi,Implementasi ERP,189100000.0,Selesai
+KL-0017,PT Maju Finansial,05/10/2026,Konsultasi Bisnis,Konsultasi Strategi,50700000.0,Selesai
+KL-0059,PT Mandiri Farmasi Nusantara,06/10/2026,Perpajakan,Konsultasi Pajak,16200000.0,Selesai
+KL-0109,CV Maju Finansial,06/10/2026,Audit,Audit Keuangan,39600000.0,Selesai
+KL-0071,PT Cahaya Pangan,07/10/2026,Audit,Audit Keuangan,125400000.0,Selesai
+KL-0060,cv mitra finansial,08/10/2026,Perpajakan,Konsultasi Pajak,23700000.0,Selesai
+KL-0032,PT Berkah Finansial,10/10/2026,Perpajakan,Konsultasi Pajak,21000000.0,Selesai
+KL-0044,PT Maju Konstruksi,10/10/2026,Audit,Audit Internal,17700000.0,Selesai
+KL-0089,PT Karya Pangan,10/10/2026,Konsultasi Bisnis,Konsultasi Strategi,67100000.0,Selesai
+KL-0028,PT Nusantara Farmasi,12/10/2026,Audit,Audit Internal,78100000.0,Selesai
+KL-0056,PT Prima Retail,15/10/2026,Teknologi Informasi,Audit Sistem TI,37000000.0,Selesai
+KL-0079,PT Utama Media,16/10/2026,Teknologi Informasi,Implementasi ERP,88300000.0,Proses
+KL-0112,PT Jaya Teknologi,17/10/2026,Teknologi Informasi,Implementasi ERP,149900000.0,Selesai
+KL-0112,PT Jaya Teknologi,17/10/2026,Teknologi Informasi,Implementasi ERP,149900000.0,Selesai
+KL-0145,PT Berkah Logistik Jaya,19/10/2026,Teknologi Informasi,Implementasi ERP,100400000.0,Proses
+KL-0051,PT Sinar Teknologi Berkah,22/10/2026,Konsultasi Bisnis,Riset Pasar,40600000.0,Selesai
+KL-0144,PT Cahaya Energi,22/10/2026,Perpajakan,Konsultasi Pajak,8800000.0,Selesai
+KL-0048,CV Cahaya Finansial,24/10/2026,Teknologi Informasi,Implementasi ERP,78700000.0,Selesai
+KL-0015,PT Sentosa Retail,27/10/2026,Konsultasi Bisnis,Konsultasi Strategi,58200000.0,Selesai
+KL-0082,PT Cahaya Media,28/10/2026,Perpajakan,Pelaporan SPT,4300000.0,Selesai
+KL-0130,PT Nusantara Retail Mandiri,28/10/2026,Pelatihan,Pelatihan Karyawan,11100000.0,Selesai
+KL-0105,PT Utama Finansial,29/10/2026,Teknologi Informasi,Audit Sistem TI,35800000.0,Selesai
+KL-0105,PT Utama Finansial,29/10/2026,Teknologi Informasi,Audit Sistem TI,35800000.0,Selesai
+KL-0122,CV Karya Pangan,30/10/2026,Audit,Audit Keuangan,48000000.0,Selesai
+KL-0018,PT Sentosa Finansial,31/10/2026,Audit,Audit Internal,46600000.0,Selesai
+KL-0143,PT Global Farmasi,31/10/2026,Audit,Audit Keuangan,48700000.0,Selesai
