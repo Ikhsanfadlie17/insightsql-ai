@@ -96,7 +96,7 @@ def build_figure(
                 hole=0.55 if kind == "donut" else 0,
                 sort=False,
                 marker={"colors": slice_colors, "line": {"color": "#FFFFFF", "width": 2}},
-                textinfo="percent",
+                texttemplate="%{percent:.1%}",
                 hovertemplate="<b>%{label}</b><br>%{value:,.0f} (%{percent})<extra></extra>",
             )
         )
