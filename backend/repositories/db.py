@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS datasets (
     error TEXT,
     row_count INTEGER,
     column_count INTEGER,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    number_format TEXT NOT NULL DEFAULT 'auto',
+    date_order TEXT NOT NULL DEFAULT 'auto'
 );
 
 CREATE TABLE IF NOT EXISTS dataset_columns (
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS dataset_columns (
     original_name TEXT NOT NULL,
     logical_type TEXT NOT NULL,
     failed_conversions INTEGER NOT NULL DEFAULT 0,
+    notes_json TEXT NOT NULL DEFAULT '[]',
     PRIMARY KEY (dataset_id, position)
 );
 
@@ -77,6 +80,21 @@ CREATE INDEX IF NOT EXISTS idx_analyses_conversation ON analyses(conversation_id
 CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
 """
 
+# Columns added after the first release: (table, column, definition). Applied to
+# databases created by an older version, which CREATE TABLE IF NOT EXISTS skips.
+MIGRATIONS: tuple[tuple[str, str, str], ...] = (
+    ("datasets", "number_format", "TEXT NOT NULL DEFAULT 'auto'"),
+    ("datasets", "date_order", "TEXT NOT NULL DEFAULT 'auto'"),
+    ("dataset_columns", "notes_json", "TEXT NOT NULL DEFAULT '[]'"),
+)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, column, definition in MIGRATIONS:
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
 
 @contextmanager
 def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
@@ -90,6 +108,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
     try:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.executescript(SCHEMA)
+        _migrate(conn)
         yield conn
         conn.commit()
     except Exception:

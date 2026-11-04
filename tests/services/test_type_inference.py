@@ -179,7 +179,7 @@ def test_excel_numbers_skip_locale_heuristics() -> None:
     """H2: native Excel numbers arrive as "4.125" and are never thousands-grouped."""
     frame = pd.DataFrame({"c": pd.Series(["4.125", "3.875", "5"], dtype="string")})
 
-    result = infer_types(frame, locale_numbers=False)
+    result = infer_types(frame, number_format="plain")
 
     assert result.types["c"] == "numeric"
     assert list(result.dataframe["c"]) == [4.125, 3.875, 5.0]
@@ -201,3 +201,160 @@ def test_minority_style_values_are_counted_as_failures() -> None:
     assert failed == 1
     assert series.iloc[-1] is pd.NA or pd.isna(series.iloc[-1])
     assert series.iloc[0] == 1.5
+
+
+# --- Phase 3: explicit formats and user-facing notes -----------------------------
+
+
+def _infer_full(values: list[str | None], **kwargs):
+    frame = pd.DataFrame({"c": pd.Series(values, dtype="string")})
+    result = infer_types(frame, **kwargs)
+    return result.dataframe["c"], result.types["c"], result.notes.get("c", [])
+
+
+def _codes(notes) -> set[str]:
+    return {n.code for n in notes}
+
+
+@pytest.mark.parametrize(
+    ("number_format", "values", "expected"),
+    [
+        ("id", ["1.234", "5.678"], [1234, 5678]),
+        ("en", ["1.234", "5.678"], [1.234, 5.678]),
+        ("en", ["1,234", "5,678"], [1234, 5678]),
+        ("id", ["1,5", "2,25"], [1.5, 2.25]),
+    ],
+)
+def test_explicit_number_format(number_format, values, expected) -> None:
+    series, _, notes = _infer_full(values, number_format=number_format)
+
+    assert list(series) == expected
+    assert "ambiguous_number_format" not in _codes(notes)
+
+
+def test_explicit_format_rejects_and_reports_other_styles() -> None:
+    values = [f"{i}.5" for i in range(1, 40)] + ["1,5"]
+    series, logical, notes = _infer_full(values, number_format="en")
+
+    assert logical == "numeric"
+    assert pd.isna(series.iloc[-1])
+    note = next(n for n in notes if n.code == "unconverted_values")
+    assert note.level == "warning"
+    assert "1,5" in note.message
+
+
+def test_ambiguous_dot_groups_warn_in_auto_mode() -> None:
+    _, _, notes = _infer_full(["1.234", "5.678"])
+
+    note = next(n for n in notes if n.code == "ambiguous_number_format")
+    assert note.level == "warning"
+    assert "1.234" in note.message and "1234" in note.message
+
+
+def test_ambiguous_comma_groups_warn_in_auto_mode() -> None:
+    series, _, notes = _infer_full(["1,234", "5,678"])
+
+    assert list(series) == [1234, 5678]
+    assert "ambiguous_number_format" in _codes(notes)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        ["1.000.000", "250.000"],  # several groups: clearly thousands
+        ["1.234,5", "10.000,25"],  # both separators
+        ["2,5", "3,75"],  # comma decimals
+        ["1.5", "2"],  # dot decimals
+        ["10", "20"],  # no separators
+    ],
+)
+def test_unambiguous_numbers_do_not_warn(values) -> None:
+    _, _, notes = _infer_full(values)
+
+    assert "ambiguous_number_format" not in _codes(notes)
+
+
+def test_ambiguous_date_order_warns() -> None:
+    _, _, notes = _infer_full(["03/04/2026", "05/06/2026"])
+
+    note = next(n for n in notes if n.code == "ambiguous_date_order")
+    assert "3 April 2026" in note.message
+
+
+def test_explicit_month_first_date_order() -> None:
+    series, _, notes = _infer_full(["03/04/2026", "05/06/2026"], date_order="month_first")
+
+    assert list(series.dt.date) == [date(2026, 3, 4), date(2026, 5, 6)]
+    assert "ambiguous_date_order" not in _codes(notes)
+
+
+def test_explicit_order_contradicted_by_data_counts_failures() -> None:
+    values = ["13/01/2026"] + ["01/02/2026"] * 39
+    series, logical, notes = _infer_full(values, date_order="month_first")
+
+    assert logical == "date"
+    assert pd.isna(series.iloc[0])
+    assert "unconverted_values" in _codes(notes)
+
+
+def test_invalid_calendar_dates_are_reported() -> None:
+    values = ["31/02/2026"] + [f"{d:02d}/01/2026" for d in range(1, 31)]
+    series, logical, notes = _infer_full(values)
+
+    assert logical == "date"
+    assert pd.isna(series.iloc[0])
+    note = next(n for n in notes if n.code == "unconverted_values")
+    assert "31/02/2026" in note.message
+
+
+def test_mostly_numeric_text_column_is_flagged() -> None:
+    values = [str(i) for i in range(1, 9)] + ["n/a?", "unknown"]
+    series, logical, notes = _infer_full(values)
+
+    assert logical == "text"
+    assert list(series) == values
+    note = next(n for n in notes if n.code == "mixed_types")
+    assert "80%" in note.message
+
+
+def test_mostly_date_text_column_is_flagged() -> None:
+    values = ["15/01/2026", "16/01/2026", "17/01/2026", "besok"]
+    _, logical, notes = _infer_full(values)
+
+    assert logical == "text"
+    assert "mixed_types" in _codes(notes)
+
+
+def test_long_csv_identifiers_are_kept_as_text_with_info() -> None:
+    series, logical, notes = _infer_full(["9171234567890123", "3201234567890127"])
+
+    assert logical == "text"
+    assert list(series) == ["9171234567890123", "3201234567890127"]
+    note = next(n for n in notes if n.code == "long_identifier")
+    assert note.level == "info"
+
+
+def test_long_excel_numbers_warn_about_15_digit_limit() -> None:
+    _, logical, notes = _infer_full(["9171234567890124", "3201234567890127"], number_format="plain")
+
+    assert logical == "text"
+    note = next(n for n in notes if n.code == "long_identifier")
+    assert note.level == "warning"
+    assert "15" in note.message
+    assert "cannot be recovered" in note.message
+
+
+def test_scientific_notation_identifiers_warn_about_lost_digits() -> None:
+    values = ["9.17123E+15", "3.20123E+15", "1.11111E+15"]
+    _, logical, notes = _infer_full(values)
+
+    assert logical == "text"
+    note = next(n for n in notes if n.code == "scientific_notation")
+    assert note.level == "warning"
+    assert "cannot be recovered" in note.message
+
+
+def test_clean_columns_have_no_notes() -> None:
+    _, _, notes = _infer_full(["10", "20", "30"])
+
+    assert notes == []

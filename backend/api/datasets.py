@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     APIRouter,
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import get_dataset_service
 from backend.core.errors import UploadError
-from backend.schemas.datasets import DatasetColumn, DatasetRecord, UploadInspection
+from backend.schemas.datasets import DatasetColumn, DatasetRecord, DateOrder, UploadInspection
 from backend.schemas.query import QueryResult
 from backend.services.dataset_service import DatasetService
 
@@ -32,6 +32,8 @@ class CreateDatasetRequest(BaseModel):
     upload_id: str
     sheet: str | None = None
     name: str | None = Field(default=None, max_length=200)
+    number_format: Literal["auto", "id", "en"] = "auto"
+    date_order: DateOrder = "auto"
 
 
 class RenameDatasetRequest(BaseModel):
@@ -62,7 +64,9 @@ def create_dataset(
     body: CreateDatasetRequest, service: Service, background: BackgroundTasks
 ) -> DatasetRecord:
     """Register a dataset and ingest it in the background (poll ``GET /datasets/{id}``)."""
-    record = service.create_dataset(body.upload_id, body.sheet, body.name)
+    record = service.create_dataset(
+        body.upload_id, body.sheet, body.name, body.number_format, body.date_order
+    )
     background.add_task(service.ingest, record.id, body.upload_id, record.sheet_name)
     return record
 

@@ -93,6 +93,7 @@ def test_columns_endpoint(client: TestClient) -> None:
         "original_name": "ID Klien",
         "logical_type": "text",
         "failed_conversions": 0,
+        "notes": [],
     }
 
 
@@ -142,3 +143,29 @@ def test_inspect_endpoint_is_sync() -> None:
     from backend.api.datasets import inspect_upload
 
     assert not inspect.iscoroutinefunction(inspect_upload)
+
+
+def test_create_with_import_options(client: TestClient) -> None:
+    inspection = client.post(
+        "/datasets/inspect", files={"file": ("n.csv", b"Nilai\n1.234\n5.678\n")}
+    ).json()
+
+    created = client.post(
+        "/datasets",
+        json={"upload_id": inspection["upload_id"], "number_format": "en", "date_order": "auto"},
+    ).json()
+    columns = client.get(f"/datasets/{created['id']}/columns").json()
+
+    assert created["number_format"] == "en"
+    assert columns[0]["logical_type"] == "numeric"
+    assert columns[0]["notes"] == []
+
+
+def test_invalid_import_option_is_rejected(client: TestClient) -> None:
+    inspection = _upload(client)
+
+    response = client.post(
+        "/datasets", json={"upload_id": inspection["upload_id"], "number_format": "fr"}
+    )
+
+    assert response.status_code == 422

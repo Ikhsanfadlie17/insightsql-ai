@@ -26,7 +26,9 @@ from backend.repositories.dataset_repo import DatasetRepository
 from backend.schemas.datasets import (
     DatasetColumn,
     DatasetRecord,
+    DateOrder,
     FileType,
+    NumberFormat,
     SheetInfo,
     UploadInspection,
 )
@@ -129,8 +131,18 @@ class DatasetService:
         return removed
 
     # ---------------------------------------------------------------- datasets
-    def create_dataset(self, upload_id: str, sheet: str | None, name: str | None) -> DatasetRecord:
+    def create_dataset(
+        self,
+        upload_id: str,
+        sheet: str | None,
+        name: str | None,
+        number_format: NumberFormat = "auto",
+        date_order: DateOrder = "auto",
+    ) -> DatasetRecord:
         """Register a dataset in ``processing`` state; call :meth:`ingest` afterwards.
+
+        ``number_format`` applies to CSV files only: Excel numeric cells are already
+        canonical, so Excel imports always use ``plain``.
 
         Raises:
             NotFoundError: Unknown or expired upload.
@@ -142,6 +154,7 @@ class DatasetService:
             sheet = sheet or sheet_names[0]
             if sheet not in sheet_names:
                 raise ValidationError(f"Sheet '{sheet}' does not exist in this workbook.")
+            number_format = "plain"
         else:
             sheet = None
 
@@ -154,6 +167,8 @@ class DatasetService:
             sheet_name=sheet,
             status="processing",
             created_at=datetime.now(UTC),
+            number_format=number_format,
+            date_order=date_order,
         )
         return self._repo.create(record)
 
@@ -164,11 +179,16 @@ class DatasetService:
         """
         target = self.duckdb_path(dataset_id)
         try:
+            record = self._repo.get(dataset_id)
             path, file_type = self._upload(upload_id)
             frame = load_dataframe(path, file_type, sheet)
             names = normalize_columns([str(c) for c in frame.columns])
             frame.columns = [n.name for n in names]
-            inference = infer_types(frame, locale_numbers=file_type == "csv")
+            inference = infer_types(
+                frame,
+                number_format="plain" if file_type == "xlsx" else record.number_format,
+                date_order=record.date_order,
+            )
             self._write_duckdb(target, inference.dataframe, inference.types)
             columns = [
                 DatasetColumn(
@@ -177,6 +197,7 @@ class DatasetService:
                     original_name=n.original,
                     logical_type=inference.types[n.name],
                     failed_conversions=inference.failed_counts.get(n.name, 0),
+                    notes=inference.notes.get(n.name, []),
                 )
                 for i, n in enumerate(names)
             ]

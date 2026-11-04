@@ -5,11 +5,22 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 FileType = Literal["csv", "xlsx"]
 DatasetStatus = Literal["processing", "ready", "failed"]
 LogicalTypeName = Literal["integer", "numeric", "date", "datetime", "boolean", "text"]
+# "plain" = canonical numbers (Excel cells); "id" = 1.234,5; "en" = 1,234.5.
+NumberFormat = Literal["auto", "id", "en", "plain"]
+DateOrder = Literal["auto", "day_first", "month_first"]
+
+
+class ColumnNote(BaseModel):
+    """A user-facing explanation of how a column was read (never silent changes)."""
+
+    level: Literal["info", "warning"]
+    code: str
+    message: str
 
 
 class SheetInfo(BaseModel):
@@ -40,6 +51,8 @@ class DatasetRecord(BaseModel):
     row_count: int | None = None
     column_count: int | None = None
     created_at: datetime
+    number_format: NumberFormat = "auto"
+    date_order: DateOrder = "auto"
 
 
 class DatasetColumn(BaseModel):
@@ -50,3 +63,4 @@ class DatasetColumn(BaseModel):
     original_name: str
     logical_type: LogicalTypeName
     failed_conversions: int = 0
+    notes: list[ColumnNote] = Field(default_factory=list)

@@ -65,10 +65,21 @@ class ApiClient:
         return self._request("POST", "/datasets/inspect", files={"file": (filename, content)})
 
     def create_dataset(
-        self, upload_id: str, sheet: str | None = None, name: str | None = None
+        self,
+        upload_id: str,
+        sheet: str | None = None,
+        name: str | None = None,
+        number_format: str = "auto",
+        date_order: str = "auto",
     ) -> dict[str, Any]:
         """``POST /datasets``; ingestion continues in the background."""
-        payload = {"upload_id": upload_id, "sheet": sheet, "name": name}
+        payload = {
+            "upload_id": upload_id,
+            "sheet": sheet,
+            "name": name,
+            "number_format": number_format,
+            "date_order": date_order,
+        }
         return self._request("POST", "/datasets", json=payload)
 
     def list_datasets(self) -> list[dict[str, Any]]:

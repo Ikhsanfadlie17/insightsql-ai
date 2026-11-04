@@ -238,3 +238,69 @@ def test_duplicate_headers_are_ingested_with_unique_names(service: DatasetServic
         ("nama_2", "Nama"),
         ("nilai", "Nilai"),
     ]
+
+
+# --- Phase 3: import options and notes ------------------------------------------
+
+
+def _ingest_bytes(service: DatasetService, name: str, content: bytes, **options) -> str:
+    inspection = service.inspect_upload(name, content)
+    record = service.create_dataset(inspection.upload_id, None, None, **options)
+    service.ingest(record.id, inspection.upload_id, None)
+    return record.id
+
+
+def _column_values(service: DatasetService, dataset_id: str, column: str) -> list:
+    with duckdb.connect(str(service.duckdb_path(dataset_id)), read_only=True) as conn:
+        return [r[0] for r in conn.execute(f"SELECT {column} FROM dataset").fetchall()]
+
+
+def test_number_format_option_changes_interpretation(service: DatasetService) -> None:
+    content = b"Nilai\n1.234\n5.678\n"
+    auto_id = _ingest_bytes(service, "a.csv", content)
+    en_id = _ingest_bytes(service, "b.csv", content, number_format="en")
+
+    assert _column_values(service, auto_id, "nilai") == [1234, 5678]
+    assert _column_values(service, en_id, "nilai") == [1.234, 5.678]
+    assert service.get(en_id).number_format == "en"
+    auto_notes = service.columns(auto_id)[0].notes
+    assert [n.code for n in auto_notes] == ["ambiguous_number_format"]
+    assert service.columns(en_id)[0].notes == []
+
+
+def test_date_order_option(service: DatasetService) -> None:
+    dataset_id = _ingest_bytes(
+        service, "d.csv", b"Tanggal\n03/04/2026\n05/06/2026\n", date_order="month_first"
+    )
+
+    assert [str(v) for v in _column_values(service, dataset_id, "tanggal")] == [
+        "2026-03-04",
+        "2026-05-06",
+    ]
+
+
+def test_excel_imports_always_use_plain_numbers(service: DatasetService) -> None:
+    inspection = service.inspect_upload(SAMPLE_XLSX.name, SAMPLE_XLSX.read_bytes())
+
+    record = service.create_dataset(inspection.upload_id, "Transactions", None, number_format="id")
+
+    assert record.number_format == "plain"
+
+
+def test_unusual_dataset_ingests_with_notes(service: DatasetService) -> None:
+    content = (
+        b"NIK,Nama,Nama,Tanggal,Nilai,Catatan\n"
+        b"9171234567890123,A,a,15/01/2026,10,\n"
+        b"3201234567890127,B,b,31/02/2026,n/a?,\n"
+        b"3201234567890127,B,b,31/02/2026,n/a?,\n"
+        b",,,,,\n"
+    )
+    dataset_id = _ingest_bytes(service, "odd.csv", content)
+
+    record = service.get(dataset_id)
+    columns = {c.original_name + str(c.position): c for c in service.columns(dataset_id)}
+    assert record.status == "ready"
+    assert record.row_count == 3  # the fully empty row is dropped
+    assert columns["NIK0"].logical_type == "text"
+    assert [n.code for n in columns["NIK0"].notes] == ["long_identifier"]
+    assert columns["Catatan5"].logical_type == "text"  # all values missing

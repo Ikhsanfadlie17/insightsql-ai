@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +30,13 @@ def _to_record(row: sqlite3.Row) -> DatasetRecord:
     return DatasetRecord.model_validate(dict(row))
 
 
+def _to_column(row: sqlite3.Row) -> DatasetColumn:
+    data = dict(row)
+    data["notes"] = json.loads(data.pop("notes_json") or "[]")
+    data.pop("dataset_id", None)
+    return DatasetColumn.model_validate(data)
+
+
 class DatasetRepository:
     """SQLite-backed store for dataset metadata. One connection per operation."""
 
@@ -40,7 +48,8 @@ class DatasetRepository:
         with connect(self._db_path) as conn:
             conn.execute(
                 """INSERT INTO datasets (id, name, source_filename, sheet_name, status, error,
-                   row_count, column_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   row_count, column_count, created_at, number_format, date_order)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     record.id,
                     record.name,
@@ -51,6 +60,8 @@ class DatasetRepository:
                     record.row_count,
                     record.column_count,
                     record.created_at.isoformat(),
+                    record.number_format,
+                    record.date_order,
                 ),
             )
         return record
@@ -108,7 +119,8 @@ class DatasetRepository:
         with connect(self._db_path) as conn:
             conn.execute("DELETE FROM dataset_columns WHERE dataset_id = ?", (dataset_id,))
             conn.executemany(
-                "INSERT INTO dataset_columns VALUES (?, ?, ?, ?, ?, ?)",
+                """INSERT INTO dataset_columns (dataset_id, position, name, original_name,
+                   logical_type, failed_conversions, notes_json) VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 [
                     (
                         dataset_id,
@@ -117,6 +129,7 @@ class DatasetRepository:
                         c.original_name,
                         c.logical_type,
                         c.failed_conversions,
+                        json.dumps([n.model_dump() for n in c.notes]),
                     )
                     for c in columns
                 ],
@@ -129,7 +142,7 @@ class DatasetRepository:
                 "SELECT * FROM dataset_columns WHERE dataset_id = ? ORDER BY position",
                 (dataset_id,),
             )
-            return [DatasetColumn.model_validate(dict(r)) for r in rows]
+            return [_to_column(r) for r in rows]
 
     def save_document(self, dataset_id: str, kind: DocumentKind, document: BaseModel) -> None:
         """Store (or replace) a JSON document such as the profile or column mapping."""

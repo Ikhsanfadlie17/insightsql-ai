@@ -123,7 +123,7 @@ def test_excel_native_decimals_stay_decimals(tmp_path: Path) -> None:
     pd.DataFrame({"score": [4.125, 3.875, 5.0]}).to_excel(path, index=False)
 
     df = load_dataframe(path, "xlsx", "Sheet1")
-    result = infer_types(df, locale_numbers=False)
+    result = infer_types(df, number_format="plain")
 
     assert list(result.dataframe["score"]) == [4.125, 3.875, 5.0]
 

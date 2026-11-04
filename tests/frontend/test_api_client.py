@@ -72,7 +72,13 @@ def test_upload_sends_multipart_file() -> None:
 
 def test_create_dataset_payload() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert json.loads(request.content) == {"upload_id": "u1", "sheet": "S", "name": None}
+        assert json.loads(request.content) == {
+            "upload_id": "u1",
+            "sheet": "S",
+            "name": None,
+            "number_format": "auto",
+            "date_order": "auto",
+        }
         return httpx.Response(201, json={"id": "d1", "status": "processing"})
 
     assert _client(handler).create_dataset("u1", "S")["id"] == "d1"

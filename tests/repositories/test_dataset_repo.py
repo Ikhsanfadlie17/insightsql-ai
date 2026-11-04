@@ -146,6 +146,56 @@ def test_delete_missing_raises_not_found(repo: DatasetRepository) -> None:
 def test_foreign_keys_are_enforced(tmp_path: Path) -> None:
     with connect(tmp_path / "app.db") as conn, pytest.raises(sqlite3.IntegrityError):
         conn.execute(
-            "INSERT INTO dataset_columns VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO dataset_columns (dataset_id, position, name, original_name, "
+            "logical_type, failed_conversions) VALUES (?, ?, ?, ?, ?, ?)",
             ("nope", 0, "a", "A", "text", 0),
         )
+
+
+# --- Phase 3: notes, import options, schema migration --------------------------
+
+
+def test_column_notes_round_trip(repo: DatasetRepository) -> None:
+    from backend.schemas.datasets import ColumnNote
+
+    repo.create(_record())
+    note = ColumnNote(level="warning", code="ambiguous_number_format", message="m")
+    column = DatasetColumn(
+        position=0, name="nilai", original_name="Nilai", logical_type="integer", notes=[note]
+    )
+
+    repo.save_columns("ds1", [column])
+
+    assert repo.get_columns("ds1")[0].notes == [note]
+
+
+def test_import_options_are_stored(repo: DatasetRepository) -> None:
+    record = _record().model_copy(update={"number_format": "en", "date_order": "month_first"})
+
+    repo.create(record)
+
+    stored = repo.get("ds1")
+    assert (stored.number_format, stored.date_order) == ("en", "month_first")
+
+
+def test_old_database_is_migrated(tmp_path: Path) -> None:
+    db_path = tmp_path / "old.db"
+    old = sqlite3.connect(db_path)
+    old.executescript(
+        """CREATE TABLE datasets (id TEXT PRIMARY KEY, name TEXT NOT NULL,
+           source_filename TEXT NOT NULL, sheet_name TEXT, status TEXT NOT NULL, error TEXT,
+           row_count INTEGER, column_count INTEGER, created_at TEXT NOT NULL);
+           CREATE TABLE dataset_columns (dataset_id TEXT NOT NULL, position INTEGER NOT NULL,
+           name TEXT NOT NULL, original_name TEXT NOT NULL, logical_type TEXT NOT NULL,
+           failed_conversions INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (dataset_id, position));
+           INSERT INTO datasets VALUES ('ds1','n','f.csv',NULL,'ready',NULL,1,1,
+           '2026-11-04T03:00:00+00:00');
+           INSERT INTO dataset_columns VALUES ('ds1', 0, 'a', 'A', 'text', 0);"""
+    )
+    old.commit()
+    old.close()
+
+    repo = DatasetRepository(db_path)
+
+    assert repo.get("ds1").number_format == "auto"
+    assert repo.get_columns("ds1")[0].notes == []
