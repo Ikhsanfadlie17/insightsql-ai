@@ -13,8 +13,8 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 | 2 Fondasi (Task 1–6) | selesai, direview, disetujui user | 149 |
 | 3 Data Intelligence (Task 7–8) | selesai, direview, disetujui user | 290 |
 | 4 Integrasi AI (Task 9–13) | selesai, direview, disetujui user | 558 |
-| 5 Analytics (Task 14–18) | selesai, direview, temuan Critical/High/Medium diperbaiki — **MENUNGGU review user** | 757 |
-| 6 Product Features (Task 19–21) | belum dimulai | — |
+| 5 Analytics (Task 14–18) | selesai, direview, disetujui user (2026-11-04) | 757 |
+| 6 Product Features (Task 19–21) | **sedang dikerjakan** — Task 19 (`dff19dd`) dan Task 20 (`f7554f6`) selesai + test; Task 21 belum | 810 (+1 skip di Windows) |
 | 7 Quality (evaluasi Text-to-SQL, performa) | belum | — |
 | 8 Deployment (Docker, README final) | belum | — |
 
@@ -41,6 +41,36 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
    Inggris; aplikasi menjawab dalam bahasa pertanyaan (ID/EN).
 7. Dokumentasi portofolio final (technical case study, 12 bagian) **baru dibuat setelah user
    menyatakan proyek siap**.
+
+## 3a. Progres Phase 6 (sesi 2026-11-04, Windows lokal, commit belum di-push)
+
+Selesai (test-first, full pytest 810 lulus + 1 skip, ruff bersih):
+- **Task 19:** `backend/api/conversations.py` (`GET /conversations` dengan `dataset_id`
+  opsional, `GET/DELETE /conversations/{id}`, `GET /analyses/recent`, `GET /analyses/{id}`);
+  ringkasan percakapan membawa `last_question`/`last_activity_at`; halaman Query History
+  (daftar per dataset, cari, buka, lanjutkan di AI Analyst via `open_in_ai_analyst` +
+  `st.switch_page`, hapus dengan konfirmasi); Overview "Recent activity".
+  Deviasi dari plan: recent activity memakai endpoint `GET /analyses/recent` (5 analisis
+  terakhir lintas dataset), bukan diturunkan dari `GET /conversations`.
+- **Task 20:** `backend/services/export_service.py`, `backend/api/exports.py`,
+  `frontend/components/downloads.py` (tombol unduh lazy: file dibuat saat diklik).
+  CSV pakai BOM + netralisasi awalan formula (`= + - @ \t \r` → `'`); Excel sel teks tidak
+  pernah jadi formula; PDF memakai font bawaan (cp1252) — karakter non-Latin diganti `?`
+  dan PDF menyebutkannya; error 409 `nothing_to_export`. `ExportMeta` ditambah
+  `assumptions` dan `notes`.
+
+Sisa sebelum laporan Phase 6:
+- **Task 21:** `GET /settings` (tanpa secret; test key tidak pernah keluar), halaman
+  Settings (model, limit, toggle, ringkasan usage/biaya, cara set env), rename/delete
+  dataset dengan konfirmasi di Data Sources (API `PATCH/DELETE /datasets/{id}` sudah ada),
+  polish UI + screenshot enam halaman (`test_unbuilt_pages_do_not_show_fake_numbers` kini
+  memakai halaman Settings — ubah saat Settings dibangun).
+- **Follow-up "Keep as text"** (rencana): (a) `SheetInfo.detected_types` dari sampel baris
+  saat inspect → peringatan di form import; (b) di `type_inference._infer_column`, kolom yang
+  dipaksa teks tetap dihitung tipe "seharusnya" → note `kept_as_text_looks_like_date/number`;
+  `data_profiler` memakai note itu untuk pesan `no_date_column` yang menyebut kolomnya.
+- Review independen, perbaikan Critical/High, evidence Phase 6 di `phase-log.md`, lalu
+  tunggu review user.
 
 ## 3. Pekerjaan berikutnya (setelah user menyetujui Phase 5)
 

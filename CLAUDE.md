@@ -7,7 +7,7 @@ Melanjutkan di sesi/mesin baru: baca `docs/HANDOFF.md` dulu.
 
 ## Status
 
-**Phase 5 (Task 14–18) selesai + direview + temuan Critical/High/Medium diperbaiki. MENUNGGU review user sebelum Phase 6. OpenAI API sungguhan BELUM pernah diuji (jaringan diblokir, belum ada key).**
+**Phase 5 disetujui user. Phase 6 sedang dikerjakan: Task 19–20 selesai, Task 21 + review belum (lihat `docs/HANDOFF.md` §3a). OpenAI API sungguhan BELUM pernah diuji.**
 Setelah tiap phase: review independen, perbaiki temuan critical/high, lapor, lalu TUNGGU review user. Laporan berisi ringkasan,
 file yang berubah, keputusan arsitektur, hasil test, kegagalan, dan phase berikutnya.
 Jangan mengklaim fitur selesai tanpa implementasi + test.
