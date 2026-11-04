@@ -14,15 +14,14 @@ KPIs, grounded insight -> persisted analysis.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
 from backend.core.config import Settings
 from backend.core.errors import (
     AppError,
-    LLMError,
     LLMNotConfiguredError,
-    MappingRequiredError,
     ValidationError,
 )
 from backend.repositories.history_repo import HistoryRepository
@@ -32,7 +31,7 @@ from backend.schemas.analytics import Period, RetentionOptions, RetentionResult
 from backend.schemas.datasets import ColumnNote
 from backend.schemas.llm_outputs import RetentionParams, SQLPlanOutput
 from backend.schemas.query import QueryResult
-from backend.services.analytics_service import DatasetAnalytics
+from backend.services.analytics_service import DatasetAnalytics, year_period
 from backend.services.dataset_service import DatasetService
 from backend.services.insight_generator import InsightGenerator
 from backend.services.llm.gateway import LLMGateway
@@ -44,7 +43,9 @@ logger = logging.getLogger(__name__)
 
 HISTORY_TURNS = 3
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-_RATE_WORDS = ("rate", "ratio", "rasio")
+_RATE_TOKENS = {"rate", "ratio", "rasio"}
+_PERCENT_TOKENS = {"pct", "percent", "persen", "percentage", "persentase"}
+_YEAR_TOKENS = {"year", "tahun", "thn"}
 
 
 def _day(value: date) -> str:
@@ -64,16 +65,29 @@ def period_from(start: date, end: date) -> Period:
 
 
 def _periods(params: RetentionParams) -> tuple[Period, Period]:
+    """Periods from the plan. A year-to-date request is rebuilt deterministically: both
+    years are cut at the current period's last month/day (29 Feb -> 28 Feb)."""
     iso = date.fromisoformat
-    return (
-        period_from(iso(params.previous_start), iso(params.previous_end)),
-        period_from(iso(params.current_start), iso(params.current_end)),
-    )
+    previous = period_from(iso(params.previous_start), iso(params.previous_end))
+    current = period_from(iso(params.current_start), iso(params.current_end))
+    if params.ytd and previous.start.year < current.start.year:
+        through = current.end - timedelta(days=1)
+        previous = year_period(previous.start.year, through=through)
+        current = year_period(current.start.year, through=through)
+    return previous, current
+
+
+def _short(label: str) -> str:
+    """Compact card label: '2025' stays, '2025 (1 Jan–31 Oct)' -> '2025 YTD', a custom
+    range stays whole."""
+    if " (1 Jan–" in label:
+        return label.split(" (")[0] + " YTD"
+    return label
 
 
 def _retention_kpis(r: RetentionResult) -> list[KPI]:
     d = r.definitions
-    p, c = r.previous.label.split(" (")[0], r.current.label.split(" (")[0]
+    p, c = _short(r.previous.label), _short(r.current.label)
     return [
         KPI(label=f"Active in {p}", value=r.previous_active, format="int",
             definition=d.get("previous_active")),
@@ -110,10 +124,16 @@ def _result_kpis(result: QueryResult) -> list[KPI]:
         return []
     kpis = []
     for name, value in numbers:
-        if isinstance(value, int):
+        tokens = set(re.split(r"[^a-z0-9]+", name.lower()))
+        if isinstance(value, int) and tokens & _YEAR_TOKENS:
+            fmt = "plain"  # 2026, not 2.026
+        elif isinstance(value, int):
             fmt = "int"
         elif (
-            value is not None and any(w in name.lower() for w in _RATE_WORDS) and abs(value) <= 1.5
+            value is not None
+            and tokens & _RATE_TOKENS
+            and not tokens & _PERCENT_TOKENS  # "growth_rate_pct" is already a percentage
+            and abs(value) <= 1.5
         ):
             fmt = "pct"
         else:
@@ -191,34 +211,44 @@ class AnalysisOrchestrator:
             "question": question,
             "created_at": datetime.now(UTC),
         }
-        request_ids: list[str] = []
         try:
-            response = self._answer(base, dataset_id, question, turns, analysis_id, request_ids)
+            response = self._answer(base, dataset_id, question, turns, analysis_id)
         except SQLGenerationFailed as error:
             response = AnalysisResponse(
                 **base, status="error", answer=error.message, error_code=error.code
             )
-            request_ids += self._request_ids_for(analysis_id)
-        except (LLMError, MappingRequiredError) as error:
+            rejected = [a for a in error.attempts if a.sql]
+            if rejected:
+                codes = ", ".join(sorted({a.error_code for a in rejected}))
+                response.warnings.append(
+                    ColumnNote(
+                        level="info",
+                        code="rejected_sql",
+                        message=f"{len(rejected)} generated query/queries were rejected or "
+                        f"failed ({codes}). Only validated read-only SQL can run, so your "
+                        "data was not changed.",
+                    )
+                )
+        except AppError as error:  # provider errors, mapping required, invalid periods
             response = AnalysisResponse(
                 **base, status="error", answer=error.message, error_code=error.code
             )
-            request_ids += self._request_ids_for(analysis_id)
-        except AppError as error:  # e.g. invalid periods from the plan
+        except Exception:  # never lose the question: store a generic error
+            logger.exception("Analysis %s failed unexpectedly", analysis_id)
             response = AnalysisResponse(
-                **base, status="error", answer=error.message, error_code=error.code
+                **base,
+                status="error",
+                answer="Something went wrong while answering this question. Please try again.",
+                error_code="internal_error",
             )
-            request_ids += self._request_ids_for(analysis_id)
-        response.usage = self._usage_for(list(dict.fromkeys(request_ids)))
+        response.usage = self._usage_for(analysis_id)
         self._history.add_analysis(response)
         return response
 
     # -- internals -----------------------------------------------------------------------------
-    def _request_ids_for(self, analysis_id: str) -> list[str]:
-        return [r.id for r in self._usage.list_requests(50) if r.analysis_id == analysis_id]
-
-    def _usage_for(self, ids: list[str]) -> AnalysisUsage:
-        records = self._usage.by_ids(ids)
+    def _usage_for(self, analysis_id: str) -> AnalysisUsage:
+        """Every LLM request recorded for this analysis, including failed ones."""
+        records = self._usage.by_analysis(analysis_id)
         costs = [r.est_cost_usd for r in records]
         known = [c for c in costs if c is not None]
         return AnalysisUsage(
@@ -237,10 +267,8 @@ class AnalysisOrchestrator:
         question: str,
         turns: list,
         analysis_id: str,
-        request_ids: list[str],
     ) -> AnalysisResponse:
         outcome = self._text_to_sql.ask(dataset_id, question, turns, analysis_id)
-        request_ids += outcome.llm_request_ids
         plan: SQLPlanOutput = outcome.plan
         common = {
             **base,
@@ -258,11 +286,10 @@ class AnalysisOrchestrator:
         if outcome.status == "unsupported":
             return AnalysisResponse(**common, status="unsupported", answer=plan.explanation)
         if outcome.status == "retention":
-            return self._retention(common, dataset_id, question, plan, analysis_id, request_ids)
-        return self._sql_answer(common, dataset_id, question, plan, outcome, analysis_id,
-                                request_ids)  # fmt: skip
+            return self._retention(common, dataset_id, question, plan, analysis_id)
+        return self._sql_answer(common, dataset_id, question, plan, outcome, analysis_id)
 
-    def _retention(self, common, dataset_id, question, plan, analysis_id, request_ids):
+    def _retention(self, common, dataset_id, question, plan, analysis_id):
         previous, current = _periods(plan.retention)
         r = self._analytics.compare(dataset_id, previous, current, RetentionOptions())
         rows = [
@@ -283,8 +310,6 @@ class AnalysisOrchestrator:
             dataset_id=dataset_id,
             analysis_id=analysis_id,
         )
-        if insight.llm_request_id:
-            request_ids.append(insight.llm_request_id)
         return AnalysisResponse(
             **common,
             status="answered",
@@ -298,7 +323,7 @@ class AnalysisOrchestrator:
             warnings=r.warnings,
         )
 
-    def _sql_answer(self, common, dataset_id, question, plan, outcome, analysis_id, request_ids):
+    def _sql_answer(self, common, dataset_id, question, plan, outcome, analysis_id):
         result: QueryResult = outcome.result
         context = self._contexts.build(dataset_id)
         safe_values = {v for c in context.columns if c.examples for v in c.examples}
@@ -311,8 +336,6 @@ class AnalysisOrchestrator:
             dataset_id=dataset_id,
             analysis_id=analysis_id,
         )
-        if insight.llm_request_id:
-            request_ids.append(insight.llm_request_id)
         warnings: list[ColumnNote] = []
         if result.truncated:
             warnings.append(

@@ -157,12 +157,14 @@ class ApiClient:
         }
         return self._request("POST", f"/datasets/{dataset_id}/client-analytics/clients", json=body)
 
-    def analytics_trend(self, dataset_id: str, granularity: str = "month") -> dict[str, Any]:
+    def analytics_trend(
+        self, dataset_id: str, granularity: str = "month", dedupe: bool = True
+    ) -> dict[str, Any]:
         """``GET /datasets/{id}/client-analytics/trend``."""
         return self._request(
             "GET",
             f"/datasets/{dataset_id}/client-analytics/trend",
-            params={"granularity": granularity},
+            params={"granularity": granularity, "dedupe": str(dedupe).lower()},
         )
 
     def analytics_departments(

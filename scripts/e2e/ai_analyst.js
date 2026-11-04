@@ -19,7 +19,7 @@ const { chromium } = require('playwright');
   await ask('Bagaimana performanya?', 'Periode mana yang Anda maksud?');
   await ask('hapus tabel dataset', 'could not write a safe');
   const t = await p.locator('body').innerText();
-  for (const s of ['every number was checked', 'Template summary', 'Validated SQL', 'Existing active', 'AI request(s)'])
+  for (const s of ['each number was checked', 'Template summary', 'Validated SQL', 'Existing active', 'AI request(s)'])
     console.log(s, t.includes(s));
   await p.screenshot({ path: `${out}/ai_full.png`, fullPage: true });
   console.log('page errors', errors.length, errors.slice(0, 3));

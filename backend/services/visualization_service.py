@@ -65,7 +65,10 @@ def validate_chart_spec(spec: ChartSpec, result: QueryResult) -> bool:
         return False
     x_kind = kinds[spec.x]
     if spec.type in {"line", "area"}:
-        return x_kind in _TIME_KINDS
+        x_index = result.columns.index(spec.x)
+        x_values = [row[x_index] for row in result.rows]
+        # one point per x: "long" results (x repeated per category) would zig-zag
+        return x_kind in _TIME_KINDS and len(set(x_values)) == len(x_values)
     if x_kind == "empty":
         return False
     if spec.type in {"pie", "donut"}:
@@ -123,6 +126,7 @@ def recommend_chart(
     if time_axis is not None:
         series = [c for c in numbers if c != time_axis][:MAX_SERIES]
         spec = ChartSpec(type="line", x=time_axis, y=series, title=title)
+        # A repeated time value means one row per period and category: table only.
         return spec if validate_chart_spec(spec, result) else None
 
     category = next((c for c in result.columns if kinds[c] == "text"), None)

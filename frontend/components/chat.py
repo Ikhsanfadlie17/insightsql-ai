@@ -16,6 +16,7 @@ FALLBACK_REASONS = {
     "ungrounded_numbers": "the AI text contained numbers that are not in the result",
     "causal_claim": "the AI text stated causes that the data cannot show",
     "unknown_reference": "the AI text referred to values that are not in the result",
+    "wrong_direction": "the AI text described a change in the wrong direction",
     "empty_answer": "the AI returned no summary",
     "llm_error": "the AI provider could not be reached",
     "llm_insights_disabled": "AI insights are turned off",
@@ -38,6 +39,8 @@ def format_kpi(value: float | int | None, fmt: str) -> str:
         return fmt_signed_pct(value)
     if fmt == "int":
         return fmt_int(value)
+    if fmt == "plain":
+        return "N/A" if value is None else str(value)
     if value is None:
         return "N/A"
     return fmt_int(value) if float(value).is_integer() else fmt_number(value, 2)
@@ -57,12 +60,17 @@ def _list(title: str, items: list[str]) -> None:
         st.markdown("\n".join(f"- {md_escape(item)}" for item in items))
 
 
-def _insight(insight: dict[str, Any]) -> None:
+def _insight(insight: dict[str, Any], retention: bool = False) -> None:
     with st.container(border=True):
-        if insight["source"] == "llm":
+        if insight["source"] == "llm" and retention:
             st.caption(
-                ":material/verified: AI explanation — every number was checked against the "
-                "query result."
+                ":material/verified: Facts from the analytics engine. The interpretation was "
+                "written by AI and checked: no numbers, no unproven causes, direction matches."
+            )
+        elif insight["source"] == "llm":
+            st.caption(
+                ":material/verified: AI explanation — each number was checked to exist in, or "
+                "be derived from, the query result; causes stated as fact are rejected."
             )
         else:
             reason = FALLBACK_REASONS.get(insight.get("fallback_reason") or "", "")
@@ -122,7 +130,7 @@ def render_analysis(analysis: dict[str, Any]) -> None:
                 render_result(table)
         render_notes(analysis.get("warnings") or [])
         if analysis.get("insight") and status == "answered":
-            _insight(analysis["insight"])
+            _insight(analysis["insight"], retention=bool(analysis.get("retention")))
         if analysis.get("sql") or analysis.get("explanation") or analysis.get("assumptions"):
             with st.expander("How this was answered"):
                 if analysis.get("explanation"):

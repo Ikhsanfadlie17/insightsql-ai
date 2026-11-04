@@ -14,6 +14,7 @@ never as rows. Rows without an identity or a date are excluded and counted.
 from __future__ import annotations
 
 import calendar
+import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -44,7 +45,11 @@ from backend.services.sql_validator import TableSchema, validate_sql
 
 NO_DEPARTMENT = "(no department)"
 MAX_IDENTITY_EXAMPLES = 50
-_WS = r"[\s\p{Z}]"  # RE2: ASCII whitespace plus Unicode separators (e.g. no-break space)
+# RE2 class: whitespace, Unicode separators (no-break space), and invisible format
+# characters (zero-width space, BOM) that often stick to IDs copied from other systems.
+_WS = r"[\s\p{Z}\p{Cf}]"
+MAX_TREND_BUCKETS = 600  # zero-filling stops here (e.g. a typo year 0202 in the data)
+PLAUSIBLE_START = date(1950, 1, 1)
 _CATEGORY_SQL = {c: (c,) for c in CATEGORIES} | {
     "existing_active": ("returning", "reactivated", "between_period")
 }
@@ -384,6 +389,7 @@ class AnalyticsService:
                 "of one client are counted as different clients.",
             )
         notes.extend(source.identity_notes)
+        notes.extend(_date_sanity_notes(r.data_start, r.data_end))
         if r.previous_active == 0 and r.current_active == 0:
             add(
                 "warning",
@@ -485,7 +491,7 @@ class AnalyticsService:
         sql = (
             ctes + f" SELECT client_key AS client, {name_column}first_seen, last_seen, "
             "prev_tx AS transactions_previous, cur_tx AS transactions_current, "
-            f"(SELECT COUNT(*) FROM classified WHERE category IN ({allowed})) AS total "
+            "COUNT(*) OVER () AS total "
             f"FROM classified WHERE category IN ({allowed}) "
             f"ORDER BY client_key LIMIT {limit} OFFSET {offset}"
         )
@@ -554,12 +560,19 @@ class AnalyticsService:
             )
             partial_first = data_start > first
             partial_last = data_end < _next_bucket(last, granularity) - timedelta(days=1)
-            cursor = first
-            while cursor <= last:
-                counts = by_bucket.get(cursor, [0, 0, 0])
-                rows.append([_bucket_label(cursor, granularity), *(int(n) for n in counts)])
-                cursor = _next_bucket(cursor, granularity)
-        notes = [_history_note(data_start)]
+            buckets = _bucket_count(first, last, granularity)
+            if buckets <= MAX_TREND_BUCKETS:
+                cursor = first
+                while cursor <= last:
+                    counts = by_bucket.get(cursor, [0, 0, 0])
+                    rows.append([_bucket_label(cursor, granularity), *(int(n) for n in counts)])
+                    cursor = _next_bucket(cursor, granularity)
+            else:  # implausible span: show only buckets with data
+                rows = [
+                    [_bucket_label(b, granularity), *(int(n) for n in counts)]
+                    for b, counts in sorted(by_bucket.items())
+                ]
+        notes = [_history_note(data_start), *_date_sanity_notes(data_start, data_end)]
         if partial_first:
             notes.append(
                 ColumnNote(
@@ -630,8 +643,7 @@ class AnalyticsService:
         sql = (
             "WITH "
             + _base_ctes(source, options.dedupe_exact_duplicates, {"department": dept_sql})
-            + ", per_dept AS (SELECT COALESCE(department, "
-            f"'{NO_DEPARTMENT}') AS department, client_key, "
+            + ", per_dept AS (SELECT department, client_key, "
             f"COUNT(*) FILTER (WHERE {prev_in}) AS prev_tx, "
             f"COUNT(*) FILTER (WHERE {cur_in}) AS cur_tx "
             f"FROM valid WHERE {prev_in} OR {cur_in} GROUP BY 1, 2) "
@@ -646,13 +658,17 @@ class AnalyticsService:
             "(SELECT COUNT(*) FROM (SELECT client_key FROM per_dept WHERE cur_tx > 0 "
             "GROUP BY client_key HAVING COUNT(*) > 1) AS m) AS multi "
             "FROM per_dept GROUP BY department "
-            "ORDER BY current_active DESC, previous_active DESC, department"
+            "ORDER BY current_active DESC, previous_active DESC, department NULLS LAST"
         )
         result, executed = self._run(source, sql)
         multi = int(result.rows[0][-1]) if result.rows else 0
         table = QueryResult(
             columns=result.columns[:-1],
-            rows=[row[:-1] for row in result.rows],
+            # Missing departments are their own group; labelled here so that a real value
+            # spelled "(no department)" is never merged with them.
+            rows=[
+                [row[0] if row[0] is not None else NO_DEPARTMENT, *row[1:-1]] for row in result.rows
+            ],  # fmt: skip
             row_count=result.row_count,
             truncated=result.truncated,
             elapsed_ms=result.elapsed_ms,
@@ -795,12 +811,14 @@ class AnalyticsService:
             "COUNT(DISTINCT client_key) AS unique_clients, "
             "COUNT(*) FILTER (WHERE client_key IS NULL) AS missing_id_rows, "
             "COUNT(*) FILTER (WHERE tx_day IS NULL) AS missing_date_rows, "
-            "MIN(tx_day) AS data_start, MAX(tx_day) AS data_end FROM raw"
+            "MIN(tx_day) AS data_start, MAX(tx_day) AS data_end, "
+            "string_agg(DISTINCT CAST(year(tx_day) AS VARCHAR), ',') AS years FROM raw"
         )
         row = self._run(source, sql)[0].rows[0]
         start = date.fromisoformat(row[4]) if row[4] else None
         end = date.fromisoformat(row[5]) if row[5] else None
-        notes = [_history_note(start)] + list(source.identity_notes)
+        notes = [_history_note(start), *_date_sanity_notes(start, end)]
+        notes += list(source.identity_notes)
         if source.identity_kind == "client_name":
             notes.append(
                 ColumnNote(
@@ -821,9 +839,32 @@ class AnalyticsService:
             missing_date_rows=int(row[3]),
             data_start=start,
             data_end=end,
-            years=list(range(start.year, end.year + 1)) if start and end else [],
+            years=sorted(int(y) for y in row[6].split(",")) if row[6] else [],
             warnings=notes,
         )
+
+
+def _date_sanity_notes(start: date | None, end: date | None) -> list[ColumnNote]:
+    """Flag dates that are probably typos (e.g. 0202 for 2020, or far in the future)."""
+    if start is None or end is None:
+        return []
+    future = date.today() + timedelta(days=366)
+    if start >= PLAUSIBLE_START and end <= future:
+        return []
+    return [
+        ColumnNote(
+            level="warning",
+            code="implausible_dates",
+            message=f"The dates run from {start} to {end}. Dates before "
+            f"{PLAUSIBLE_START.year} or more than a year in the future are probably typing "
+            "errors; they shift first-seen dates (New / Reactivated) and the available years.",
+        )
+    ]
+
+
+def _bucket_count(first: date, last: date, granularity: str) -> int:
+    months = (last.year - first.year) * 12 + last.month - first.month
+    return months // {"month": 1, "quarter": 3, "year": 12}[granularity] + 1
 
 
 # --- buckets -------------------------------------------------------------------------------
@@ -870,6 +911,7 @@ class DatasetAnalytics:
         self._service = service
         self._cache: OrderedDict[tuple, object] = OrderedDict()
         self._max_entries = max_entries
+        self._lock = threading.Lock()  # FastAPI runs sync endpoints in a thread pool
 
     @property
     def service(self) -> AnalyticsService:
@@ -881,13 +923,16 @@ class DatasetAnalytics:
     def _cached(self, dataset_id: str, name: str, key: tuple, compute):  # noqa: ANN001, ANN202
         source = self.source(dataset_id)
         full_key = (dataset_id, source.mapping.confirmed_at, name, *key)
-        if full_key in self._cache:
-            self._cache.move_to_end(full_key)
-            return self._cache[full_key].model_copy(deep=True)
-        value = compute(source)
-        self._cache[full_key] = value
-        while len(self._cache) > self._max_entries:
-            self._cache.popitem(last=False)
+        with self._lock:
+            cached = self._cache.get(full_key)
+            if cached is not None:
+                self._cache.move_to_end(full_key)
+                return cached.model_copy(deep=True)
+        value = compute(source)  # outside the lock: queries may run concurrently
+        with self._lock:
+            self._cache[full_key] = value
+            while len(self._cache) > self._max_entries:
+                self._cache.popitem(last=False)
         return value.model_copy(deep=True)  # callers can never alter the cached copy
 
     def coverage(self, dataset_id: str) -> AnalyticsCoverage:
@@ -922,12 +967,15 @@ class DatasetAnalytics:
             ),
         )
 
-    def trend(self, dataset_id: str, granularity: Granularity) -> TrendResult:
+    def trend(
+        self, dataset_id: str, granularity: Granularity, options: RetentionOptions | None = None
+    ) -> TrendResult:
+        options = options or RetentionOptions()
         return self._cached(
             dataset_id,
             "trend",
-            (granularity,),
-            lambda s: self._service.client_trend(s, granularity),
+            (granularity, options.dedupe_exact_duplicates),
+            lambda s: self._service.client_trend(s, granularity, options),
         )
 
     def departments(

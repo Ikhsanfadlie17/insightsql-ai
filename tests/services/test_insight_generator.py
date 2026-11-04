@@ -295,3 +295,139 @@ def test_result_template_lists_real_values() -> None:
 
     assert insight.source == "deterministic"
     assert any("Audit" in f and "34" in f for f in insight.facts)
+
+
+# --- Phase 5 review regressions -------------------------------------------------------------
+def test_identity_values_in_warnings_never_reach_the_llm(make) -> None:
+    """C1: warning messages can quote IDs; only fixed texts per code are sent."""
+    from backend.schemas.datasets import ColumnNote
+
+    nik = "3201011234567890"
+    warnings = [
+        ColumnNote(level="warning", code="client_id_long_identifier",
+                   message=f"Client identity column: 4 value(s) have 16+ digits (e.g. '{nik}')."),
+        ColumnNote(level="warning", code="incomplete_current_period", message=f"x {nik}"),
+    ]  # fmt: skip
+    generator, fake = make(_output(summary="Ringkas."))
+
+    generator.generate(question="q", language="id", retention=_retention(warnings=warnings))
+
+    assert nik not in fake.calls[0].user
+    assert "The current period is not complete in the data." in fake.calls[0].user
+
+
+def test_retention_facts_come_from_the_engine(make) -> None:
+    """H1: the AI cannot restate an N/A rate as 0%: retention facts are never AI text."""
+    no_previous = _retention(previous_active=0, returning=0, not_returned=0,
+                             retention_rate=None, growth_rate=None)  # fmt: skip
+    output = _output(
+        summary="Retensi klien 0% dan pertumbuhan 100%.",
+        facts=["Retensi 0%."],
+        interpretations=["Semua klien aktif mungkin baru bagi dataset ini."],
+    )
+    generator, _ = make(output)
+
+    insight = generator.generate(question="q", language="id", retention=no_previous)
+
+    text = " ".join([insight.summary, *insight.facts])
+    assert insight.source == "llm"
+    assert "0%" not in text and "N/A" in text
+    assert insight.interpretations == output.interpretations
+
+
+@pytest.mark.parametrize(
+    "interpretation",
+    ["Retensi mungkin hanya 0%.", "Pertumbuhan mungkin sekitar 18%."],
+)
+def test_retention_interpretations_may_not_contain_numbers(make, interpretation) -> None:
+    generator, _ = make(_output(summary="x", interpretations=[interpretation]))
+
+    insight = generator.generate(question="q", language="id", retention=_retention())
+
+    assert insight.fallback_reason == "ungrounded_numbers"
+
+
+def test_retention_direction_must_match(make) -> None:
+    """H2: active clients went down; "meningkat" is rejected."""
+    down = _retention(previous_active=50, current_active=40, returning=30, not_returned=20,
+                      new=10, reactivated=0, between_period=0, existing_active=30,
+                      retention_rate=0.6, new_client_rate=0.25, growth_rate=-0.2)  # fmt: skip
+    generator, _ = make(_output(summary="x", interpretations=["Basis klien mungkin meningkat."]))
+
+    insight = generator.generate(question="q", language="id", retention=down)
+
+    assert insight.fallback_reason == "wrong_direction"
+
+
+def test_time_series_direction_is_checked(make) -> None:
+    """H2 for SQL results: a decrease described as an increase is rejected."""
+    rows = [["2026-03", 40], ["2026-01", 50], ["2026-02", 45]]
+    series = QueryResult(columns=["bulan", "klien"], rows=rows, row_count=3)
+    subject = subject_from_result(series, "id")
+
+    assert grounding_problems(["Klien turun 10 dari 50 menjadi 40 (20%)."], subject) == []
+    assert grounding_problems(["Klien naik 20% dari Januari ke Maret."], subject)
+    assert grounding_problems(["Klien naik 10 klien."], subject)
+
+
+def test_percentages_need_a_percentage_source() -> None:
+    """H1/M1: a count, a NULL rate, or a small integer is never a valid percentage."""
+    depts = QueryResult(
+        columns=["departemen", "klien", "retention_rate"],
+        rows=[["A", 25, None], ["B", 17, 0.5]] + [[f"D{i}", 3, 0.25] for i in range(20)],
+        row_count=22,
+    )
+    subject = subject_from_result(depts, "id")
+
+    assert grounding_problems(["Departemen A punya 17 klien."], subject) == []
+    assert grounding_problems(["Retensi departemen B 50%."], subject) == []
+    for sentence in ("Retensi departemen A 0%.", "Pendapatan naik 37%.", "Klien 9 persen."):
+        assert grounding_problems([sentence], subject), sentence
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Penurunan ini menyebabkan kerugian.",
+        "Kenaikan mengakibatkan biaya naik.",
+        "Pertumbuhan didorong oleh promosi.",
+        "Promosi memicu kenaikan.",
+        "Growth was fueled by marketing.",
+        "The drop is attributable to pricing.",
+        "Sales rose thanks to the campaign.",
+        "Retention improved since the new CRM was launched.",
+    ],
+)
+def test_more_causal_phrasings_are_caught(make, text: str) -> None:
+    """M2."""
+    generator, _ = make(_output(summary="Audit tertinggi (34).", facts=[text]))
+
+    insight = generator.generate(question="q", language="id", result=DEPTS)
+
+    assert insight.fallback_reason == "causal_claim"
+
+
+def test_long_integer_ids_are_withheld_even_with_neutral_names(make) -> None:
+    """M3."""
+    result = QueryResult(
+        columns=["pelanggan", "whatsapp", "dob", "total_pendapatan"],
+        rows=[[3201011234567890, 6281234567890, "1990-02-01", 125_000_000]],
+        row_count=1,
+    )
+    generator, fake = make(_output(summary="Pendapatan 125 juta."))
+
+    generator.generate(question="q", language="id", result=result)
+
+    sent = fake.calls[0].user
+    assert "3201011234567890" not in sent and "6281234567890" not in sent
+    assert "1990-02-01" not in sent
+    assert "125000000" in sent  # an amount column is kept
+
+
+def test_unexpected_insight_failure_falls_back(make) -> None:
+    """L1."""
+    generator, _ = make(RuntimeError("boom"))
+
+    insight = generator.generate(question="q", language="id", result=DEPTS)
+
+    assert insight.source == "deterministic" and insight.fallback_reason == "llm_error"

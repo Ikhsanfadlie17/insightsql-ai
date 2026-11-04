@@ -59,7 +59,7 @@ def test_ask_renders_the_answer_sql_and_insight() -> None:
     assert api.ask_calls == [("d1", "Klien per departemen?", None)]
     text = _text(at)
     assert "Audit memiliki klien aktif terbanyak (34)." in text
-    assert "every number was checked" in text
+    assert "each number was checked" in text
     assert any("COUNT(DISTINCT id_klien)" in c.value for c in at.code)
     assert "2 AI request(s)" in text and "cost not available" in text
 

@@ -18,6 +18,7 @@ from backend.schemas.analytics import (
     DepartmentBreakdown,
     Granularity,
     IdentityReport,
+    RetentionOptions,
     RetentionResult,
     TrendResult,
 )
@@ -67,9 +68,12 @@ def trend(
     dataset_id: str,
     request: Request,
     granularity: Annotated[Granularity, Query()] = "month",
+    dedupe: Annotated[bool, Query()] = True,
 ) -> TrendResult:
     """Active clients, new clients, and transactions per month, quarter, or year."""
-    return _analytics(request).trend(dataset_id, granularity)
+    return _analytics(request).trend(
+        dataset_id, granularity, RetentionOptions(dedupe_exact_duplicates=dedupe)
+    )
 
 
 @router.get("/identity-issues", response_model=IdentityReport)

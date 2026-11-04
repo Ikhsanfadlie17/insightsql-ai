@@ -94,3 +94,23 @@ def test_line_figure() -> None:
 
     assert list(fig.data[0].x) == ["2026-01", "2026-02"]
     assert fig.layout.xaxis.type == "category"
+
+
+def test_line_points_are_drawn_in_time_order() -> None:
+    """Review M5."""
+    spec = {"type": "line", "x": "bulan", "y": ["n"]}
+
+    fig = build_figure(spec, ["bulan", "n"], [["2026-03", 1], ["2026-01", 2], ["2026-02", 3]])
+
+    assert list(fig.data[0].x) == ["2026-01", "2026-02", "2026-03"]
+    assert list(fig.data[0].y) == [2, 3, 1]
+
+
+def test_decimals_are_kept_in_hover_and_axis() -> None:
+    """Review M4: 0.63 must not be shown as 1."""
+    spec = {"type": "bar", "x": "departemen", "y": ["rate"]}
+
+    fig = build_figure(spec, ["departemen", "rate"], [["A", 0.63], ["B", 0.48]])
+
+    assert ",.2f" in fig.data[0].hovertemplate
+    assert fig.layout.yaxis.tickformat == ","

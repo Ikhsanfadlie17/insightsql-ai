@@ -62,6 +62,15 @@ class UsageRepository:
             ).fetchall()
         return [UsageRecord.model_validate(dict(r)) for r in rows]
 
+    def by_analysis(self, analysis_id: str) -> list[UsageRecord]:
+        """All requests recorded for one analysis (oldest first)."""
+        with connect(self._db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM llm_requests WHERE analysis_id = ? ORDER BY created_at, rowid",
+                (analysis_id,),
+            ).fetchall()
+        return [UsageRecord.model_validate(dict(r)) for r in rows]
+
     def summary(self) -> UsageSummary:
         """Totals overall, per model, and per purpose."""
         with connect(self._db_path) as conn:

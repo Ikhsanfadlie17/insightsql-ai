@@ -140,3 +140,22 @@ def test_too_many_series_are_capped() -> None:
     spec = recommend_chart(_result(columns, rows))
 
     assert spec.type == "line" and len(spec.y) == 4
+
+
+def test_long_format_time_series_is_not_a_line() -> None:
+    """Review M5: one row per month and department would zig-zag in one line."""
+    result = _result(
+        ["bulan", "departemen", "klien"],
+        [["2026-01", "A", 5], ["2026-01", "B", 9], ["2026-02", "A", 6], ["2026-02", "B", 3]],
+    )
+
+    spec = recommend_chart(result)
+
+    assert spec is None or spec.type != "line"
+    assert not validate_chart_spec(ChartSpec(type="line", x="bulan", y=["klien"]), result)
+
+
+def test_unsorted_time_series_is_still_a_line() -> None:
+    result = _result(["bulan", "n"], [["2026-03", 1], ["2026-01", 2], ["2026-02", 3]])
+
+    assert recommend_chart(result).type == "line"

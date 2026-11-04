@@ -205,7 +205,7 @@ def _charts(r: dict[str, Any]) -> None:
             st.caption(f"No active clients in {md_escape(c)}.")
 
 
-def _trend(api: ApiClient, dataset_id: str) -> None:
+def _trend(api: ApiClient, dataset_id: str, dedupe: bool) -> None:
     st.subheader("Client activity over time", anchor=False)
     granularity = st.segmented_control(
         "Granularity",
@@ -215,7 +215,7 @@ def _trend(api: ApiClient, dataset_id: str) -> None:
         key="ca_granularity",
     )
     try:
-        trend = api.analytics_trend(dataset_id, granularity or "month")
+        trend = api.analytics_trend(dataset_id, granularity or "month", dedupe)
     except ApiError as error:
         show_api_error(error)
         return
@@ -379,7 +379,7 @@ def main() -> None:
     _transactions(r)
     _definitions(r)
     st.divider()
-    _trend(api, active["id"])
+    _trend(api, active["id"], dedupe)
     if coverage.get("department_column"):
         st.divider()
         _departments(api, active["id"], previous, current, dedupe)

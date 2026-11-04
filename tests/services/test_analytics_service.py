@@ -587,3 +587,53 @@ def test_sample_dataset_monthly_trend_matches_ground_truth(sample_svc, sample) -
     for bucket, expected in truth.items():
         assert rows[bucket] == expected, bucket
     assert all(v == (0, 0, 0) for k, v in rows.items() if k not in truth)
+
+
+# --- Phase 5 review regressions -------------------------------------------------------------
+def test_zero_width_space_and_bom_around_ids(svc: AnalyticsService, tmp_path: Path) -> None:
+    """M8: invisible format characters are trimmed like whitespace."""
+    rows = [("​B", "2025-03-01"), ("B", "2026-03-01"), ("﻿C", "2025-04-01"),
+            ("C", "2024-04-01")]  # fmt: skip
+    r = svc.compare_periods(make_source(tmp_path, rows), year_period(2025), year_period(2026))
+
+    assert (r.previous_active, r.current_active, r.returning) == (2, 1, 1)  # B, C | B
+    assert r.new == 0
+
+
+def test_typo_dates_do_not_explode_the_trend(svc: AnalyticsService, tmp_path: Path) -> None:
+    """L3: a year 0202 is flagged, years come from the data, the trend is not zero-filled."""
+    rows = [("A", "2025-03-01"), ("A", "0202-05-01"), ("B", "2026-01-10")]
+    source = make_source(tmp_path, rows)
+
+    coverage = svc.coverage(source)
+    trend = svc.client_trend(source, "month")
+    r = svc.compare_periods(source, year_period(2025), year_period(2026))
+
+    assert coverage.years == [202, 2025, 2026]
+    assert "implausible_dates" in _codes(coverage) and "implausible_dates" in _codes(r)
+    assert trend.result.row_count == 3
+
+
+def test_literal_no_department_value_is_not_merged_with_missing(
+    svc: AnalyticsService, tmp_path: Path
+) -> None:
+    """L9."""
+    rows = [("A", "2026-01-01", "(no department)"), ("B", "2026-01-02", None)]
+    source = make_source(
+        tmp_path,
+        rows,
+        {"client_id": "VARCHAR", "tx_date": "DATE", "dept": "VARCHAR"},
+        _mapping(client_id="client_id", transaction_date="tx_date", department="dept"),
+    )
+
+    out = svc.department_breakdown(source, year_period(2025), year_period(2026))
+
+    assert out.result.row_count == 2
+    assert [r[2] for r in out.result.rows] == [1, 1]
+
+
+def test_trend_respects_the_dedupe_option(svc: AnalyticsService, plan: AnalyticsSource) -> None:
+    """L7."""
+    kept = svc.client_trend(plan, "year", RetentionOptions(dedupe_exact_duplicates=False))
+
+    assert {r[0]: r[3] for r in kept.result.rows}["2026"] == 6

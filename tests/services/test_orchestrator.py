@@ -276,3 +276,77 @@ def test_mapping_required_for_retention(env_factory) -> None:
     r = env.ask("Retensi 2025 vs 2026", dataset_id=unmapped)
 
     assert r.status == "error" and r.error_code == "mapping_required"
+
+
+# --- Phase 5 review regressions -------------------------------------------------------------
+def test_ytd_flag_rebuilds_comparable_periods(env_factory) -> None:
+    """M7: the model asked for YTD but sent a full previous year."""
+    params = RetentionParams(
+        previous_start="2025-01-01", previous_end="2026-01-01",
+        current_start="2026-01-01", current_end="2026-11-01", ytd=True,
+    )  # fmt: skip
+    env = env_factory(plan("retention", retention=params, chart=None))
+    env.settings.enable_llm_insights = False
+
+    r = env.ask("Bandingkan klien tahun lalu dengan tahun ini (year-to-date)")
+
+    assert (str(r.retention.previous.end), str(r.retention.current.end)) == (
+        "2025-11-01", "2026-11-01",
+    )  # fmt: skip
+    assert {k.label for k in r.kpis} >= {"Active in 2025 YTD", "Active in 2026 YTD"}
+    assert not any(w.code == "unequal_period_lengths" for w in r.warnings)
+
+
+def test_kpi_formats_follow_column_name_tokens() -> None:
+    """M6 / L8."""
+    from backend.schemas.query import QueryResult
+    from backend.services.analysis_orchestrator import _result_kpis
+
+    def fmt(name, value):
+        result = QueryResult(columns=[name], rows=[[value]], row_count=1)
+        return _result_kpis(result)[0].format
+
+    assert fmt("corporate_clients", 0.0) == "number"
+    assert fmt("separate_orders", 1.0) == "number"
+    assert fmt("growth_rate_pct", 1.2) == "number"
+    assert fmt("retention_rate", 0.63) == "pct"
+    assert fmt("tahun", 2026) == "plain"
+
+
+def test_failed_insight_request_is_counted_in_usage(env_factory) -> None:
+    """L1."""
+    from backend.core.errors import LLMTimeoutError
+
+    env = env_factory(plan(), LLMTimeoutError("timeout"))
+
+    r = env.ask("Klien per departemen 2026")
+
+    assert r.insight.fallback_reason == "llm_error"
+    assert r.usage.requests == 2  # the failed insight request is billed and counted
+
+
+def test_periods_out_of_range_are_an_error_not_a_crash(env_factory) -> None:
+    """L2."""
+    params = RetentionParams(
+        previous_start="2299-01-01", previous_end="2300-01-01",
+        current_start="2300-01-01", current_end="2301-01-01", ytd=False,
+    )  # fmt: skip
+    env = env_factory(plan("retention", retention=params, chart=None))
+
+    r = env.ask("Retensi tahun 2300?")
+
+    assert r.status == "error" and r.error_code == "sql_generation_failed"
+
+
+def test_unexpected_failure_is_stored_as_an_error(env_factory, monkeypatch) -> None:
+    """L2: the question and conversation are never left without an analysis."""
+    env = env_factory(plan())
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(env.app.state.text_to_sql, "ask", boom)
+    r = env.ask("Klien per departemen 2026")
+
+    assert r.status == "error" and r.error_code == "internal_error"
+    assert env.app.state.history_repo.get_conversation(r.conversation_id).analyses

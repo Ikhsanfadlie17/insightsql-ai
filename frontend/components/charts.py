@@ -64,7 +64,7 @@ def build_figure(
     rows: Sequence[Sequence[Any]],
     labels: dict[str, str] | None = None,
     colors: dict[str, str] | None = None,
-    value_format: str = ",.0f",
+    value_format: str | None = None,
     percent_axis: bool = False,
     series_colors: Sequence[str] | None = None,
 ) -> go.Figure:
@@ -81,7 +81,13 @@ def build_figure(
         if spec.get("top_n"):
             data = data[: spec["top_n"]]
         data.reverse()  # largest at the top
+    if kind in {"line", "area"}:
+        data.sort(key=lambda r: str(r[xi]))  # time order (ISO dates and period labels)
     xs = [str(r[xi]) if r[xi] is not None else "(empty)" for r in data]
+    if value_format is None:  # decimals only when the data has them
+        values = [r[columns.index(y)] for r in data for y in ys]
+        fractional = any(isinstance(v, float) and not float(v).is_integer() for v in values)
+        value_format = ",.2f" if fractional else ",.0f"
 
     fig = go.Figure()
     if kind in {"pie", "donut"}:
@@ -192,7 +198,7 @@ def render_chart(
     *,
     labels: dict[str, str] | None = None,
     colors: dict[str, str] | None = None,
-    value_format: str = ",.0f",
+    value_format: str | None = None,
     percent_axis: bool = False,
     series_colors: Sequence[str] | None = None,
     key: str | None = None,

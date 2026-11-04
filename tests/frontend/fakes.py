@@ -316,7 +316,7 @@ class AnalyticsFakeApi(FakeApi):
                        "truncated": offset + len(rows) < len(ids), "elapsed_ms": 1.0},
         }  # fmt: skip
 
-    def analytics_trend(self, dataset_id: str, granularity: str = "month") -> dict[str, Any]:
+    def analytics_trend(self, dataset_id: str, granularity="month", dedupe=True) -> dict[str, Any]:
         self._check("analytics_trend")
         return copy.deepcopy(TREND)
 

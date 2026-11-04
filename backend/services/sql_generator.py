@@ -97,6 +97,8 @@ def _check_retention(params: RetentionParams | None) -> None:
         )
         if not (prev_start < prev_end <= cur_start < cur_end):
             raise ValueError("periods out of order")
+        if prev_start < date(1900, 1, 1) or cur_end > date(2200, 1, 1):
+            raise ValueError("periods out of range")
     except ValueError:
         raise SQLGenerationFailed(
             [],

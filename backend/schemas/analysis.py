@@ -14,7 +14,7 @@ from backend.schemas.insights import Insight
 from backend.schemas.query import QueryResult
 
 AnalysisStatus = Literal["answered", "clarification", "unsupported", "error"]
-KPIFormat = Literal["int", "number", "pct", "signed_pct"]
+KPIFormat = Literal["int", "number", "pct", "signed_pct", "plain"]
 
 
 class AskRequest(BaseModel):

@@ -75,11 +75,26 @@ _SCALES = {
     "miliar": 9, "milyar": 9, "billion": 9, "bn": 9, "b": 9,
     "triliun": 12, "trillion": 12,
 }  # fmt: skip
+_PERCENT = re.compile(r"\s*(%|persen\b|percent\b|pct\b)", re.IGNORECASE)
 _ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 _PLACEHOLDER = re.compile(r"\[V(\d+)\]")
 _CAUSAL = re.compile(
-    r"\b(karena|disebabkan|penyebab\w*|akibat\w*|sebab|dipicu|berkat|because|due to|caused|"
-    r"causes|driven by|as a result of|owing to|leads? to|led to|results? in)\b",
+    r"\b(karena|\w*(?:sebab|nyebab)\w*|\w*akibat\w*|\w*(?:picu|micu)\w*|berkat|didorong|mendorong|dorongan|"
+    r"dipengaruhi|mempengaruhi|memengaruhi|pengaruh|berdampak|dampak|imbas|"
+    r"because|due to|caused|causes|causing|driven by|drove|drives|as a result of|owing to|"
+    r"leads? to|led to|results? in|resulted in|thanks to|attribut\w*|contribut\w*|fuel\w*|"
+    r"since the|triggered|impact(ed)? by)\b",
+    re.IGNORECASE,
+)
+_UP = re.compile(
+    r"\b(naik|menaik|kenaikan|meningkat|peningkatan|bertambah|penambahan|tumbuh|melonjak|"
+    r"increase[sd]?|increasing|rose|rise[sn]?|grew|grow[sn]?|went up|up by|higher|gained?)\b",
+    re.IGNORECASE,
+)
+_DOWN = re.compile(
+    r"\b(turun|menurun|penurunan|berkurang|pengurangan|merosot|anjlok|susut|menyusut|"
+    r"decrease[sd]?|decreasing|declined?|declining|fell|fall[sn]?|dropped|drops?|went down|"
+    r"down by|lower|shr[ai]nk|lost)\b",
     re.IGNORECASE,
 )
 _HEDGE = re.compile(
@@ -96,6 +111,7 @@ class _Number:
     value: Decimal  # primary reading, signed
     readings: tuple[tuple[Decimal, int], ...]  # (absolute value, decimals written)
     exponent: int  # scale word: 10 ** exponent
+    percent: bool = False  # followed by %, persen, percent
 
 
 def _readings(token: str) -> list[tuple[Decimal, int]]:
@@ -130,8 +146,9 @@ def _numbers(text: str) -> list[_Number]:
         negative = start > 0 and text[start - 1] in "-−" and (start < 2 or text[start - 2] in " (")
         scale = _SCALE.match(text, match.end())
         exponent = _SCALES[scale.group(1).lower()] if scale else 0
+        percent = bool(_PERCENT.match(text, match.end()))
         value = -readings[0][0] if negative else readings[0][0]
-        found.append(_Number(token, value, tuple(readings), exponent))
+        found.append(_Number(token, value, tuple(readings), exponent, percent))
     return found
 
 
@@ -175,11 +192,37 @@ _CATEGORY = {
     "periode", "period", "kuartal", "quarter", "minggu", "week", "tanggal", "date", "hari",
     "day", "metric", "metrik",
 }  # fmt: skip
-# Numbers are withheld only in columns named like identifiers (a "klien_aktif" count is fine).
+# All values are withheld in columns named like identifiers (a "klien_aktif" count is fine).
 _IDENTIFIER = {
-    "nik", "npwp", "ktp", "paspor", "passport", "telepon", "telp", "phone", "hp", "rekening",
-    "account", "id", "kode", "code", "no", "nomor", "nip", "uuid", "lahir", "birth",
+    "nik", "npwp", "ktp", "paspor", "passport", "telepon", "telp", "phone", "hp", "wa",
+    "whatsapp", "rekening", "account", "id", "kode", "code", "no", "nomor", "nip", "uuid",
+    "lahir", "birth", "dob", "ttl", "lhr", "ultah",
 }  # fmt: skip
+# Integers with this many digits look like identifiers (NIK, phone, account numbers) and are
+# withheld unless the column is named like an amount or an aggregate.
+_ID_DIGITS = 9
+_AMOUNT = {
+    "sum", "total", "jumlah", "pendapatan", "revenue", "omzet", "omset", "nilai", "harga",
+    "amount", "biaya", "cost", "sales", "penjualan", "avg", "rata", "average", "mean",
+    "income", "profit", "laba", "rp", "idr", "nominal",
+}  # fmt: skip
+_PERCENT_COLUMN = {"pct", "persen", "percent", "percentage", "persentase", "rate", "rasio", "ratio"}
+# Notes sent to the model: fixed texts per warning code, never the warning message itself
+# (messages can quote values from the file, e.g. example IDs).
+_NOTE_TEXT = {
+    "history_completeness": "New and Reactivated are based only on the history in this dataset.",
+    "history_starts_late": "The data starts after the previous period begins.",
+    "incomplete_current_period": "The current period is not complete in the data.",
+    "unequal_period_lengths": "The two periods have different lengths.",
+    "non_adjacent_periods": "There is a gap between the periods.",
+    "no_data": "No client has a transaction in either period.",
+    "no_data_previous": "No client has a transaction in the previous period.",
+    "no_data_current": "No client has a transaction in the current period.",
+    "missing_client_ids": "Some rows have no client identity and are excluded.",
+    "missing_transaction_dates": "Some rows have no valid date and are excluded.",
+    "duplicate_rows": "Exact duplicate rows were counted once in transaction counts.",
+    "name_identity": "Clients are identified by name, not by ID.",
+}
 _PERSONAL_VALUE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+|\+?\d[\d\s().-]{7,}\d")
 _PERIOD_VALUE = re.compile(r"^\d{4}(-(0[1-9]|1[0-2])(-\d{2})?|-Q[1-4])?$")
 
@@ -198,13 +241,23 @@ class InsightSubject:
     total_rows: int
     notes: list[str]
     definitions: dict[str, str]
-    allowed: set[Decimal] = field(default_factory=set)  # absolute values
+    allowed: set[Decimal] = field(default_factory=set)  # absolute values, any number
+    allowed_pct: set[Decimal] = field(default_factory=set)  # values a "x%" may match
+    changes: dict[Decimal, set[int]] = field(default_factory=dict)  # |change| -> signs
     allowed_dates: set[str] = field(default_factory=set)
     clear_texts: set[str] = field(default_factory=set)
     max_small_int: int = 0
     placeholders: dict[str, str] = field(default_factory=dict)  # "[V1]" -> original
     result: QueryResult | None = None
     retention: RetentionResult | None = None
+
+    def add_change(self, before: Decimal, after: Decimal) -> None:
+        """An ordered change (time series, previous -> current): keep its direction."""
+        diff = after - before
+        sign = (diff > 0) - (diff < 0)
+        self.changes.setdefault(abs(diff), set()).add(sign)
+        if before:
+            self.changes.setdefault(abs(diff / before * 100), set()).add(sign)
 
     def payload(self) -> str:
         data = {"columns": self.columns, "rows": self.rows, "total_rows": self.total_rows}
@@ -216,30 +269,29 @@ class InsightSubject:
         )
 
 
-def _add_derived(
-    allowed: set[Decimal], values: list[Decimal], pairs: bool = True, ordered: bool = False
-) -> None:
-    """Totals, mean, shares, and (pairwise) differences and percentage changes."""
+def _add_derived(subject: InsightSubject, values: list[Decimal], pairs: bool = True) -> None:
+    """Totals, mean, shares, and unordered pairwise differences / percentage changes."""
     if not values:
         return
     total = sum(values)
-    allowed.update({abs(total), abs(total / len(values))})
+    subject.allowed.update({abs(total), abs(total / len(values))})
     if total > 0 and all(v >= 0 for v in values):
-        allowed.update(v / total * 100 for v in values)
+        subject.allowed_pct.update(v / total * 100 for v in values)
     if not pairs:
         return
     for a, b in combinations(values, 2):
-        allowed.add(abs(b - a))
-        if a:
-            allowed.add(abs((b - a) / a * 100))
-        if b and not ordered:  # rows have no inherent order: both directions are derivable
-            allowed.add(abs((a - b) / b * 100))
+        subject.allowed.add(abs(b - a))  # unordered rows: no direction can be claimed
+        for base in (a, b):
+            if base and a != b:  # "0% difference" between two categories says nothing
+                subject.allowed_pct.add(abs((b - a) / base * 100))
 
 
-def _add_number(allowed: set[Decimal], value: Decimal) -> None:
-    allowed.add(abs(value))
+def _add_number(subject: InsightSubject, value: Decimal, percent_column: bool) -> None:
+    subject.allowed.add(abs(value))
+    if percent_column and abs(value) > 1:  # already a percentage; <= 1 is read as a ratio
+        subject.allowed_pct.add(abs(value))
     if value != value.to_integral_value() and abs(value) <= 10:
-        allowed.add(abs(value * 100))  # a ratio written as a percentage
+        subject.allowed_pct.add(abs(value * 100))  # a ratio written as a percentage
 
 
 def _add_date(subject: InsightSubject, day: date) -> None:
@@ -280,6 +332,9 @@ def subject_from_result(
     sensitive = {c for c in columns if _tokens(c) & _SENSITIVE and not _tokens(c) & _CATEGORY}
     category_named = {c for c in columns if _tokens(c) & _CATEGORY}
     identifiers = {c for c in columns if _tokens(c) & _IDENTIFIER}
+    amounts = {c for c in columns if _tokens(c) & _AMOUNT}
+    percent_columns = {c for c in columns if _tokens(c) & _PERCENT_COLUMN}
+    time_index = _time_column(result)
     reverse: dict[str, str] = {}
 
     def placeholder(value: Any) -> str:
@@ -296,13 +351,19 @@ def subject_from_result(
         for index, (column, value) in enumerate(zip(columns, row, strict=False)):
             if value is None:
                 out.append(None)
-            elif column in identifiers:
+            elif column in identifiers or (
+                isinstance(value, int)
+                and not isinstance(value, bool)
+                and len(str(abs(value))) >= _ID_DIGITS
+                and column not in amounts
+            ):
                 out.append(placeholder(value))
             elif (number := _to_decimal(value)) is not None:
                 out.append(value)
-                numeric.setdefault(index, []).append(number)
-                row_numbers.append(number)
-                _add_number(subject.allowed, number)
+                _add_number(subject, number, column in percent_columns)
+                if column not in percent_columns:  # totals/shares of rates mean nothing
+                    numeric.setdefault(index, []).append(number)
+                    row_numbers.append(number)
             else:
                 text = str(value)[:MAX_CELL_CHARS]
                 if _ISO_DATE.fullmatch(text[:10]) and len(text) in (10, 19, 26):
@@ -321,12 +382,39 @@ def subject_from_result(
                     subject.clear_texts.add(text)
                 else:
                     out.append(placeholder(value))
-        _add_derived(subject.allowed, row_numbers, pairs=len(row_numbers) <= 6)
+        _add_derived(subject, row_numbers, pairs=len(row_numbers) <= 6)
         subject.rows.append(out)
-    for values in numeric.values():
-        _add_derived(subject.allowed, values, pairs=len(values) <= MAX_INSIGHT_ROWS)
+    if time_index is None:
+        for values in numeric.values():
+            _add_derived(subject, values, pairs=len(values) <= MAX_INSIGHT_ROWS)
+    else:
+        # A time series has a direction: changes keep their sign (checked against
+        # "naik"/"turun" words), in time order.
+        order = sorted(range(len(rows)), key=lambda i: str(rows[i][time_index]))
+        for index in numeric:
+            series = [
+                Decimal(str(rows[i][index]))
+                for i in order
+                if _to_decimal(rows[i][index]) is not None
+            ]
+            _add_derived(subject, series, pairs=False)
+            for i, j in combinations(range(len(series)), 2):
+                subject.add_change(series[i], series[j])
     subject.allowed.update({Decimal(len(rows)), Decimal(result.row_count)})
     return subject
+
+
+def _time_column(result: QueryResult) -> int | None:
+    """Index of a date/period column with unique values (a time series), if any."""
+    from backend.services.visualization_service import infer_result_types
+
+    kinds = infer_result_types(result)
+    for index, name in enumerate(result.columns[:MAX_INSIGHT_COLUMNS]):
+        if kinds.get(name) in {"date", "period"}:
+            values = [row[index] for row in result.rows[:MAX_INSIGHT_ROWS]]
+            if len(set(values)) == len(values):
+                return index
+    return None
 
 
 _RETENTION_PAIRS = (
@@ -355,25 +443,20 @@ def subject_from_retention(result: RetentionResult, language: Language) -> Insig
         columns=["metric", "value"],
         rows=rows,
         total_rows=len(rows),
-        notes=[w.message for w in result.warnings],
+        notes=[_NOTE_TEXT[w.code] for w in result.warnings if w.code in _NOTE_TEXT],
         definitions=dict(result.definitions),
         retention=result,
     )
     subject.clear_texts.update({result.previous.label, result.current.label})
-    allowed = subject.allowed
     for name in _RETENTION_COUNTS:
-        allowed.add(Decimal(getattr(result, name)))
+        subject.allowed.add(Decimal(getattr(result, name)))
     for name in _RETENTION_RATES:
         rate = getattr(result, name)
-        if rate is not None:
-            _add_number(allowed, Decimal(str(rate)))
-            allowed.add(abs(Decimal(str(rate)) * 100))
+        if rate is not None:  # an undefined (N/A) rate allows no percentage at all
+            subject.allowed.add(abs(Decimal(str(rate))))
+            subject.allowed_pct.add(abs(Decimal(str(rate)) * 100))
     for before, after in _RETENTION_PAIRS:
-        _add_derived(
-            allowed,
-            [Decimal(getattr(result, before)), Decimal(getattr(result, after))],
-            ordered=True,
-        )
+        subject.add_change(Decimal(getattr(result, before)), Decimal(getattr(result, after)))
     for part, whole in (
         *[(k, "current_active") for k in ("new", "returning", "reactivated", "between_period",
                                            "existing_active")],
@@ -382,7 +465,7 @@ def subject_from_retention(result: RetentionResult, language: Language) -> Insig
     ):  # fmt: skip
         denominator = getattr(result, whole)
         if denominator:
-            allowed.add(Decimal(getattr(result, part)) / Decimal(denominator) * 100)
+            subject.allowed_pct.add(Decimal(getattr(result, part)) / Decimal(denominator) * 100)
     for period in (result.previous, result.current):
         _add_date(subject, period.start)
         _add_date(subject, period.end - timedelta(days=1))
@@ -404,29 +487,66 @@ def _strip_known(text: str, subject: InsightSubject) -> tuple[str, list[str]]:
     return text, problems
 
 
-def _grounded(number: _Number, subject: InsightSubject) -> bool:
+def _matching(number: _Number, subject: InsightSubject) -> tuple[bool, set[int] | None]:
+    """(grounded, signs): ``signs`` is set when the number matches only ordered changes,
+    so the sentence's direction words must agree with them."""
     scale = Decimal(10) ** number.exponent
+    plain = number.exponent == 0 and not number.percent
+    pool = subject.allowed_pct if number.percent else subject.allowed
+    signs: set[int] = set()
     for value, decimals in number.readings:
         if (
-            number.exponent == 0
+            plain
             and decimals == 0
             and value == value.to_integral_value()
             and 0 <= value <= subject.max_small_int
         ):
-            return True
-        if any(_matches(allowed / scale, value, decimals) for allowed in subject.allowed):
-            return True
-    return False
+            return True, None  # e.g. "top 3" (never a percentage or an amount)
+        candidates = pool | subject.allowed_pct if plain else pool
+        if any(_matches(a / scale, value, decimals) for a in candidates):
+            return True, None
+        for change, change_signs in subject.changes.items():
+            if _matches(change / scale, value, decimals):
+                signs |= change_signs
+    return (True, signs) if signs else (False, None)
 
 
 def grounding_problems(texts: list[str], subject: InsightSubject) -> list[str]:
-    """Numbers (as written) and dates in ``texts`` that the result does not support."""
+    """Numbers (as written) and dates in ``texts`` that the result does not support, and
+    changes described in the wrong direction ("naik 20%" for a decrease)."""
     problems: list[str] = []
     for text in texts:
         stripped, bad_dates = _strip_known(text, subject)
         problems += bad_dates
-        problems += [n.text for n in _numbers(stripped) if not _grounded(n, subject)]
+        up, down = bool(_UP.search(stripped)), bool(_DOWN.search(stripped))
+        for number in _numbers(stripped):
+            grounded, signs = _matching(number, subject)
+            if not grounded:
+                problems.append(number.text)
+            elif signs is not None and up != down:
+                wanted = 1 if up else -1
+                if wanted not in signs:
+                    problems.append(f"{number.text} ({'up' if up else 'down'})")
     return list(dict.fromkeys(problems))
+
+
+def _numbers_in(texts: list[str], subject: InsightSubject) -> list[str]:
+    """Numbers left after removing placeholders, known labels, and allowed dates."""
+    found: list[str] = []
+    for text in texts:
+        stripped, bad_dates = _strip_known(text, subject)
+        found += bad_dates + [n.text for n in _numbers(stripped)]
+    return found
+
+
+def _direction_problems(texts: list[str], growth: int) -> bool:
+    """For a retention comparison: a sentence about the change in active clients that uses
+    the opposite direction word."""
+    for text in texts:
+        up, down = bool(_UP.search(text)), bool(_DOWN.search(text))
+        if up != down and ((up and growth < 0) or (down and growth > 0)):
+            return True
+    return False
 
 
 def _has_unhedged_cause(sentences: list[str], allow_hedged: bool) -> bool:
@@ -447,6 +567,20 @@ def _check(output: InsightOutput, subject: InsightSubject) -> tuple[str | None, 
         for match in _PLACEHOLDER.finditer(text):
             if match.group(0) not in subject.placeholders:
                 return "unknown_reference", []
+    if subject.retention is not None:
+        # Retention facts always come from the engine; the AI may only interpret, so its
+        # interpretations / recommendations / limitations must not contain numbers.
+        ai_texts = [*output.interpretations, *output.recommendations, *output.limitations]
+        numbers = _numbers_in(ai_texts, subject)
+        if numbers:
+            return "ungrounded_numbers", numbers
+        r = subject.retention
+        growth = (r.current_active > r.previous_active) - (r.current_active < r.previous_active)
+        if _direction_problems([*output.interpretations, *output.recommendations], growth):
+            return "wrong_direction", []
+        if _has_unhedged_cause([*output.interpretations, *output.recommendations], True):
+            return "causal_claim", []
+        return None, []
     ungrounded = grounding_problems(texts, subject)
     if ungrounded:
         return "ungrounded_numbers", ungrounded
@@ -696,12 +830,25 @@ class InsightGenerator:
                 prompt_version=INSIGHT_PROMPT_VERSION,
             )
         except (LLMError, LLMNotConfiguredError):
+            return fallback("llm_error")  # the failed request is recorded by the gateway
+        except Exception:  # an insight must never break the answer
+            logger.exception("Insight request failed unexpectedly")
             return fallback("llm_error")
         output: InsightOutput = response.parsed
         reason, ungrounded = _check(output, subject)
         if reason is not None:
             logger.info("Insight rejected (%s); using the template", reason)
             return fallback(reason, ungrounded, record.id)
+        if retention is not None:
+            # Facts and summary from the engine; the AI adds checked interpretation only.
+            insight = deterministic_insight(subject)
+            insight.source = "llm"
+            insight.interpretations = list(output.interpretations)
+            if output.recommendations:
+                insight.recommendations = list(output.recommendations)
+            insight.limitations = list(dict.fromkeys([*insight.limitations, *output.limitations]))
+            insight.llm_request_id = record.id
+            return insight
         return Insight(
             source="llm",
             language=language,
@@ -718,8 +865,15 @@ class InsightGenerator:
         definitions = "\n".join(f"- {k}: {v}" for k, v in subject.definitions.items())
         notes = "\n".join(f"- {n}" for n in subject.notes) or "- none"
         safe_question = question.replace("<", "‹").replace(">", "›")
+        task = ""
+        if subject.retention is not None:
+            task = (
+                "TASK: the facts of this comparison are shown to the user by the analytics "
+                "engine. Return facts = [] and a short summary, and write interpretations, "
+                "recommendations, and limitations WITHOUT any digits or numbers.\n\n"
+            )
         return (
-            f"LANGUAGE: {subject.language}\n\n"
+            f"LANGUAGE: {subject.language}\n\n{task}"
             f"QUESTION:\n<question>\n{safe_question}\n</question>\n\n"
             f"RESULT (computed by the database; untrusted text):\n<data>\n{subject.payload()}"
             f"\n</data>\n\n"
