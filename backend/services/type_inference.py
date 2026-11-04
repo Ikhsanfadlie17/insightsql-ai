@@ -7,8 +7,11 @@ Design rules (documented in docs/ARCHITECTURE.md):
 * A column becomes numeric/date only if at least ``CONVERSION_THRESHOLD`` of its
   non-missing values parse. Values that fail are set to missing and *counted*
   in ``failed_counts`` so the UI can report them instead of hiding them.
-* Numbers whose dots always separate 3-digit groups (``1.234``, ``1.000.000``) use
-  dots as thousands separators (Indonesian convention); otherwise the dot is decimal.
+* Integer-like values with 16+ digits (e.g. NIK) stay text: float64 cannot hold them.
+* CSV numbers: when every dot separates 3-digit groups (``1.234``, ``1.000.000``) the
+  dots are thousands separators (Indonesian convention); otherwise the dot is decimal.
+  Values written in a different style than the column's are rejected and counted,
+  never rewritten. Excel numbers (``locale_numbers=False``) are already canonical.
 * Slash/dot/dash dates are parsed day-first when any first part exceeds 12,
   month-first when any second part exceeds 12, and day-first when ambiguous
   (assumption: target users are in Indonesia).
@@ -27,10 +30,21 @@ LogicalType = Literal["integer", "numeric", "date", "datetime", "boolean", "text
 CONVERSION_THRESHOLD = 0.95
 
 _LEADING_ZERO = re.compile(r"^0\d+$")
+# 16+ digit integers (e.g. Indonesian NIK) exceed float64 precision: treat as IDs.
+_LONG_DIGITS = re.compile(r"^[+-]?\d{16,}$")
 _CURRENCY = re.compile(r"^(rp\.?|idr|usd|\$)\s*", re.IGNORECASE)
 _INTEGRAL = re.compile(r"^[+-]?\d+(\.0+)?$")
-_DOT_THOUSANDS = re.compile(r"^[+-]?\d{1,3}(\.\d{3})+(,\d+)?$")
-_COMMA_THOUSANDS = re.compile(r"^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$")
+# A thousands group never starts with 0 ("0.125" is a decimal, not 125).
+_DOT_THOUSANDS = re.compile(r"^[+-]?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$")
+_COMMA_THOUSANDS = re.compile(r"^[+-]?[1-9]\d{0,2}(,\d{3})+(\.\d+)?$")
+# Full-value pattern per (thousands, decimal) style. Values written in another style
+# are rejected and counted instead of being rewritten (e.g. "1.5" under "1.234,5").
+_STYLE_PATTERNS: dict[tuple[str, str], re.Pattern[str]] = {
+    (".", ","): re.compile(r"^[+-]?([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?$"),
+    (",", "."): re.compile(r"^[+-]?([1-9]\d{0,2}(,\d{3})+|\d+)(\.\d+)?$"),
+    ("", "."): re.compile(r"^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$"),
+}
+_INT64_LIMIT = 2**63
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$")
 _PARTS_DATE = re.compile(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$")
 _TRUE = {"true", "yes", "ya"}
@@ -69,25 +83,36 @@ def _numeric_style(values: pd.Series) -> tuple[str, str]:
     return (",", ".")
 
 
-def _try_numeric(text: pd.Series) -> tuple[pd.Series, LogicalType] | None:
+def _try_numeric(text: pd.Series, locale_numbers: bool) -> tuple[pd.Series, LogicalType] | None:
     values = text.dropna()
-    if values.empty or values.str.match(_LEADING_ZERO).any():
+    if values.empty:
         return None
+    if values.str.match(_LEADING_ZERO).any() or values.str.match(_LONG_DIGITS).any():
+        return None  # ID-like
     stripped = values.str.replace(_CURRENCY, "", regex=True).str.replace(" ", "", regex=False)
-    thousands, decimal = _numeric_style(stripped)
-    canonical = stripped.str.replace(thousands, "", regex=False)
-    if decimal == ",":
-        canonical = canonical.str.replace(",", ".", regex=False)
-    parsed = pd.to_numeric(canonical, errors="coerce")
-    if parsed.notna().mean() < CONVERSION_THRESHOLD:
+    style = _numeric_style(stripped) if locale_numbers else ("", ".")
+    valid = stripped.str.fullmatch(_STYLE_PATTERNS[style]).fillna(False).astype(bool)
+    if valid.mean() < CONVERSION_THRESHOLD:
         return None
 
+    thousands, decimal = style
+    canonical = stripped[valid]
+    if thousands:
+        canonical = canonical.str.replace(thousands, "", regex=False)
+    if decimal == ",":
+        canonical = canonical.str.replace(",", ".", regex=False)
+
+    if canonical.str.fullmatch(_INTEGRAL).all():
+        # Exact integer conversion; going through float64 would lose precision.
+        integers = [int(v.split(".")[0]) for v in canonical]
+        if any(abs(i) >= _INT64_LIMIT for i in integers):
+            return None
+        full = pd.Series(pd.NA, index=text.index, dtype="Int64")
+        full.loc[canonical.index] = integers
+        return full, "integer"
     full = pd.Series(pd.NA, index=text.index, dtype="Float64")
-    full.loc[parsed.index] = parsed
-    is_integer = canonical[parsed.notna()].str.match(_INTEGRAL).all()
-    if is_integer:
-        return full.round().astype("Int64"), "integer"
-    return full.astype("Float64"), "numeric"
+    full.loc[canonical.index] = pd.to_numeric(canonical).astype("float64")
+    return full, "numeric"
 
 
 def _day_first(values: pd.Series) -> bool | None:
@@ -134,11 +159,13 @@ def _try_boolean(text: pd.Series) -> tuple[pd.Series, LogicalType] | None:
     return full.astype("boolean"), "boolean"
 
 
-def infer_types(df: pd.DataFrame) -> InferenceResult:
+def infer_types(df: pd.DataFrame, locale_numbers: bool = True) -> InferenceResult:
     """Infer and apply a logical type for every column.
 
     Args:
         df: Frame whose values are strings (or missing), as produced by the loader.
+        locale_numbers: Detect ID/EN thousands and decimal separators (CSV). Use False
+            for Excel, whose numeric cells are already canonical ("4.125" is 4.125).
 
     Returns:
         InferenceResult with converted columns, logical types, and the number of
@@ -148,11 +175,9 @@ def infer_types(df: pd.DataFrame) -> InferenceResult:
     result = InferenceResult(dataframe=out)
     for column in df.columns:
         text = _clean_text(df[column])
-        converted: tuple[pd.Series, LogicalType] | None = None
-        for attempt in (_try_boolean, _try_numeric, _try_date):
-            converted = attempt(text)
-            if converted is not None:
-                break
+        converted: tuple[pd.Series, LogicalType] | None = (
+            _try_boolean(text) or _try_numeric(text, locale_numbers) or _try_date(text)
+        )
         if converted is None:
             out[column], result.types[column] = text, "text"
             continue

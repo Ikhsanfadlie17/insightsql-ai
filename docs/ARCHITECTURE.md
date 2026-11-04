@@ -86,7 +86,7 @@ flowchart TD
 |---|---|---|---|
 | Analytical data | DuckDB, `data/datasets/<dataset_id>.duckdb`, table `dataset` | One file per dataset (one Excel sheet = one dataset) | Isolation: a query can only see the one file it is opened on. Deleting a dataset deletes one file. |
 | Metadata | SQLite, `data/app.db` (stdlib `sqlite3`, no ORM) | datasets, profiles (JSON), column mappings, conversations, messages/analyses, llm_usage | Small, transactional, zero-ops. |
-| Raw uploads | `data/uploads/<upload_id>/<filename>` | Original file until ingestion finishes, then deleted | Needed for two-step upload (inspect sheets → ingest chosen sheet). |
+| Raw uploads | `data/uploads/<upload_id>/<filename>` | Original file, kept for up to 24 h so several sheets of one workbook can be imported from a single upload; removed at startup once older than 24 h | Needed for two-step upload (inspect sheets → ingest chosen sheets). Periodic cleanup while running is a tracked follow-up (review M4). |
 
 SQLite tables (full DDL lands in `docs/DATABASE.md` during Phase 8):
 
@@ -110,6 +110,23 @@ SQLite tables (full DDL lands in `docs/DATABASE.md` during Phase 8):
    headers → infer types → write DuckDB table → profile → suggest column roles → status
    `ready` (or `failed` with a safe error message).
 4. The frontend polls `GET /datasets/{id}` until it is ready and then shows preview + profile.
+5. At startup, datasets left in `processing` by a restart are marked `failed`
+   ("import was interrupted") and partial `*.tmp.duckdb` files are removed.
+
+Type inference rules (`services/type_inference.py`, all covered by tests):
+
+- Values are trimmed; blanks become missing. Leading-zero integers (`00123`) and
+  integers with 16+ digits (e.g. NIK) stay text, because float64 cannot hold them exactly.
+- A column converts to number/date only when ≥ 95% of its non-missing values parse.
+  Values that do not parse become missing and are **counted** and shown in the UI.
+- CSV numbers: one style per column. When every dot separates 3-digit groups (`1.234`,
+  `1.000.000`), dots are thousands separators (Indonesian convention). A group never
+  starts with 0, so `0.125` is a decimal. Values written in another style than the
+  column's are rejected and counted, never rewritten. Integers are converted exactly.
+- Excel numbers are already canonical (`4.125` is 4.125), so no locale heuristics apply.
+- Slash/dot/dash dates: day-first if any first part > 12, month-first if any second
+  part > 12, day-first when ambiguous (target users are in Indonesia).
+- CSV encoding is chosen by decoding the whole file (UTF-8 → cp1252 → latin-1).
 
 ### 5.2 Natural-language question
 

@@ -121,3 +121,30 @@ def test_no_legacy_pages_folder() -> None:
     """Regression: a frontend/pages/ folder makes Streamlit run page files directly on
     deep links (e.g. /data_sources), skipping app.py and breaking `frontend.*` imports."""
     assert not (FRONTEND / "pages").exists()
+
+
+FAILED = {**READY, "id": "d2", "name": "broken", "status": "failed", "error": "Bad file",
+          "row_count": None, "column_count": None}  # fmt: skip
+
+
+@pytest.mark.parametrize("page", PAGES)
+def test_pages_with_failed_active_dataset(page: str) -> None:
+    """H4: a failed (or processing) active dataset has no row/column counts."""
+    at = AppTest.from_file(str(FRONTEND / "views" / f"{page}.py"), default_timeout=10)
+    at.session_state["api_client"] = FakeApi(datasets=[FAILED])
+    at.session_state["active_dataset_id"] = "d2"
+
+    at.run()
+
+    assert not at.exception, at.exception
+
+
+def test_untrusted_text_is_markdown_escaped() -> None:
+    """L6: headers from uploaded files must not render as markdown (e.g. remote images)."""
+    from frontend.components.layout import md_escape
+
+    escaped = md_escape("![x](http://evil/x.png) **bold** :material/home:")
+
+    assert "![" not in escaped
+    assert "**" not in escaped
+    assert ":material/home:" not in escaped

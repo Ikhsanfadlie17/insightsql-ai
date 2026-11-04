@@ -57,10 +57,15 @@ def list_sheets(path: Path) -> list[SheetInfo]:
 
 
 def _read_text(path: Path) -> tuple[str, str]:
-    raw = path.read_bytes()[:_SNIFF_BYTES]
+    """Return a delimiter-sniffing sample and the encoding that decodes the WHOLE file.
+
+    Decoding only a prefix could cut a multi-byte UTF-8 character and wrongly fall
+    back to cp1252, turning every accented value into mojibake.
+    """
+    raw = path.read_bytes()
     for encoding in _ENCODINGS:
         try:
-            return raw.decode(encoding), encoding
+            return raw.decode(encoding)[:_SNIFF_BYTES], encoding
         except UnicodeDecodeError:
             continue
     raise UploadError("The CSV file encoding is not supported.")

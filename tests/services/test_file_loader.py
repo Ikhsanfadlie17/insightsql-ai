@@ -101,3 +101,28 @@ def test_empty_file_is_an_upload_error(tmp_path: Path) -> None:
 
     with pytest.raises(UploadError):
         load_dataframe(path, "csv", None)
+
+
+def test_utf8_csv_with_multibyte_char_at_sample_boundary(tmp_path: Path) -> None:
+    """H3: a sample cut inside a UTF-8 character must not switch the file to cp1252."""
+    prefix = "a,b\n" + "x" * (65535 - len("a,b\n") - 1) + "\n"
+    path = tmp_path / "x.csv"
+    path.write_bytes((prefix + "é,1\nJosé,Café\n").encode("utf-8"))
+
+    df = load_dataframe(path, "csv", None)
+
+    assert "José" in set(df["a"])
+    assert "Café" in set(df["b"])
+
+
+def test_excel_native_decimals_stay_decimals(tmp_path: Path) -> None:
+    """H2 end to end: numeric Excel cells keep their decimal values."""
+    from backend.services.type_inference import infer_types
+
+    path = tmp_path / "x.xlsx"
+    pd.DataFrame({"score": [4.125, 3.875, 5.0]}).to_excel(path, index=False)
+
+    df = load_dataframe(path, "xlsx", "Sheet1")
+    result = infer_types(df, locale_numbers=False)
+
+    assert list(result.dataframe["score"]) == [4.125, 3.875, 5.0]

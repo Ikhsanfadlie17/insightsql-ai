@@ -41,12 +41,17 @@ class RenameDatasetRequest(BaseModel):
 
 
 @router.post("/inspect", response_model=UploadInspection)
-async def inspect_upload(
+def inspect_upload(
     request: Request, service: Service, file: Annotated[UploadFile, File()]
 ) -> UploadInspection:
-    """Validate an upload and list its sheets. Reads at most limit + 1 bytes."""
+    """Validate an upload and list its sheets.
+
+    A plain ``def`` so FastAPI runs it in a worker thread: parsing a large workbook
+    must not block the event loop. The multipart body has already been spooled by
+    Starlette; this reads at most limit + 1 bytes of it into memory.
+    """
     settings = request.app.state.settings
-    content = await file.read(settings.max_upload_bytes + 1)
+    content = file.file.read(settings.max_upload_bytes + 1)
     if len(content) > settings.max_upload_bytes:
         raise UploadError(f"The file is larger than the {settings.max_upload_mb:g} MB limit.")
     return service.inspect_upload(file.filename or "", content)

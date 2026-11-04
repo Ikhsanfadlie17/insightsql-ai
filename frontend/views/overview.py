@@ -5,7 +5,13 @@ from __future__ import annotations
 import streamlit as st
 
 from frontend.api_client import ApiError
-from frontend.components.layout import coming_soon, empty_state, page_header, show_api_error
+from frontend.components.layout import (
+    coming_soon,
+    empty_state,
+    fmt_count,
+    page_header,
+    show_api_error,
+)
 from frontend.state import get_client, resolve_active
 
 
@@ -25,8 +31,8 @@ def main() -> None:
     cols = st.columns(4)
     cols[0].metric("Datasets", len(ready))
     cols[1].metric("Active dataset", active["name"] if active else "None")
-    cols[2].metric("Total records", f"{active['row_count']:,}" if active else "N/A")
-    cols[3].metric("Total columns", f"{active['column_count']:,}" if active else "N/A")
+    cols[2].metric("Total records", fmt_count(active["row_count"]) if active else "N/A")
+    cols[3].metric("Total columns", fmt_count(active["column_count"]) if active else "N/A")
 
     if not health["llm_configured"]:
         st.warning(

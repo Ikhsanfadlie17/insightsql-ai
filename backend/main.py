@@ -31,6 +31,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        interrupted = dataset_service.recover_interrupted_imports()
+        if interrupted:
+            logger.warning("Marked %d interrupted imports as failed", interrupted)
         removed = dataset_service.cleanup_stale_uploads()
         if removed:
             logger.info("Removed %d stale uploads", removed)

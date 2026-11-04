@@ -133,3 +133,12 @@ def test_unknown_dataset_returns_404(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
+
+
+def test_inspect_endpoint_is_sync() -> None:
+    """M2: parsing large workbooks must not block the event loop."""
+    import inspect
+
+    from backend.api.datasets import inspect_upload
+
+    assert not inspect.iscoroutinefunction(inspect_upload)

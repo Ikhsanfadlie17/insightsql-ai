@@ -35,10 +35,14 @@ def set_active_dataset_id(dataset_id: str | None) -> None:
 
 
 def resolve_active(datasets: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Return the active dataset, falling back to the newest ready one."""
+    """Return the active dataset; only a ready dataset can be active.
+
+    Falls back to the newest ready dataset when the remembered one is missing,
+    failed, or still processing.
+    """
     by_id = {d["id"]: d for d in datasets}
     active = by_id.get(get_active_dataset_id() or "")
-    if active is None:
+    if active is None or active["status"] != "ready":
         active = next((d for d in datasets if d["status"] == "ready"), None)
         set_active_dataset_id(active["id"] if active else None)
     return active

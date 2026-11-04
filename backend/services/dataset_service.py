@@ -46,9 +46,11 @@ _HEAD_BYTES = 64 * 1024
 
 
 def _safe_filename(filename: str) -> str:
+    """Basename with unsafe characters replaced, at most 120 chars, extension kept."""
     name = Path(filename.replace("\\", "/")).name
     name = _SAFE_FILENAME.sub("_", name).strip(" .") or "upload"
-    return name[:120]
+    stem, suffix = Path(name).stem, Path(name).suffix[:10]
+    return stem[: 120 - len(suffix)] + suffix
 
 
 def _quote(identifier: str) -> str:
@@ -166,7 +168,7 @@ class DatasetService:
             frame = load_dataframe(path, file_type, sheet)
             names = normalize_columns([str(c) for c in frame.columns])
             frame.columns = [n.name for n in names]
-            inference = infer_types(frame)
+            inference = infer_types(frame, locale_numbers=file_type == "csv")
             self._write_duckdb(target, inference.dataframe, inference.types)
             columns = [
                 DatasetColumn(
@@ -185,12 +187,34 @@ class DatasetService:
             logger.info("Ingested dataset %s (%d rows)", dataset_id, len(frame))
         except (UploadError, NotFoundError) as exc:
             target.unlink(missing_ok=True)
-            self._repo.update_status(dataset_id, "failed", error=exc.message)
+            self._mark_failed(dataset_id, exc.message)
         except Exception:
             # Unexpected errors may contain paths or internals: log them, show a generic message.
             target.unlink(missing_ok=True)
             logger.exception("Ingestion failed for dataset %s", dataset_id)
-            self._repo.update_status(dataset_id, "failed", error="The file could not be processed.")
+            self._mark_failed(dataset_id, "The file could not be processed.")
+
+    def _mark_failed(self, dataset_id: str, message: str) -> None:
+        try:
+            self._repo.update_status(dataset_id, "failed", error=message)
+        except NotFoundError:
+            logger.info("Dataset %s was deleted during ingestion", dataset_id)
+
+    def recover_interrupted_imports(self) -> int:
+        """Mark datasets left in ``processing`` (e.g. by a restart) as failed.
+
+        Called once at startup, before any new ingestion can start. Also removes
+        partially written DuckDB files. Returns how many datasets were affected.
+        """
+        stuck = [d for d in self._repo.list() if d.status == "processing"]
+        for record in stuck:
+            self._repo.update_status(
+                record.id, "failed", error="The import was interrupted. Please import again."
+            )
+        if self._settings.datasets_dir.exists():
+            for partial in self._settings.datasets_dir.glob("*.tmp.duckdb"):
+                partial.unlink(missing_ok=True)
+        return len(stuck)
 
     def _write_duckdb(self, target: Path, frame: pd.DataFrame, types: dict[str, str]) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)

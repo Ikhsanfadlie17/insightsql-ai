@@ -145,3 +145,59 @@ def test_short_decimals_keep_dot_as_decimal_separator() -> None:
     series, _, _ = _infer(["1.234", "2.5"])
 
     assert list(series) == [1.234, 2.5]
+
+
+# --- Phase 2 review regressions -------------------------------------------------
+
+
+def test_long_integer_strings_are_ids_not_lossy_numbers() -> None:
+    """H1: 16+ digit values (e.g. NIK) would lose precision as float64."""
+    values = ["9171234567890123", "9171234567890125", "12345678901234567890"]
+    series, logical, failed = _infer(values)
+
+    assert logical == "text"
+    assert list(series) == values
+    assert failed == 0
+
+
+def test_integers_are_converted_exactly() -> None:
+    series, logical, _ = _infer(["900719925474099", "1"])
+
+    assert logical == "integer"
+    assert list(series) == [900719925474099, 1]
+
+
+def test_leading_zero_decimals_are_not_thousands() -> None:
+    """H2: "0.125" can never be Indonesian thousands."""
+    series, logical, _ = _infer(["0.125", "0.250", "0.375"])
+
+    assert logical == "numeric"
+    assert list(series) == [0.125, 0.25, 0.375]
+
+
+def test_excel_numbers_skip_locale_heuristics() -> None:
+    """H2: native Excel numbers arrive as "4.125" and are never thousands-grouped."""
+    frame = pd.DataFrame({"c": pd.Series(["4.125", "3.875", "5"], dtype="string")})
+
+    result = infer_types(frame, locale_numbers=False)
+
+    assert result.types["c"] == "numeric"
+    assert list(result.dataframe["c"]) == [4.125, 3.875, 5.0]
+
+
+def test_mixed_number_styles_are_not_silently_rewritten() -> None:
+    """M5: "1.5" must not become 15 when the column is read as Indonesian format."""
+    series, logical, _ = _infer(["1.5", "2,5", "3"])
+
+    assert logical == "text"
+    assert list(series) == ["1.5", "2,5", "3"]
+
+
+def test_minority_style_values_are_counted_as_failures() -> None:
+    values = [f"{i},5" for i in range(1, 40)] + ["1.5"]
+    series, logical, failed = _infer(values)
+
+    assert logical == "numeric"
+    assert failed == 1
+    assert series.iloc[-1] is pd.NA or pd.isna(series.iloc[-1])
+    assert series.iloc[0] == 1.5

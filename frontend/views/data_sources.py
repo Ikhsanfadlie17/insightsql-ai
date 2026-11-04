@@ -9,7 +9,14 @@ import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.data_table import render_result
-from frontend.components.layout import STATUS_LABELS, empty_state, page_header, show_api_error
+from frontend.components.layout import (
+    STATUS_LABELS,
+    empty_state,
+    fmt_count,
+    md_escape,
+    page_header,
+    show_api_error,
+)
 from frontend.state import get_client, resolve_active, set_active_dataset_id, wait_for_datasets
 
 TYPE_LABELS = {
@@ -76,11 +83,16 @@ def _import(api: ApiClient, upload_id: str, sheets: list[str | None], name: str 
         return
     for record in records:
         if record["status"] == "ready":
-            st.success(f"Imported **{record['name']}** ({record['row_count']:,} rows).")
+            st.success(
+                f"Imported **{md_escape(record['name'])}** ({fmt_count(record['row_count'])} rows)."
+            )
         elif record["status"] == "failed":
-            st.error(f"**{record['name']}** could not be imported: {record['error']}")
+            st.error(
+                f"**{md_escape(record['name'])}** could not be imported: "
+                f"{md_escape(record['error'])}"
+            )
         else:
-            st.warning(f"**{record['name']}** is still processing. Refresh in a moment.")
+            st.warning(f"**{md_escape(record['name'])}** is still processing. Refresh in a moment.")
     ready = [r for r in records if r["status"] == "ready"]
     if ready:
         set_active_dataset_id(ready[0]["id"])
@@ -101,17 +113,17 @@ def _datasets_table(datasets: list[dict[str, Any]]) -> None:
 
 
 def _dataset_detail(api: ApiClient, dataset: dict[str, Any]) -> None:
-    st.markdown(f"#### {dataset['name']}  \n{STATUS_LABELS[dataset['status']]}")
+    st.markdown(f"#### {md_escape(dataset['name'])}  \n{STATUS_LABELS[dataset['status']]}")
     if dataset["status"] == "failed":
-        st.error(dataset["error"] or "Import failed.")
+        st.error(md_escape(dataset["error"] or "Import failed."))
         return
     if dataset["status"] == "processing":
         st.info("This dataset is still being imported.")
         return
 
     left, right, _ = st.columns([1, 1, 2])
-    left.metric("Rows", f"{dataset['row_count']:,}")
-    right.metric("Columns", f"{dataset['column_count']:,}")
+    left.metric("Rows", fmt_count(dataset["row_count"]))
+    right.metric("Columns", fmt_count(dataset["column_count"]))
 
     try:
         columns = api.columns(dataset["id"])
@@ -123,7 +135,8 @@ def _dataset_detail(api: ApiClient, dataset: dict[str, Any]) -> None:
     for column in columns:
         if column["failed_conversions"]:
             st.warning(
-                f"{column['failed_conversions']:,} value(s) in **{column['original_name']}** "
+                f"{column['failed_conversions']:,} value(s) in "
+                f"**{md_escape(column['original_name'])}** "
                 f"could not be converted to {TYPE_LABELS[column['logical_type']].lower()} "
                 "and are stored as empty.",
                 icon=":material/warning:",
@@ -175,9 +188,11 @@ def main() -> None:
         index=ids.index(active["id"]) if active else 0,
         format_func=names.__getitem__,
     )
-    set_active_dataset_id(selected)
+    chosen = next(d for d in datasets if d["id"] == selected)
+    if chosen["status"] == "ready":
+        set_active_dataset_id(selected)
     with st.container(border=True):
-        _dataset_detail(api, next(d for d in datasets if d["id"] == selected))
+        _dataset_detail(api, chosen)
 
 
 main()

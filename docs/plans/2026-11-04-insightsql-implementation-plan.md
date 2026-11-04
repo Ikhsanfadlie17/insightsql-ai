@@ -142,6 +142,29 @@
 
 **Phase 2 report** (summary, files, decisions, test output, failures, next phase).
 
+**Phase 2 as built — deviations from this plan (with reasons):**
+- Frontend pages live in `frontend/views/`, not `frontend/pages/`: a folder named `pages`
+  makes Streamlit run page files directly on deep links, bypassing `app.py` (regression test).
+- `DatasetRepository` uses generic `save_document`/`get_document(kind=profile|mapping)`
+  instead of separate profile/mapping methods; also has `rename`.
+- `infer_types` returns `InferenceResult(dataframe, types, failed_counts)` and takes
+  `locale_numbers` (False for Excel).
+- Raw uploads are kept up to 24 h (multi-sheet import) instead of being deleted after ingestion.
+- Extra endpoints: `GET /datasets/{id}/columns`, `PATCH /datasets/{id}` (rename).
+
+**Phase 2 independent review — follow-ups not yet fixed (Medium/Low):**
+- M1: upload size is enforced after Starlette spools the multipart body; add a
+  `Content-Length` check / reverse-proxy body limit (Phase 8 deployment).
+- M4: stale-upload cleanup runs only at startup; run it periodically (Task 21).
+- L3: duplicate headers are renamed by pandas (`Nama.1`) before normalization, so the
+  original label shown is `Nama.1` (Task 7).
+- L4: Excel sheets are parsed several times per import; `create_dataset` only needs
+  sheet names (Task 24 performance work).
+- L5: FastAPI validation errors and unknown routes still return `{"detail": ...}`
+  instead of the `{"error": ...}` envelope (Task 21).
+- L7: CSV row count at inspection counts physical lines (quoted multi-line fields inflate
+  it); the stored row count after ingestion is exact.
+
 ---
 
 ## Phase 3 — Data Intelligence

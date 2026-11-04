@@ -187,3 +187,39 @@ def test_cleanup_removes_only_stale_uploads(service: DatasetService, settings: S
     assert removed == 1
     assert not old_dir.exists()
     assert (settings.uploads_dir / new.upload_id).exists()
+
+
+def test_long_filename_keeps_extension(service: DatasetService) -> None:
+    """L1: truncation must not drop the .csv suffix."""
+    inspection = service.inspect_upload("x" * 200 + ".csv", b"a,b\n1,2\n")
+
+    assert inspection.filename.endswith(".csv")
+    assert len(inspection.filename) <= 120
+
+
+def test_ingest_after_delete_does_not_raise(service: DatasetService) -> None:
+    """L2: deleting a dataset while it is being ingested must not crash the task."""
+    inspection = service.inspect_upload(SAMPLE_CSV.name, SAMPLE_CSV.read_bytes())
+    record = service.create_dataset(inspection.upload_id, None, None)
+    service.delete(record.id)
+
+    service.ingest(record.id, inspection.upload_id, None)
+
+    assert not service.duckdb_path(record.id).exists()
+
+
+def test_interrupted_imports_are_marked_failed(service: DatasetService) -> None:
+    """M3: datasets left in "processing" by a restart become failed at startup."""
+    inspection = service.inspect_upload(SAMPLE_CSV.name, SAMPLE_CSV.read_bytes())
+    record = service.create_dataset(inspection.upload_id, None, None)
+    tmp_file = service.duckdb_path(record.id).with_suffix(".tmp.duckdb")
+    tmp_file.parent.mkdir(parents=True, exist_ok=True)
+    tmp_file.write_bytes(b"partial")
+
+    count = service.recover_interrupted_imports()
+
+    failed = service.get(record.id)
+    assert count == 1
+    assert failed.status == "failed"
+    assert "interrupted" in (failed.error or "").lower()
+    assert not tmp_file.exists()
