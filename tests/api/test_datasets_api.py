@@ -169,3 +169,25 @@ def test_invalid_import_option_is_rejected(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_profile_endpoint(client: TestClient) -> None:
+    inspection = _upload(client)
+    dataset_id = client.post("/datasets", json={"upload_id": inspection["upload_id"]}).json()["id"]
+
+    profile = client.get(f"/datasets/{dataset_id}/profile")
+
+    assert profile.status_code == 200
+    body = profile.json()
+    assert body["row_count"] == 795
+    assert {c["name"] for c in body["columns"]} >= {"id_klien", "tanggal_layanan"}
+
+
+def test_profile_of_failed_dataset_is_rejected(client: TestClient) -> None:
+    inspection = client.post("/datasets/inspect", files={"file": ("e.csv", b"\n\n")}).json()
+    dataset_id = client.post("/datasets", json={"upload_id": inspection["upload_id"]}).json()["id"]
+
+    response = client.get(f"/datasets/{dataset_id}/profile")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"

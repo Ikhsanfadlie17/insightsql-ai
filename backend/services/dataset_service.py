@@ -32,10 +32,13 @@ from backend.schemas.datasets import (
     SheetInfo,
     UploadInspection,
 )
+from backend.schemas.profile import DatasetProfile
 from backend.schemas.query import QueryResult
 from backend.services.column_normalizer import normalize_columns
+from backend.services.data_profiler import profile_dataset
 from backend.services.file_loader import detect_file_type, list_sheets, load_dataframe
 from backend.services.query_results import rows_to_jsonable
+from backend.services.sql_utils import quote_identifier
 from backend.services.type_inference import infer_types
 
 logger = logging.getLogger(__name__)
@@ -53,10 +56,6 @@ def _safe_filename(filename: str) -> str:
     name = _SAFE_FILENAME.sub("_", name).strip(" .") or "upload"
     stem, suffix = Path(name).stem, Path(name).suffix[:10]
     return stem[: 120 - len(suffix)] + suffix
-
-
-def _quote(identifier: str) -> str:
-    return '"' + identifier.replace('"', '""') + '"'
 
 
 class DatasetService:
@@ -202,6 +201,7 @@ class DatasetService:
                 for i, n in enumerate(names)
             ]
             self._repo.save_columns(dataset_id, columns)
+            self._save_profile(dataset_id, target, columns)
             self._repo.update_status(
                 dataset_id, "ready", row_count=len(frame), column_count=len(columns)
             )
@@ -214,6 +214,25 @@ class DatasetService:
             target.unlink(missing_ok=True)
             logger.exception("Ingestion failed for dataset %s", dataset_id)
             self._mark_failed(dataset_id, "The file could not be processed.")
+
+    def _save_profile(self, dataset_id: str, path: Path, columns: list[DatasetColumn]) -> None:
+        """Profile at ingest time; a profiling failure must not fail the import."""
+        try:
+            self._repo.save_document(dataset_id, "profile", profile_dataset(path, columns))
+        except Exception:
+            logger.exception(
+                "Profiling failed for dataset %s; it will be retried on request", dataset_id
+            )
+
+    def profile(self, dataset_id: str) -> DatasetProfile:
+        """Return the stored profile, computing (and storing) it if it is missing."""
+        self.require_ready(dataset_id)
+        stored = self._repo.get_document(dataset_id, "profile", DatasetProfile)
+        if stored is not None:
+            return stored
+        profile = profile_dataset(self.duckdb_path(dataset_id), self._repo.get_columns(dataset_id))
+        self._repo.save_document(dataset_id, "profile", profile)
+        return profile
 
     def _mark_failed(self, dataset_id: str, message: str) -> None:
         try:
@@ -242,7 +261,9 @@ class DatasetService:
         tmp = target.with_suffix(".tmp.duckdb")
         tmp.unlink(missing_ok=True)
         select_list = ", ".join(
-            f"CAST({_quote(c)} AS DATE) AS {_quote(c)}" if types[c] == "date" else _quote(c)
+            f"CAST({quote_identifier(c)} AS DATE) AS {quote_identifier(c)}"
+            if types[c] == "date"
+            else quote_identifier(c)
             for c in frame.columns
         )
         with duckdb.connect(str(tmp)) as conn:

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from backend.api.deps import get_dataset_service
 from backend.core.errors import UploadError
 from backend.schemas.datasets import DatasetColumn, DatasetRecord, DateOrder, UploadInspection
+from backend.schemas.profile import DatasetProfile
 from backend.schemas.query import QueryResult
 from backend.services.dataset_service import DatasetService
 
@@ -100,6 +101,12 @@ def delete_dataset(dataset_id: str, service: Service) -> Response:
 def get_columns(dataset_id: str, service: Service) -> list[DatasetColumn]:
     """Return the dataset's columns with original headers and inferred types."""
     return service.columns(dataset_id)
+
+
+@router.get("/{dataset_id}/profile", response_model=DatasetProfile)
+def get_profile(dataset_id: str, service: Service) -> DatasetProfile:
+    """Return the data-quality profile of a ready dataset."""
+    return service.profile(dataset_id)
 
 
 @router.get("/{dataset_id}/preview", response_model=QueryResult)
