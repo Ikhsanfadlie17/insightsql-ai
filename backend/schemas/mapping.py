@@ -81,5 +81,6 @@ class MappingState(BaseModel):
     mapping: ColumnMapping | None  # saved and confirmed by the user; None until then
     draft: ColumnMapping  # best suggestion per role; never saved or used automatically
     suggestions: list[RoleSuggestions]
+    compatible_columns: dict[Role, list[str]] = Field(default_factory=dict)
     warnings: list[ColumnNote] = Field(default_factory=list)
     unique_clients: int | None = None  # only for a confirmed mapping with a client identity

@@ -160,3 +160,14 @@ def test_mapping_requires_ready_dataset(client: TestClient) -> None:
         client.put(f"/datasets/{dataset_id}/column-mapping", json={"client_id": "x"}).status_code
         == 422
     )
+
+
+def test_compatible_columns_per_role(client: TestClient) -> None:
+    dataset_id = _dataset(client)
+
+    compatible = client.get(f"/datasets/{dataset_id}/column-mapping").json()["compatible_columns"]
+
+    assert compatible["transaction_date"] == ["tanggal_layanan"]
+    assert compatible["revenue"] == ["pendapatan_rp"]
+    assert "tanggal_layanan" not in compatible["client_id"]
+    assert set(compatible) == set(FULL)

@@ -105,3 +105,15 @@ class ApiClient:
     def preview(self, dataset_id: str, limit: int = 50) -> dict[str, Any]:
         """``GET /datasets/{id}/preview``."""
         return self._request("GET", f"/datasets/{dataset_id}/preview", params={"limit": limit})
+
+    def profile(self, dataset_id: str) -> dict[str, Any]:
+        """``GET /datasets/{id}/profile``."""
+        return self._request("GET", f"/datasets/{dataset_id}/profile")
+
+    def column_mapping(self, dataset_id: str) -> dict[str, Any]:
+        """``GET /datasets/{id}/column-mapping`` (suggestions + confirmed mapping)."""
+        return self._request("GET", f"/datasets/{dataset_id}/column-mapping")
+
+    def confirm_mapping(self, dataset_id: str, mapping: dict[str, Any]) -> dict[str, Any]:
+        """``PUT /datasets/{id}/column-mapping``: the user's confirmed column roles."""
+        return self._request("PUT", f"/datasets/{dataset_id}/column-mapping", json=mapping)

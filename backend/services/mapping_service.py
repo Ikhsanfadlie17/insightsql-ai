@@ -55,6 +55,14 @@ class MappingService:
             mapping=active,
             draft=draft_mapping(suggestions),
             suggestions=suggestions,
+            compatible_columns={
+                role: [
+                    c.name
+                    for c in profile.columns
+                    if c.logical_type in ROLE_TYPES[role] and c.null_count < profile.row_count
+                ]
+                for role in ROLES
+            },
             warnings=self._warnings(dataset_id, shown, profile),
             unique_clients=self._unique_clients(dataset_id, active) if active else None,
         )
