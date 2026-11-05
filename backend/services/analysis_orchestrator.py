@@ -324,7 +324,9 @@ class AnalysisOrchestrator:
             warnings=r.warnings,
         )
 
-    def _partial_period_note(self, dataset_id: str, result: QueryResult) -> ColumnNote | None:
+    def _partial_period_note(
+        self, dataset_id: str, result: QueryResult, sql: str | None
+    ) -> ColumnNote | None:
         """Warn when a result compares complete years with the year the data stops in."""
         try:
             coverage = self._analytics.coverage(dataset_id)
@@ -333,13 +335,13 @@ class AnalysisOrchestrator:
         except Exception:
             logger.warning("Coverage unavailable for the partial-period check", exc_info=True)
             return None
-        return partial_year_note(result, coverage.data_end, coverage.years)
+        return partial_year_note(result, coverage.data_end, coverage.years, sql)
 
     def _sql_answer(self, common, dataset_id, question, plan, outcome, analysis_id):
         result: QueryResult = outcome.result
         context = self._contexts.build(dataset_id)
         safe_values = {v for c in context.columns if c.examples for v in c.examples}
-        partial = self._partial_period_note(dataset_id, result)
+        partial = self._partial_period_note(dataset_id, result, outcome.sql)
         insight = self._insights.generate(
             question=question,
             language=plan.language,
@@ -404,14 +406,28 @@ def _as_year(value: object) -> int | None:
     return None
 
 
+# The query already restricts every year to the same months or days (e.g. January-October).
+_SAME_SPAN_SQL = re.compile(
+    r"\b(?:month|dayofyear|doy|quarter|week|weekofyear)\s*\("
+    r"|\bextract\s*\(\s*(?:month|doy|dayofyear|quarter|week|day)\b"
+    r"|\bstrftime\s*\([^)]*%[mjdbB]"
+    r"|\bmake_date\s*\("
+    r"|\b(?:date_part|datepart)\s*\(\s*'(?:month|doy|dayofyear|quarter|week|day)'"
+    r"|'\d{4}-(?!01-01')\d{2}-\d{2}'",
+    re.IGNORECASE,
+)
+
+
 def partial_year_note(
-    result: QueryResult, data_end: date | None, years: list[int]
+    result: QueryResult, data_end: date | None, years: list[int], sql: str | None = None
 ) -> ColumnNote | None:
     """A result column of years that includes the year the data stops in, next to other
     years: comparing them is not like-for-like (first real-API run, 2026-11-05: all of 2025
     was compared with 2026 up to 31 October)."""
     if data_end is None or (data_end.month, data_end.day) == (12, 31) or not result.rows:
         return None
+    if sql and _SAME_SPAN_SQL.search(sql):
+        return None  # e.g. EXTRACT(MONTH ...) <= 10 or a date bound that is not 1 January
     known = set(years)
     for index, name in enumerate(result.columns):
         found = {_as_year(row[index]) for row in result.rows}
@@ -420,9 +436,11 @@ def partial_year_note(
         return ColumnNote(
             level="warning",
             code="partial_period",
+            # Conditional on purpose: the SQL check above is a heuristic and may miss a
+            # same-months filter, so the note must stay true either way.
             message=f"Data for {data_end.year} ends on {data_end.isoformat()}, so "
-            f"{data_end.year} is only part of a year while the other years in '{name}' are "
-            "complete. Compare the same months (year-to-date), for example in Client "
-            "Analytics, before drawing conclusions.",
+            f"{data_end.year} covers only part of the year. If the other years in '{name}' "
+            "are whole years, the comparison is not like-for-like: compare the same months "
+            "(year-to-date), for example in Client Analytics, before drawing conclusions.",
         )
     return None

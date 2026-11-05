@@ -472,3 +472,19 @@ def test_extra_notes_reach_the_insight_prompt(make) -> None:
                        notes=["Data for 2026 ends on 2026-10-31."])  # fmt: skip
 
     assert "Data for 2026 ends on 2026-10-31." in fake.calls[0].user
+
+
+def test_dates_in_engine_notes_may_be_named(make) -> None:
+    """Rerun 2026-11-05: the AI repeated "31 Oktober" from the partial-period note and
+    the day number was rejected."""
+    output = _output(
+        summary="Data 2026 hanya sampai 31 Oktober; Audit 34 klien.", facts=["Audit 34."]
+    )
+    generator, _ = make(output)
+
+    insight = generator.generate(
+        question="q", language="id", result=DEPTS,
+        notes=["Data for 2026 ends on 2026-10-31, so 2026 is only part of a year."],
+    )  # fmt: skip
+
+    assert insight.source == "llm", insight.ungrounded_numbers

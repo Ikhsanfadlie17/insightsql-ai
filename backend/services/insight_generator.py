@@ -821,7 +821,14 @@ class InsightGenerator:
             else subject_from_result(result, language, definitions, safe_values)
         )
         add_context_years(subject, f"{question}\n{sql or ''}")
-        subject.notes.extend(notes or [])
+        for note in notes or []:
+            subject.notes.append(note)
+            # Dates in engine notes (e.g. where the data ends) may be repeated, also as
+            # "31 Oktober": allow the date, its year, and its day number.
+            for text in _ISO_DATE.findall(note):
+                day = date.fromisoformat(text)
+                _add_date(subject, day)
+                subject.allowed.add(Decimal(day.day))
 
         def fallback(reason: str, ungrounded: list[str] | None = None, request_id=None):
             insight = deterministic_insight(subject)

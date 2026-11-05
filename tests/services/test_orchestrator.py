@@ -396,3 +396,41 @@ def test_sql_prompt_routes_client_count_comparisons_to_retention() -> None:
     assert "number of clients" in SQL_SYSTEM_PROMPT
     assert "year-to-date" in SQL_SYSTEM_PROMPT
     assert PROMPT_VERSION != "2026-11-04.sql-v1"
+
+
+@pytest.mark.parametrize(
+    "restriction",
+    [
+        "AND EXTRACT(MONTH FROM tanggal_layanan) <= 10",  # what gpt-6-luna wrote
+        "AND month(tanggal_layanan) <= 10",
+        "AND strftime(tanggal_layanan, '%m') <= '10'",
+        "AND dayofyear(tanggal_layanan) <= 304",
+        "AND tanggal_layanan < MAKE_DATE(YEAR(tanggal_layanan), 11, 1)",  # rerun, Indonesian
+        "AND date_part('month', tanggal_layanan) <= 10",
+    ],
+)
+def test_same_span_comparisons_do_not_warn(env_factory, restriction: str) -> None:
+    """Rerun 2026-11-05: the SQL already compared January-October of every year, yet the
+    warning said the other years were complete."""
+    sql = YEARS_SQL.format("2025, 2026").replace(" GROUP BY", f" {restriction} GROUP BY")
+    env = env_factory(plan(sql=sql, chart=None), insight_echo)
+
+    r = env.ask("How many unique clients per year?")
+
+    assert r.status == "answered", r.error_code
+    assert not any(w.code == "partial_period" for w in r.warnings)
+
+
+def test_partial_year_note_ignores_full_year_date_literals() -> None:
+    """A filter on whole years (1 January boundaries) does not make the spans equal."""
+    from datetime import date
+
+    from backend.schemas.query import QueryResult
+    from backend.services.analysis_orchestrator import partial_year_note
+
+    result = QueryResult(columns=["tahun", "n"], rows=[[2025, 91], [2026, 103]], row_count=2)
+    whole_years = "WHERE tanggal >= DATE '2025-01-01' AND tanggal < DATE '2027-01-01'"
+    same_months = "WHERE tanggal >= DATE '2025-01-01' AND tanggal < DATE '2025-11-01'"
+
+    assert partial_year_note(result, date(2026, 10, 31), [2025, 2026], whole_years)
+    assert partial_year_note(result, date(2026, 10, 31), [2025, 2026], same_months) is None

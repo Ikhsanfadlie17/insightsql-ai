@@ -43,3 +43,31 @@
 3. Minor: a two-year comparison is drawn as a line chart.
 
 Not observed: refusals, cut-off answers, invalid structured output, retries, rate limits.
+
+## Rerun after the fixes (same day, same model; commits `7d6bf4f` and the follow-up)
+
+Fixes: years from the question / SQL filter and dates from engine notes may be named in the
+explanation; a `partial_period` warning (also passed to the explanation) when a result
+compares whole years with the year the data stops in; SQL prompt v2 (client-count
+comparisons go to the retention engine; periods past the data end are compared
+year-to-date).
+
+| Question | Before | After |
+|---|---|---|
+| Klien unik per departemen di 2026? | template fallback ("2026") | LLM explanation accepted; assumption "data 2026 hanya sampai 31 Oktober" |
+| Bandingkan jumlah klien 2025 dan 2026 | plain SQL, full 2025 (91) vs partial 2026 (103) | retention engine, year-to-date: 87 → 103 (+18,4%), equal to Client Analytics |
+| Follow-up "hanya tahun 2025?" | template fallback ("2025") | LLM explanation accepted |
+| Berapa jumlah klien unik per tahun? (1st rerun) | — | full years 41/52/91/103 + `partial_period` warning; explanation rejected for "31" (from the note) → fixed |
+| How many unique clients per year? | — | January–October of every year (41/48/87/103, equal to pandas), stated in assumptions |
+
+New false positive found and fixed during the rerun: the warning also fired when the SQL
+already restricted every year to January–October (`EXTRACT(MONTH ...)`, then
+`MAKE_DATE(YEAR(...), 11, 1)`). The check now skips SQL that restricts months or days, and
+the message is conditional ("if the other years are whole years ..."), so it stays true when
+the pattern check misses a form. One explanation was rejected as a causal claim; that is
+the verifier working as designed.
+
+Observation: whether a "per year" question is answered with whole years (plus the warning)
+or with January–October of every year varies between runs and languages; both are stated
+in the assumptions. Usage for both runs together: 33 requests, 0 failed, 40,392 input /
+8,399 output tokens, estimated **US$0.0078**.
