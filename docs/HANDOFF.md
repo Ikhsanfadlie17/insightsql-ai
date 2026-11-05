@@ -106,6 +106,19 @@ Semua perintah README terverifikasi di clone bersih kecuali Docker (995 test lul
 dihentikan, belum ada hasil — jalankan ulang), perbaiki temuan, laporan Phase 8 di
 `phase-log.md`, tunggu review user. 25+ commit lokal belum di-push.
 
+## 3e. Lanjut besok (ditutup 2026-11-05 sore)
+
+1. Jalankan ulang **review independen Phase 8** (Docker, dokumentasi, checklist PRD §12),
+   sekaligus mencakup import pintar, tanggal bernama bulan, prompt v3/v4, dan perubahan
+   tampilan mapping hari ini. Perbaiki temuan → laporan Phase 8 di `phase-log.md` → tunggu
+   review user.
+2. Ringkasan teks AI kadang jatuh ke template "Hasil berisi N baris" (mis. klaim sebab-akibat
+   ditolak); pertimbangkan template yang menyebut baris teratas.
+3. Prompt kini `2026-11-05.sql-v4`; benchmark run 4 = 40/40 tapi **setelah penyesuaian**
+   (lihat EVALUATION.md). Ukuran netral butuh set soal baru.
+4. 28+ commit lokal belum di-push (keputusan user). Di app lokal user masih ada dataset lama
+   tanpa header yang sebaiknya dihapus.
+
 ## 3d. Data nyata pertama + import pintar (2026-11-05, di luar rencana fase)
 
 User mencoba file Google Sheets asli (data kerja; berisi data pribadi, TIDAK
