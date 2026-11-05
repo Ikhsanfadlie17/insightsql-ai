@@ -1,8 +1,9 @@
 # InsightSQL AI — Architecture
 
-Status: **Phases 2–5 implemented** (Phase 5 awaiting user review). Sections are updated as
-each phase is implemented; anything not yet built (export, Query History page, Docker) is
-marked *planned* or listed in the implementation plan.
+Status: **as built, 2026-11-05** (Phases 1–8). Section notes such as "implemented in
+Phase 4" record when a part was built. Measured results are in [`EVALUATION.md`](EVALUATION.md);
+storage details in [`DATABASE.md`](DATABASE.md); prompts in [`PROMPTS.md`](PROMPTS.md);
+running it in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 Spec: [`PRD.md`](PRD.md) · Implementation plan:
 [`plans/2026-11-04-insightsql-implementation-plan.md`](plans/2026-11-04-insightsql-implementation-plan.md)
@@ -61,7 +62,8 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `core/config.py` | Typed settings from environment (`pydantic-settings`). |
-| `core/errors.py` | Domain exceptions mapped to HTTP errors with safe messages. |
+| `core/errors.py` | Domain exceptions mapped to HTTP errors with safe messages; one `{"error": …}` envelope for app, validation, and HTTP errors. |
+| `core/redaction.py` | Removes configured secrets from log records and from error text that reaches clients or the database. |
 | `repositories/*` | SQLite access: datasets, profiles, column mappings, conversations, analyses, LLM usage. |
 | `services/file_loader.py` | Validate uploads, list Excel sheets, read CSV/XLSX into a DataFrame. |
 | `services/column_normalizer.py` | Turn arbitrary headers (spaces, Indonesian, duplicates) into safe SQL identifiers; keep original labels. |
@@ -79,6 +81,7 @@ flowchart TD
 | `services/insight_generator.py` | Grounded narrative from results, with numeric grounding check and deterministic fallback. |
 | `services/analysis_orchestrator.py` | One `ask()` pipeline used by the API. |
 | `services/export_service.py` | CSV, Excel (with metadata sheet), PDF, and `.sql` downloads. |
+| `api/settings.py` | Read-only view of the running configuration (whitelisted fields, no secrets). |
 
 ## 4. Storage design
 
@@ -86,24 +89,21 @@ flowchart TD
 |---|---|---|---|
 | Analytical data | DuckDB, `data/datasets/<dataset_id>.duckdb`, table `dataset` | One file per dataset (one Excel sheet = one dataset) | Isolation: a query can only see the one file it is opened on. Deleting a dataset deletes one file. |
 | Metadata | SQLite, `data/app.db` (stdlib `sqlite3`, no ORM) | datasets, profiles (JSON), column mappings, conversations, messages/analyses, llm_usage | Small, transactional, zero-ops. |
-| Raw uploads | `data/uploads/<upload_id>/<filename>` | Original file, kept for up to 24 h so several sheets of one workbook can be imported from a single upload; removed at startup once older than 24 h | Needed for two-step upload (inspect sheets → ingest chosen sheets). Periodic cleanup while running is a tracked follow-up (review M4). |
+| Raw uploads | `data/uploads/<upload_id>/<filename>` | Original file, kept for up to 24 h so several sheets of one workbook can be imported from a single upload; removed once older than 24 h, at startup and every `UPLOAD_CLEANUP_INTERVAL_MINUTES` (an upload whose import is unfinished is skipped) | Needed for two-step upload (inspect sheets → ingest chosen sheets). |
 
-SQLite tables (full DDL lands in `docs/DATABASE.md` during Phase 8):
-
-- `datasets(id, name, source_filename, sheet_name, status, error, row_count, column_count, duckdb_path, created_at)`
-- `dataset_columns(dataset_id, position, name, original_name, logical_type)`
-- `dataset_profiles(dataset_id, profile_json, created_at)`
-- `column_mappings(dataset_id, mapping_json, confirmed, updated_at)`
-- `conversations(id, dataset_id, title, created_at)`
-- `analyses(id, conversation_id, dataset_id, question, status, sql, response_json, created_at)`
-- `llm_usage(id, analysis_id, purpose, model, input_tokens, output_tokens, est_cost_usd, latency_ms, created_at)`
+SQLite tables: `datasets`, `dataset_columns`, `dataset_profiles`, `column_mappings`,
+`conversations`, `analyses`, `llm_requests` — full DDL, migrations, and lifecycle in
+[`DATABASE.md`](DATABASE.md).
 
 ## 5. Main data flows
 
 ### 5.1 Upload and profiling
 
 1. `POST /datasets/inspect` — validate extension, magic bytes (`PK` for xlsx), and size
-   (`MAX_UPLOAD_MB`). Return `upload_id`, file type, and sheet names with row counts.
+   (`MAX_UPLOAD_MB`). Return `upload_id`, file type, and per sheet its row count, header
+   row, and the type each column would get (`detected_types`, from a 500-row sample read
+   in one pass over the workbook). The import form uses it to warn before a date or
+   number column is chosen under "Keep as text".
 2. `POST /datasets` with `upload_id`, `sheet`, and the import options `number_format`
    (`auto` | `id` | `en`; CSV only, Excel always uses `plain`) and `date_order`
    (`auto` | `day_first` | `month_first`) — create a dataset record in status
@@ -247,16 +247,18 @@ LLM calls per question: 1 plan (+ ≤ 2 repairs) + ≤ 1 insight. Clarification/
 
 ## 6. API contract (v1)
 
-All responses are JSON unless noted. Errors use `{"error": {"code": str, "message": str}}`.
+All responses are JSON unless noted. Errors — domain errors, request validation, unknown
+routes, wrong methods — use `{"error": {"code": str, "message": str}}`; validation
+errors add `details: [{field, message}]` (never the rejected input).
 
 | Method & path | Request | Response |
 |---|---|---|
 | `GET /health` | — | `{status, llm_configured: bool, model: str \| null}` |
-| `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count}]}` |
+| `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count, columns, detected_types}]}` |
 | `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first, text_columns: [original headers]}` | `DatasetRecord` (status `processing`) |
 | `GET /datasets` | — | `DatasetRecord[]` |
 | `GET /datasets/{id}` | — | `DatasetRecord` |
-| `DELETE /datasets/{id}` | — | `204`; removes DuckDB file, metadata, history |
+| `DELETE /datasets/{id}` | — | `204`; removes DuckDB file, metadata, history (`422` while the file is in use by a query) |
 | `GET /datasets/{id}/preview` | `limit` ≤ 200 | `QueryResult` |
 | `GET /datasets/{id}/profile` | — | `DatasetProfile` |
 | `GET /datasets/{id}/columns` | — | `DatasetColumn[]` with original headers, types, and notes |
@@ -270,13 +272,16 @@ All responses are JSON unless noted. Errors use `{"error": {"code": str, "messag
 | `GET /datasets/{id}/client-analytics/trend` | `granularity=month\|quarter\|year` | `TrendResult{result (zero-filled), partial_first, partial_last, warnings, definitions}` |
 | `GET /datasets/{id}/client-analytics/identity-issues` | — | `IdentityReport` |
 | `POST /analyses/ask` | `{dataset_id, conversation_id: str \| null, question}` | `AnalysisResponse` |
-| `GET /conversations` | `dataset_id` | `ConversationSummary[]` |
+| `POST /datasets/{id}/client-analytics/export` | `format=csv\|xlsx\|pdf\|sql`, body `{previous, current, options}` | file download |
+| `GET /analyses/recent` | `limit` | latest analyses across datasets (Overview) |
+| `GET /analyses/{id}` | — | `AnalysisResponse` |
+| `GET /conversations` | `dataset_id` (optional) | `ConversationSummary[]` with `last_question`, `last_activity_at` |
 | `GET /conversations/{id}` | — | `Conversation` with analyses |
 | `DELETE /conversations/{id}` | — | `204` |
 | `GET /analyses/{id}/export` | `format=csv\|xlsx\|pdf\|sql` | file download |
 | `GET /usage/summary` | — | totals overall, by model, by purpose; estimated cost and the number of requests without an estimate |
 | `GET /usage/requests` | `limit` ≤ 500 | latest `UsageRecord`s (no prompts, no answers) |
-| `GET /settings` | — | non-secret runtime settings |
+| `GET /settings` | — | `{llm: {configured, api_key_set, model, insight_model, model_has_price, timeouts, retries, max_output_tokens}, limits, toggles}` — no secrets, no paths |
 
 Key response models (Pydantic, in `backend/schemas/`):
 
@@ -580,10 +585,14 @@ Rules:
   Python/SQL. Schema context is cached per dataset/profile/confirmed-mapping state.
 - Without an API key the app still works for upload, profiling, column mapping, client
   analytics, history, and export; AI calls raise `llm_not_configured` without contacting anyone.
-- **Status of the real API:** in the development environment `api.openai.com` is blocked and no
-  key is configured. All LLM tests use a fake client or a fake HTTP transport; they verify our
-  code, not the provider or model quality. The real integration and the evaluation benchmark
-  have **not** been run yet.
+- **Status of the real API:** first used on 2026-11-05 with `gpt-6-luna` (smoke test, then
+  the 50-question benchmark twice; see `EVALUATION.md`). The test suite still uses a fake
+  client or a fake HTTP transport and never needs a key or network.
+- **Reasoning models:** their reasoning tokens count toward `LLM_MAX_OUTPUT_TOKENS`; 6000
+  was used with `gpt-6-luna` (the 1500 default can cut answers off).
+- **Partial last period:** when a result compares whole years with the year the data stops
+  in, the answer gets a `partial_period` warning (also given to the explanation). SQL that
+  already restricts every year to the same months does not trigger it.
 
 ## 10. Key decisions and assumptions
 
@@ -606,17 +615,22 @@ Rules:
 | D15 | Text values are pseudonymised before insight calls, except known category values. | Names/IDs never reach the provider; the model writes `[V1]`, restored locally. |
 | D16 | Conversations are bound to one dataset; follow-ups see questions + SQL + clarifications, never results. | Prevents cross-dataset context and reuse of stale numbers. |
 | D17 | UI numbers use the Indonesian format (1.234,5 · 63,2%); undefined rates render as N/A. | Audience is Indonesian; 0% would be a false statement. |
+| D18 | Exports are built when the download button is clicked; CSV neutralises formula prefixes; Excel text cells are never formulas. | No work on page load; spreadsheet formula injection from file content. |
+| D19 | Configured secrets are redacted centrally (log record factory + error text), not only by careful messages. | Defence in depth: a third-party exception could carry the key (found by the Phase 7 sweep). |
+| D20 | One Docker image for both services; non-root; data in a named volume. | One build, one dependency set; the frontend holds no secrets. |
+| D21 | SQL prompt v2 routes client-count comparisons to the retention engine and compares partial periods year-to-date. | Found with the real API (91 vs 103 full vs partial year); side effect documented in EVALUATION.md. |
 
 ## 11. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| OpenAI API blocked in the current dev environment; no API key yet. | Real LLM features and the benchmark cannot run here. | Provider-agnostic `LLMClient`; unit tests use a fake client; the benchmark is run once the network/key is available. No made-up benchmark numbers. |
+| Model behaviour changes with model or prompt version. | Accuracy measured once may not hold. | Prompt versions recorded per request; `python -m eval.run_eval` to re-measure; results kept per run. |
 | LLM writes wrong but valid SQL. | Plausible but wrong answers. | Retention via templates; assumptions and SQL shown; evaluation benchmark with ground truth. |
 | Ambiguous dates (dd/mm vs mm/dd), IDs with leading zeros. | Silent data corruption. | Conservative type inference; IDs kept as text; dayfirst detection; tests. |
 | Incomplete current year (data through Oct 2026). | Misleading decline. | Incomplete-period warning + YTD option. |
 | Large Excel files (100k+ rows). | Slow upload, blocked UI. | Background ingestion, calamine engine, performance test in Phase 7. |
 | Prompt injection via cell values. | Model manipulation. | Data blocks, no samples for identity columns, validator + sandbox. |
-| Docker daemon not running in the dev container. | Compose cannot be verified here. | Try starting `dockerd` in Phase 8; otherwise report it as unverified. |
+| Docker not installed on the development machine. | The image build and Compose are unverified. | Linux wheels resolved, service and health-check commands run, static tests on the Docker files; reported as unverified in DEPLOYMENT.md. |
+| No authentication (single tenant). | Anyone with network access can read/delete data and spend the API budget. | Documented; deploy behind an authenticating proxy or VPN (DEPLOYMENT.md §5). |
 | Insight grounding checks that numbers are derivable, not that they are attached to the right metric. | A fluent sentence could still mislabel a real number. | Facts are short and structured; the template is used on any doubt; KPIs, chart, and table are shown from the result itself; documented in §7.4. |
 | Pseudonymised insight input loses names of non-allowlisted categories. | Slightly less specific AI text. | Placeholders are restored locally; known category values are sent as-is. |
