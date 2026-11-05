@@ -15,7 +15,7 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 | 4 Integrasi AI (Task 9–13) | selesai, direview, disetujui user | 558 |
 | 5 Analytics (Task 14–18) | selesai, direview, disetujui user (2026-11-04) | 757 |
 | 6 Product Features (Task 19–21) | selesai, direview, disetujui user (2026-11-05) | 877 (+1 skip di Windows) |
-| 7 Quality (evaluasi Text-to-SQL, performa) | **sedang dikerjakan** (mulai 2026-11-05) | — |
+| 7 Quality (evaluasi Text-to-SQL, performa) | selesai, direview (2026-11-05), **menunggu review user** | 958 (+1 skip di Windows, +1 perf) |
 | 8 Deployment (Docker, README final) | belum | — |
 
 - API OpenAI sungguhan **belum pernah diuji** (jaringan diblokir di lingkungan cloud, belum
@@ -85,6 +85,16 @@ screenshot enam halaman (`scripts/e2e/all_pages.js`), review independen (0 Criti
 bagian Phase 6. **Berikutnya: tunggu review user, lalu Phase 7** (Task 22 integration test,
 Task 23 benchmark Text-to-SQL — butuh API key + `OPENAI_MODEL` + jaringan, Task 24
 keamanan & performa 300k baris).
+
+## 3b. Phase 7 (sesi 2026-11-05)
+
+Selesai: Task 22 (integration test), Task 23 (benchmark 50 soal; dua run dengan gpt-6-luna,
+laporan resmi run 2: SQL 30/30, akurasi 39/40, klarifikasi/penolakan 10/10, US$0,014),
+Task 24 (keamanan + redaksi secret, performa 300k baris). Review independen: semua temuan
+diperbaiki. Saldo API user terbatas (±US$2; terpakai ±US$0,044 hari ini) — jalankan
+benchmark penuh hanya bila perlu (`python -m eval.run_eval --only ...` untuk subset,
+`python -m eval.regrade` gratis). **Berikutnya: tunggu review user, lalu Phase 8**
+(Task 25 Docker, Task 26 dokumentasi).
 
 ## 3. Pekerjaan berikutnya (setelah user menyetujui Phase 5)
 

@@ -1,68 +1,90 @@
 # Evaluation
 
-Measured results only. Every number below comes from a file in this repository; nothing is
-estimated or projected. Targets are from PRD §9. Read "Limitations" before quoting any
-figure.
+Measured results only. Every number below is copied from a file in this repository (the
+file is named next to it); nothing is estimated or projected. Targets are from PRD §9.
+Read §4 "Limitations" before quoting any figure.
 
 ## 1. Text-to-SQL benchmark (PRD §9, plan Task 23)
 
-**Run:** `eval/results/20261105T030657Z.{json,md}` · **LLM: real (gpt-6-luna, 2026-11-05)**
-· SQL prompt `2026-11-05.sql-v2` · code at commit `de6db38` (see the note in the result
-file) · Windows 11 laptop, one run.
-
-**Set:** `eval/questions.yaml`, 50 questions, the 10 PRD categories × 5, 30 in Indonesian
-and 20 in English, on `sample_data/client_services.csv` (795 rows, 2023-01-03 to
+**Set:** `eval/questions.yaml`, 50 questions — the 10 PRD categories × 5, 30 in Indonesian
+and 20 in English — on `sample_data/client_services.csv` (795 rows, 2023-01-03 to
 2026-10-31) with the suggested column mapping confirmed. References never come from the
 model:
 
-| Expected | How it is graded |
+| Expected | Graded as correct when |
 |---|---|
-| `result` (30) | Hand-written reference SQL runs on the same table. Rows must match, order-insensitive; columns are matched by their values (names and order do not matter, and extra columns on either side are allowed if every column of the narrower result appears in the wider one); numbers within 1e-6, or equal to the reference rounded to the model's decimals. |
-| `retention` (10) | The analytics engine computes the metric for the stated periods; the answer must hold the same value(s), from the engine or anywhere in a SQL result table. |
-| `clarify` (5) / `reject` (5) | Status `clarification` / `unsupported` (or a validator rejection); nothing executed. |
+| `result` (30) | The model's result contains every column of the hand-written reference result (matched by values; names and order do not matter; extra model columns are allowed, missing ones are wrong), row by row, order-insensitive. Numbers: within 1e-6, or the reference rounded to the model's decimals with ≤ 0.5% relative error. |
+| `retention` (10) | The deterministic retention engine, run for the stated periods, gives the same value(s) as the answer: from the engine if the model routed the question there, or from a one-row SQL result (a rate may be written × 100). |
+| `clarify` (5) | Status `clarification`; nothing executed. |
+| `reject` (5) | Status `unsupported`, or every generated query blocked by the SQL validator; nothing executed. |
 
-| Metric (PRD §9) | Target | Measured |
+**Runs** (both: LLM: real (gpt-6-luna, 2026-11-05), SQL prompt `2026-11-05.sql-v2`, one run
+each, Windows 11 laptop on a home connection):
+
+| | Run 1 | Run 2 (reported result) |
 |---|---|---|
-| SQL execution success rate | ≥ 95% | **100%** (30 of 30 questions answered with model SQL) |
-| Query result accuracy | ≥ 90% | **97.5%** (39 of 40 result/retention questions) |
-| Semantic accuracy (clarify / reject) | — | **100%** (10 of 10) |
-| Error recovery rate | — | 1 of 1 (one failed query repaired automatically, cpx-02) — too few cases to be a rate |
-| Latency per question | — | average 6.4 s, median 6.4 s, range 1.4–16.0 s (end to end, incl. SQL and insight) |
-| Tokens | — | 91 LLM requests, 119,265 input / 20,495 output |
-| Estimated API cost | — | **US$0.0222** for 50 questions (prices in `config/pricing.json`, 2026-11-05) |
-| Security: SQL that breaks the rules executed | none | none: 5 of 5 invalid requests (delete, `DROP TABLE`, prompt injection asking for the key, off-topic, update) were refused before any SQL ran |
+| Result file | `eval/results/20261105T030657Z` | `eval/results/20261105T033221Z` |
+| Code / question file | `de6db38` / v1 | `638f484` (clean tree) / v2 |
+| Grader | first version; re-graded with the final grader: 0 grades changed (`eval/regrade.py`) | final (after the Phase 7 review) |
 
-Per category: 5/5 in every category except complex business analytics (4/5). By language:
-Indonesian 30/30, English 19/20. All 10 retention / new-vs-existing questions were routed
-to the deterministic retention engine (none was answered with model-written SQL).
+| Metric (PRD §9) | Target | Run 1 | Run 2 |
+|---|---|---|---|
+| SQL execution success rate (after automatic repair) | ≥ 95% | 100% (30/30) | **100%** (30/30) |
+| … on the first attempt | — | 96.7% (29/30) | 96.7% (29/30) |
+| Query result accuracy, all data questions | ≥ 90% | 97.5% (39/40) | **97.5%** (39/40) |
+| … answers from model-written SQL | — | 96.7% (29/30) | 100% (30/30) |
+| … answers routed to the retention engine | — | 100% (10/10) | 100% (9/9) |
+| … data questions not answered | — | none | new-05 (asked a clarification) |
+| … excluding the 5 smoke-test-overlap questions (§4) | — | 100% (37/37) | 97.3% (36/37) |
+| Clarify/reject accuracy ("semantic accuracy" in this project) | — | 100% (10/10) | 100% (10/10) |
+| Error recovery | — | 1 case, repaired | 1 case, repaired |
+| Latency per question, average / median | — | 6.4 s / 6.4 s | 6.7 s / 6.4 s |
+| LLM requests · tokens in / out | — | 91 · 119,265 / 20,495 | 90 · 118,143 / 20,331 |
+| Estimated API cost for 50 questions | — | US$0.0222 | US$0.0141 |
+| SQL that breaks the security rules executed | none | none | **none** |
 
-**The one wrong answer (cpx-04, English):** "For each year, what is the total revenue
-divided by the number of unique clients in that year?" The model restricted every year to
-January–October and said so in its assumptions; the reference uses whole years. This comes
-from rule 11 of SQL prompt v2 (compare the same span when the data ends mid-year), which was
-added earlier the same day and is applied here to a per-year breakdown where the question
-asks for calendar years. It was **not** tuned away and re-run: changing the prompt after
-seeing the test set and reporting the new score would overstate accuracy. A fix belongs in
-a later prompt version, measured on new questions.
+"Semantic accuracy" in PRD §9 is measured here as the right behaviour for ambiguous and
+invalid questions. Answers routed to the retention engine test intent routing and period
+extraction; the numbers themselves come from deterministic templates (Phase 5), not from
+model-written SQL. The single automatic repair in each run is cpx-02: too few cases for a
+recovery *rate*.
 
-**Reproduce** (needs `OPENAI_API_KEY`, network; costs real money):
+**Wrong answers, with causes:**
+
+- Run 1, **cpx-04** ("for each year, total revenue ÷ unique clients"): the model limited
+  every year to January–October and said so in its assumptions; the reference uses whole
+  years. Caused by rule 11 of SQL prompt v2 (compare the same span when the data ends
+  mid-year), applied to a per-year breakdown. In question file v2 the wording says
+  "calendar year"; run 2 answered it correctly. The prompt was **not** changed between the
+  runs.
+- Run 2, **new-05**: the model asked whether "new client" in the 2025 comparison period has
+  the same definition. The v2 wording added "Bandingkan dengan periode Januari–Juni 2025",
+  which does leave that open; this is a weakness of the question, but it is still graded
+  wrong. It is not reworded and re-run here (that would be tuning on the test set).
+
+Security in both runs: delete, `DROP TABLE`, a prompt injection asking for the API key, an
+off-topic question, and an update request were all refused before any SQL ran.
+
+**Reproduce** (needs `OPENAI_API_KEY` and network; costs real money):
 
 ```bash
 python -m eval.run_eval --model gpt-6-luna
-python -m eval.run_eval --only cpx-04,dat-02     # a subset
+python -m eval.run_eval --only cpx-04,new-05          # a subset
+python -m eval.regrade eval/results/<run>.json        # re-grade stored SQL, no LLM calls
 ```
 
-Checks that run without a key (`python -m pytest tests/eval`): the question file has ≥ 50
-questions, ≥ 4 per category and ≥ 20 in Indonesian; every reference SQL passes the
-validator, runs, returns no NULL, and has no tie at a `LIMIT` cut; a scripted model that
-returns the references scores 100% and wrong answers are caught.
+Without a key, `python -m pytest tests/eval` checks that the file has ≥ 50 questions, ≥ 4
+per category and ≥ 20 in Indonesian; that every reference SQL passes the validator, runs,
+returns no NULL, and has no tie at a `LIMIT` cut; that a scripted model returning the
+references scores 100%; and that the grader rejects missing columns, coarse "rounding",
+numbers found in large tables, and accepts validator-blocked writes as refusals.
 
 ## 2. Performance (plan Task 24)
 
-**Run:** `python -m pytest -m perf -s tests/perf` on 2026-11-05 · Windows 11, Python
-3.13.17, Intel 64 (family 6 model 183) laptop · synthetic CSV, 300,000 rows × 7 columns,
-22.5 MB, 20,000 client IDs, dates 2023-01-01 to 2026-10-31 · one run, through the real API
-and the sandboxed query worker. **LLM: none.**
+Source: `docs/evidence/experiments/2026-11-05-phase7-perf-300k.json` (+ `.md`). Command
+`python -m pytest -m perf -s tests/perf`; Windows 11, Python 3.13.17, Intel 64 laptop;
+synthetic CSV of 300,000 rows × 7 columns (22.5 MB, 20,000 client IDs, 2023-01-01 to
+2026-10-31); one run through the real API and the sandboxed query worker. **LLM: none.**
 
 | Step | Seconds |
 |---|---|
@@ -73,13 +95,13 @@ and the sandboxed query worker. **LLM: none.**
 | Retention comparison 2025 vs 2026 | 0.41 |
 | Client list (first 100 returning clients) | 0.35 |
 | Monthly trend | 0.45 |
-| AI-style query (group by department) in the sandbox worker | 0.25 |
+| Group-by query in the sandbox worker | 0.25 |
 
-Import is the only step that takes seconds; it runs once per file, in the background.
-Analytics stay below the 10-second query timeout by a wide margin at this size. Not
-measured: files near the 50 MB upload limit, multi-sheet workbooks of this size (see
-`docs/evidence/experiments/2026-11-05-phase6-inspect-benchmark.md` for an 8-sheet
-workbook), concurrent users, Linux or Docker.
+Import runs once per file, in the background. Analytics stay far below the 10-second query
+timeout at this size. Not measured: files near the 50 MB limit, multi-sheet workbooks of
+this size (an 8-sheet workbook is in
+`docs/evidence/experiments/2026-11-05-phase6-inspect-benchmark.md`), concurrent users,
+Linux or Docker.
 
 ## 3. Security tests (plan Task 24)
 
@@ -91,25 +113,34 @@ workbook), concurrent users, Linux or Docker.
   exhaustion, malformed input, and syntactically valid bypass attempts — all rejected
   before execution.
 - Upload names with path traversal (`../`, `..\`, absolute paths, encoded dots) stay inside
-  the upload folder; oversized files and disguised files (CSV named `.xlsx`, executables)
-  are refused and not kept.
-- The API key never appears in any route's response (every path in the OpenAPI schema,
-  with real and unknown IDs) or in the logs, including when an error message carries it:
-  configured secrets are redacted from log records, tracebacks, error responses, analysis
-  answers, and usage records. The sweep found that gap before the redaction existed.
+  the upload folder; oversized and disguised files (CSV named `.xlsx`, executables) are
+  refused and not kept.
+- The API key never appears in any route's response (all 29 operations in the OpenAPI
+  schema, with real and unknown IDs) or in the logs, including when an error message
+  carries it. Configured secrets are redacted from log messages, tracebacks, stack info,
+  error responses, analysis answers, usage records, and failed-import messages. The sweep
+  found the gap before the redaction existed; disabling either redaction layer makes it
+  fail again (checked in the Phase 7 review).
+- The sweep sends `{}` as the body, so body-required routes are swept on their validation
+  path; their success paths are exercised by the earlier calls in the same test.
 
 ## 4. Limitations
 
-- **One run, one model, one dataset.** LLM output varies between runs; 50 questions is a
-  small sample (one wrong answer moves accuracy by 2.5 points). The dataset is synthetic.
-- **Same author.** The questions and references were written by the developer of the
-  system. SQL prompt v2 was changed earlier the same day after a smoke test with similar
-  questions (`docs/evidence/experiments/2026-11-05-first-real-api.md`); for example ret-05
-  resembles a smoke-test question. Scores on unseen users' questions may be lower.
-- **Lenient but explicit grading.** Extra or missing columns are accepted when the values
-  match, and rounding to fewer decimals is accepted. A model answer that is "right for a
-  different reading of the question" is graded wrong (cpx-04).
-- **Not graded:** the wording of the written explanations (they are checked for grounded
-  numbers at run time, not scored here) and chart choice.
-- Latency includes two LLM calls per answered question on a home connection; it is not a
-  server benchmark.
+- **Small sample, one model, synthetic data.** 50 questions; one wrong answer moves
+  accuracy by 2.5 points. Each run was made once; LLM output varies between runs (run 1 and
+  run 2 differ on which question failed). The dataset is synthetic.
+- **Same author.** Questions, references, and grader were written by the developer of the
+  system.
+- **Overlap with the smoke test.** SQL prompt v2 was written the same day after a smoke test
+  (`docs/evidence/experiments/2026-11-05-first-real-api.md`) that contained questions equal
+  or close to five benchmark questions: amb-01 (verbatim), dat-01 (revenue per month in
+  2025), inv-01 (delete data), ret-05 (client comparison 2025 vs 2026), and cpx-04 (its
+  failure mode, unique clients per year, was seen there). Scores without these five are
+  reported above.
+- **Question file v2 was edited after the review**, which had seen run 1's results; the
+  edits remove ambiguity and a zero-valued reference and are listed at the top of the
+  file. Run 1 used v1.
+- **Not graded:** the wording of written explanations (checked for grounded numbers at run
+  time, not scored here) and chart choice.
+- Latency includes two LLM calls per answered question over a home connection; it is not
+  a server benchmark.

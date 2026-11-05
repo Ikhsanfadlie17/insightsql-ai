@@ -611,6 +611,28 @@ design (Phase 2 L2).
 
 **Phase 7 report.**
 
+
+**Phase 7 as built — additions and deviations (with reasons):**
+- The benchmark runs in-process (`create_app` + TestClient) on a temporary data folder, so a
+  run never touches the user's data; `eval/regrade.py` re-grades stored SQL without LLM calls.
+- Grading rules beyond the plan's "order-insensitive set compare, tolerance 1e-6": columns are
+  matched by values (names free, extra model columns allowed, missing ones wrong); rounding
+  accepted within 0.5% relative error; retention questions graded on engine values or a
+  one-row SQL result; validator-blocked writes count as refusals.
+- Metrics are reported per denominator (first-attempt SQL success, model-SQL vs
+  engine-routed accuracy, scores without the smoke-test overlap); PRD "semantic accuracy" is
+  measured as clarify/reject accuracy.
+- Added: `backend/core/redaction.py` (found by the secret sweep), `pytest -m 'not perf'` by
+  default.
+- The benchmark was run twice: run 1 (question file v1, first grader), run 2 (v2, final
+  grader). The prompt did not change between runs.
+
+**Phase 7 independent review — outcome:** 0 Critical, 3 High, 5 Medium, 7 Low, all fixed:
+H1–H3 grader leniency, M1 overlap disclosure, M2 metric definitions, M3 evidence files, M4
+ambiguous / zero-valued references (question file v2), M5 validator-blocked refusals, L1–L3
+redaction robustness and coverage, L5–L7 grader and test details. Re-grading run 1 with the
+final grader changed 0 grades.
+
 ---
 
 ## Phase 8 — Deployment

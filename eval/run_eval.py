@@ -350,8 +350,13 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
     """
     graded = [r for r in records if r["kind"] in {"result", "retention"}]
     behaviour = [r for r in records if r["kind"] in {"clarify", "reject"}]
-    by_sql = [r for r in graded if not r["used_retention_engine"]]
+    by_sql = [
+        r
+        for r in graded
+        if r["status"] == "answered" and r["sql"] and not r["used_retention_engine"]
+    ]
     by_engine = [r for r in graded if r["used_retention_engine"]]
+    not_answered = [r for r in graded if r["status"] != "answered"]
     sql_tried = [
         r
         for r in graded
@@ -390,6 +395,7 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
         "result_accuracy_model_sql": sql_acc,
         "model_sql_correct": sql_acc_ok,
         "model_sql_questions": sql_acc_n,
+        "data_questions_not_answered": [f"{r['id']} ({r['status']})" for r in not_answered],
         "result_accuracy_engine_routed": eng_acc,
         "engine_routed_correct": eng_ok,
         "engine_routed_questions": eng_n,
@@ -507,6 +513,7 @@ def markdown(meta: dict[str, Any], summary: dict[str, Any], records: list[dict])
         f"- LLM: real ({meta['model']}, {meta['date']}) · prompt `{meta['prompt_version']}` "
         f"· questions: {s['questions']} · commit `{meta['commit']}`"
         f"{' (uncommitted changes)' if meta.get('dirty') else ''}",
+        *[f"- Note: {v}" for k, v in sorted(meta.items()) if k.endswith("_note")],
         "",
         "| Metric | Value |",
         "|---|---|",
@@ -519,6 +526,8 @@ def markdown(meta: dict[str, Any], summary: dict[str, Any], records: list[dict])
         f"({s['model_sql_correct']}/{s['model_sql_questions']}) |",
         f"| … routed to the retention engine | {_pct(s['result_accuracy_engine_routed'])} "
         f"({s['engine_routed_correct']}/{s['engine_routed_questions']}) |",
+        f"| … data questions not answered (graded wrong) | "
+        f"{', '.join(s.get('data_questions_not_answered', [])) or 'none'} |",
         f"| … without smoke-test overlap | {_pct(s['result_accuracy_without_smoke_overlap'])} "
         f"({s['without_overlap_correct']}/{s['without_overlap_questions']}) |",
         f"| Clarify/reject accuracy | {_pct(s['clarify_reject_accuracy'])} "
@@ -560,6 +569,17 @@ def _commit() -> tuple[str, bool]:
         return git("rev-parse", "--short", "HEAD"), bool(git("status", "--porcelain"))
     except (OSError, subprocess.CalledProcessError):
         return "unknown", True
+
+
+def resummarize(path: Path, note: str) -> None:
+    """Recompute the summary and the Markdown of a stored run from its records (no LLM
+    calls; used when a metric definition changes). The reason is kept in the metadata."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["summary"] = summarize(payload["records"])
+    payload["meta"]["summary_note"] = note
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), "utf-8")
+    md = markdown(payload["meta"], payload["summary"], payload["records"])
+    path.with_suffix(".md").write_text(md, encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:

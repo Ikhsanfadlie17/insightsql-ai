@@ -152,3 +152,47 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   Phase 6 dan workbook 50 MB tidak diukur; PDF memakai font bawaan (karakter non-Latin
   diganti `?`); pembersihan berkala hanya untuk upload mentah, bukan dataset.
 - **Status:** disetujui user 2026-11-05, setelah uji pertama API sungguhan (`gpt-6-luna`) dan perbaikan temuannya (`7d6bf4f`, `3c99c3f`; 877 test lulus, 1 skip).
+
+
+## Phase 7 — Quality (Task 22–24)
+
+- **Tanggal:** 2026-11-05, Windows lokal. **LLM:** real (gpt-6-luna, 2026-11-05) untuk
+  benchmark; mock untuk integration test; none untuk performa & keamanan.
+- **Commit:** `231c1f0` (Task 22), `de6db38` (Task 23 kode), `f5e44dd` (Task 24 + redaksi),
+  `86a21a8` (hasil run 1), `638f484` (perbaikan review), commit dokumen fase ini.
+- **Komponen baru:** `tests/integration/test_end_to_end.py`; `eval/questions.yaml` (50 soal,
+  10 kategori × 5, 30 Indonesia), `eval/run_eval.py`, `eval/regrade.py`, `tests/eval/`;
+  `tests/security/test_api_security.py` (sapu semua 29 operasi OpenAPI),
+  `backend/core/redaction.py`; `tests/perf/` (marker `perf`, tidak ikut run default);
+  `docs/EVALUATION.md`.
+- **Hasil benchmark** (rinci: [EVALUATION.md](../EVALUATION.md),
+  [experiments/2026-11-05-phase7-benchmark.md](experiments/2026-11-05-phase7-benchmark.md)):
+  run 2 (laporan resmi) — SQL execution 100% (30/30; percobaan pertama 29/30), akurasi hasil
+  97,5% (39/40), klarifikasi/penolakan 100% (10/10), latency rata-rata 6,7 s, US$0,0141
+  untuk 50 soal; tidak ada SQL berbahaya yang dijalankan. Target PRD (≥ 95% / ≥ 90%)
+  tercapai **pada set ini, satu run, satu model** — lihat keterbatasan.
+- **Performa (300.000 baris):** import 10,6 s; profil, mapping, retensi, daftar klien, tren,
+  dan query di sandbox masing-masing 0,1–0,5 s
+  ([experiments/2026-11-05-phase7-perf-300k.md](experiments/2026-11-05-phase7-perf-300k.md)).
+- **Keamanan:** path traversal, upload kebesaran, file menyamar ditolak; API key tidak
+  pernah muncul di respons mana pun atau di log. Test ini menemukan celah (pesan error yang
+  membawa key bisa sampai ke jawaban, catatan usage, dan traceback) → redaksi terpusat.
+- **Test:** 877 (akhir Phase 6) → **958 lulus, 1 skip** (+1 perf, deselected).
+- **Review independen:** 0 Critical, 3 High, 5 Medium, 7 Low; semua diperbaiki.
+  | Temuan | Sebelum | Sesudah |
+  |---|---|---|
+  | H1 | Grader menerima jawaban yang membuang kolom yang diminta | Semua kolom referensi wajib ada |
+  | H2 | Bilangan bulat cocok dengan apa pun dalam ±0,05 | Pembulatan hanya ≤ 0,5% relatif |
+  | H3 | Nilai retensi dicari "di mana saja" di tabel | Hanya hasil satu baris; N/A dinilai |
+  | M1 | Tumpang-tindih dengan smoke test hanya disebut sebagian | 5 soal disebut + skor tanpa mereka |
+  | M2 | Metrik mencampur jawaban SQL & mesin, tanpa percobaan pertama | Dipisah, dinamai jelas |
+  | M3 | Angka performa tanpa file sumber | JSON + file eksperimen |
+  | M4 | new-05 ambigu, mul-03 referensi 0, NULL tidak dinyatakan | Soal v2 |
+  | M5 | Write yang diblokir validator dinilai salah | Dinilai penolakan yang benar |
+  | L1–L7 | Redaksi (konkurensi, stack info, pesan lain), teks angka, pairing kolom, commit run, test seri | Diperbaiki + test |
+  Penilaian ulang run 1 dengan grader final: 0 nilai berubah.
+- **Token/biaya nyata:** smoke test US$0,0078; run 1 US$0,0222; run 2 US$0,0141.
+- **Keterbatasan:** 50 soal sintetis, ditulis pengembang sendiri; satu run per versi;
+  5 soal mirip smoke test yang mendahului prompt v2; soal v2 diubah setelah review yang
+  melihat hasil run 1; aturan prompt v2 #11 kadang diterapkan terlalu luas (cpx-04 run 1);
+  new-05 v2 masih bisa ditafsirkan dua cara.

@@ -181,6 +181,26 @@ def test_summary_separates_sql_answers_engine_answers_and_first_attempts() -> No
     assert s["sql_execution_success_rate"] == 1.0
     assert s["sql_first_attempt_success_rate"] == pytest.approx(2 / 3)
     assert s["result_accuracy_model_sql"] == pytest.approx(2 / 3)
+    assert s["model_sql_questions"] == 3  # only answers that came from model SQL
     assert s["result_accuracy_engine_routed"] == 1.0
     assert s["result_accuracy"] == pytest.approx(3 / 4)
     assert s["clarify_reject_accuracy_without_smoke_overlap"] is None  # amb-01 overlaps
+
+
+def test_unanswered_data_questions_are_not_counted_as_sql_answers() -> None:
+    """A clarification for a data question is wrong, but it is not a model-SQL answer."""
+    base = {"category": "new_vs_existing", "error_code": None, "used_retention_engine": False,
+            "repairs": 0, "latency_s": 1.0, "requests": 1, "input_tokens": 1,
+            "output_tokens": 1, "cost_usd": 0.0}  # fmt: skip
+    records = [
+        {**base, "id": "new-05", "kind": "retention", "status": "clarification", "sql": None,
+         "correct": False},
+        {**base, "id": "grp-01", "kind": "result", "status": "answered", "sql": "SELECT 1",
+         "correct": True},
+    ]  # fmt: skip
+
+    s = summarize(records)
+
+    assert s["model_sql_questions"] == 1 and s["result_accuracy_model_sql"] == 1.0
+    assert s["result_accuracy"] == 0.5
+    assert s["data_questions_not_answered"] == ["new-05 (clarification)"]
