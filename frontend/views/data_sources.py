@@ -1,4 +1,4 @@
-"""Data Sources: upload, import options, profile, and column-mapping confirmation."""
+"""Data Sources: upload, import options, profile, column mapping, rename and delete."""
 
 from __future__ import annotations
 
@@ -9,7 +9,11 @@ import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.data_table import render_result
-from frontend.components.labels import column_labels, suggestion_caption
+from frontend.components.labels import (
+    column_labels,
+    keep_as_text_conflicts,
+    suggestion_caption,
+)
 from frontend.components.layout import (
     STATUS_LABELS,
     empty_state,
@@ -19,7 +23,14 @@ from frontend.components.layout import (
     show_api_error,
 )
 from frontend.components.notes import render_notes
-from frontend.state import get_client, resolve_active, set_active_dataset_id, wait_for_datasets
+from frontend.state import (
+    AA_CONVERSATIONS,
+    get_active_dataset_id,
+    get_client,
+    resolve_active,
+    set_active_dataset_id,
+    wait_for_datasets,
+)
 
 TYPE_LABELS = {
     "integer": "Integer",
@@ -49,6 +60,8 @@ ROLE_LABELS = {
     "status": "Status",
 }
 NOT_USED = "— Not used —"
+_CONFIRM = "ds_confirm_delete"  # dataset id awaiting delete confirmation
+_FLASH = "ds_flash"
 
 
 # ------------------------------------------------------------------- upload
@@ -124,6 +137,22 @@ def _upload_section(api: ApiClient) -> None:
             "codes, or phone numbers. Headers like 'ID', 'Kode', 'No', 'NIK' or 'Telepon' "
             "are already kept as text automatically.",
         )
+        dates, numbers = keep_as_text_conflicts(sheets, chosen, text_columns)
+        if dates:
+            st.warning(
+                f"{', '.join(md_escape(c) for c in dates)} "
+                f"{'contains' if len(dates) == 1 else 'contain'} dates. Kept as text, "
+                "period comparisons and trends will not be available. Remove "
+                f'{"it" if len(dates) == 1 else "them"} from "Keep as text" unless that is '
+                "what you want.",
+                icon=":material/event_busy:",
+            )
+        if numbers:
+            st.caption(
+                f":material/info: {', '.join(md_escape(c) for c in numbers)} "
+                f"{'looks' if len(numbers) == 1 else 'look'} like numbers. Kept as text "
+                "is right for IDs and codes, but amounts such as revenue cannot be summed."
+            )
 
         if st.button("Import", type="primary", disabled=not chosen, icon=":material/upload:"):
             _import(
@@ -277,6 +306,72 @@ def _mapping_tab(
     render_notes(state["warnings"])
 
 
+# --------------------------------------------------------------- management
+def _forget_dataset(dataset_id: str) -> None:
+    """Drop session references to a deleted dataset."""
+    if get_active_dataset_id() == dataset_id:
+        set_active_dataset_id(None)
+    st.session_state.get(AA_CONVERSATIONS, {}).pop(dataset_id, None)
+
+
+def _delete_controls(api: ApiClient, dataset: dict[str, Any]) -> None:
+    st.warning(
+        f"Delete **{md_escape(dataset['name'])}** with its data, column mapping, and all of its "
+        "AI Analyst conversations? This cannot be undone.",
+        icon=":material/delete:",
+    )
+    left, right, _ = st.columns([1, 1, 3])
+    if left.button("Delete permanently", type="primary", key="ds_delete_confirm"):
+        st.session_state.pop(_CONFIRM, None)
+        try:
+            api.delete_dataset(dataset["id"])
+        except ApiError as error:
+            show_api_error(error)
+            return
+        _forget_dataset(dataset["id"])
+        st.session_state[_FLASH] = f"Dataset **{md_escape(dataset['name'])}** deleted."
+        st.rerun()
+    if right.button("Cancel", key="ds_delete_cancel"):
+        st.session_state.pop(_CONFIRM, None)
+        st.rerun()
+
+
+def _manage(api: ApiClient, dataset: dict[str, Any]) -> None:
+    """Rename or delete the selected dataset (delete asks for confirmation first)."""
+    dataset_id = dataset["id"]
+    # Inline, not in an expander: Streamlit resets an expander whose `expanded` argument
+    # changes between reruns, which hid the delete confirmation in local testing.
+    name_col, save_col, delete_col = st.columns([3, 1, 1], vertical_alignment="bottom")
+    new_name = name_col.text_input(
+        "Dataset name", value=dataset["name"], max_chars=120, key=f"ds_rename_{dataset_id}"
+    )
+    if save_col.button(
+        "Rename", icon=":material/edit:", key=f"ds_rename_save_{dataset_id}", width="stretch"
+    ):
+        if not new_name.strip():
+            st.error("The dataset name cannot be empty.", icon=":material/error:")
+        else:
+            try:
+                api.rename_dataset(dataset_id, new_name.strip())
+            except ApiError as error:
+                show_api_error(error)
+            else:
+                st.session_state[_FLASH] = "Dataset renamed."
+                st.rerun()
+    processing = dataset["status"] == "processing"
+    if delete_col.button(
+        "Delete",
+        icon=":material/delete:",
+        key=f"ds_delete_{dataset_id}",
+        disabled=processing,
+        help="Available once the import has finished." if processing else None,
+        width="stretch",
+    ):
+        st.session_state[_CONFIRM] = dataset_id
+    if st.session_state.get(_CONFIRM) == dataset_id:
+        _delete_controls(api, dataset)
+
+
 def _dataset_detail(api: ApiClient, dataset: dict[str, Any]) -> None:
     st.markdown(f"#### {md_escape(dataset['name'])}  \n{STATUS_LABELS[dataset['status']]}")
     if dataset["status"] == "failed":
@@ -354,6 +449,9 @@ def main() -> None:
         return
 
     st.subheader("Datasets")
+    flash = st.session_state.pop(_FLASH, None)
+    if flash:
+        st.success(flash, icon=":material/check_circle:")
     if not datasets:
         empty_state("No datasets yet. Upload a file to get started.")
         return
@@ -371,7 +469,10 @@ def main() -> None:
     chosen = next(d for d in datasets if d["id"] == selected)
     if chosen["status"] == "ready":
         set_active_dataset_id(selected)
+    if st.session_state.get(_CONFIRM) not in (None, selected):
+        st.session_state.pop(_CONFIRM)  # a pending confirmation never applies to another one
     with st.container(border=True):
+        _manage(api, chosen)
         _dataset_detail(api, chosen)
 
 

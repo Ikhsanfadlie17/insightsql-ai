@@ -181,3 +181,18 @@ def test_duplicate_note_makes_no_promise_about_later_analytics(profile: DatasetP
     note = next(n for n in profile.notes if n.code == "duplicate_rows")
 
     assert "only affect" not in note.message
+
+
+def test_no_date_column_names_dates_kept_as_text(service: DatasetService) -> None:
+    """Task 21: say which column holds dates and how to fix it, not just "no date column"."""
+    content = b"ID Klien,Tanggal Layanan,Nilai\nA1,03/01/2026,10\nA2,04/01/2026,20\n"
+    inspection = service.inspect_upload("t.csv", content)
+    record = service.create_dataset(
+        inspection.upload_id, None, None, text_columns=["Tanggal Layanan"]
+    )
+    service.ingest(record.id, inspection.upload_id, None)
+
+    note = next(n for n in service.profile(record.id).notes if n.code == "no_date_column")
+    assert "'Tanggal Layanan'" in note.message
+    assert "Keep as text" in note.message
+    assert note.level == "warning"

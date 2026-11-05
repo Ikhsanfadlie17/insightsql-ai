@@ -87,13 +87,25 @@ def _dataset_notes(
                 )
             )
     if not any(c.logical_type in _DATES for c in profile_columns):
-        notes.append(
-            ColumnNote(
-                level="info",
-                code="no_date_column",
-                message="No date column was detected, so period and trend analysis is not "
-                "available for this dataset.",
+        kept = [
+            c.original_name or c.name
+            for c in profile_columns
+            if any(n.code == "kept_as_text_looks_like_date" for n in c.notes)
+        ]
+        if kept:
+            listed = ", ".join(f"'{label}'" for label in kept)
+            message = (
+                f"No date column is available: {listed} contains dates but was chosen under "
+                '"Keep as text" at import, so period and trend analysis is not available. '
+                'Import the file again without choosing it under "Keep as text".'
             )
+        else:
+            message = (
+                "No date column was detected, so period and trend analysis is not "
+                "available for this dataset."
+            )
+        notes.append(
+            ColumnNote(level="warning" if kept else "info", code="no_date_column", message=message)
         )
     return notes
 

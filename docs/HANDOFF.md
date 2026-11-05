@@ -59,16 +59,32 @@ Selesai (test-first, full pytest 810 lulus + 1 skip, ruff bersih):
   dan PDF menyebutkannya; error 409 `nothing_to_export`. `ExportMeta` ditambah
   `assumptions` dan `notes`.
 
+Sesi 2026-11-05 (Windows lokal) — Task 21 sebagian besar selesai (full pytest 846 lulus +
+1 skip, ruff bersih; e2e manual dengan backend sungguhan di browser):
+- **`GET /settings`** (`backend/api/settings.py`): model, `api_key_set` (hanya ya/tidak),
+  `model_has_price`, timeout/retry LLM, limit, toggle. Field di-whitelist; test memastikan
+  key (utuh/potongan) tidak pernah ada di respons maupun log, dan path server tidak bocor.
+  `app.state.pricing` ditambahkan.
+- **Halaman Settings**: status AI + variabel yang kurang, tabel setting ↔ env var, ringkasan
+  usage (request, gagal, token, estimasi biaya; N/A bila tak ada harga, ditandai bila hanya
+  sebagian request punya harga), tabel per model/purpose, cara mengubah (.env + restart).
+  `coming_soon` dihapus; smoke test kini memastikan tidak ada halaman placeholder.
+- **Data Sources**: rename + hapus dataset dengan konfirmasi (inline, bukan expander:
+  expander Streamlit ter-reset saat argumen `expanded` berubah sehingga konfirmasi
+  tersembunyi — ditemukan saat uji manual). Hapus juga membersihkan dataset aktif dan
+  percakapan AI Analyst yang diingat sesi.
+- **Follow-up "Keep as text"**: (a) `SheetInfo.detected_types` dari sampel 500 baris saat
+  inspect → peringatan di form import bila kolom tanggal dipilih (warning) / angka (caption);
+  (b) note `kept_as_text_looks_like_date` (warning) dan `kept_as_text_looks_like_number`
+  (info — teks memang benar untuk ID/kode); pesan `no_date_column` menyebut kolomnya dan cara
+  memperbaiki. Test lama `test_user_chosen_text_columns` diperbarui (kini ada note info).
+
 Sisa sebelum laporan Phase 6:
-- **Task 21:** `GET /settings` (tanpa secret; test key tidak pernah keluar), halaman
-  Settings (model, limit, toggle, ringkasan usage/biaya, cara set env), rename/delete
-  dataset dengan konfirmasi di Data Sources (API `PATCH/DELETE /datasets/{id}` sudah ada),
-  polish UI + screenshot enam halaman (`test_unbuilt_pages_do_not_show_fake_numbers` kini
-  memakai halaman Settings — ubah saat Settings dibangun).
-- **Follow-up "Keep as text"** (rencana): (a) `SheetInfo.detected_types` dari sampel baris
-  saat inspect → peringatan di form import; (b) di `type_inference._infer_column`, kolom yang
-  dipaksa teks tetap dihitung tipe "seharusnya" → note `kept_as_text_looks_like_date/number`;
-  `data_profiler` memakai note itu untuk pesan `no_date_column` yang menyebut kolomnya.
+- Polish UI dengan checklist (kontras, spacing, empty/loading/error) + screenshot enam
+  halaman (Playwright). Panel browser bawaan sempat tidak menggambar saat uji 2026-11-05.
+- Dari plan (dijadwalkan ke Task 21): L5 envelope `{"error": ...}` untuk error validasi
+  FastAPI & route tak dikenal; M4 pembersihan upload kedaluwarsa berkala (kini hanya saat
+  startup). Juga L8 format angka Indonesia di `st.dataframe` (opsional).
 - Review independen, perbaikan Critical/High, evidence Phase 6 di `phase-log.md`, lalu
   tunggu review user.
 

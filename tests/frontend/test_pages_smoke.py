@@ -49,11 +49,12 @@ def test_data_sources_shows_preview_and_conversion_warning() -> None:
     assert any("could not be read as dates" in text for text in shown)
 
 
-def test_unbuilt_pages_do_not_show_fake_numbers() -> None:
-    at = _run("settings", FakeApi())
+@pytest.mark.parametrize("page", PAGES)
+def test_no_page_is_a_placeholder(page: str) -> None:
+    """Task 21: every page is built; none still says "after Phase N"."""
+    at = _run(page, FakeApi())
 
-    assert len(at.metric) == 0
-    assert any("Phase" in i.value for i in at.info)
+    assert not any("after Phase" in str(i.value) for i in at.info)
 
 
 def test_app_entrypoint_builds_navigation() -> None:

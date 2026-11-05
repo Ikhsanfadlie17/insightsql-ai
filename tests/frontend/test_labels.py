@@ -41,3 +41,28 @@ def test_caption_when_selection_differs_from_all_suggestions() -> None:
 
 def test_caption_without_suggestions() -> None:
     assert "No suggestion" in suggestion_caption([], None, {})
+
+
+def test_keep_as_text_conflicts() -> None:
+    """Task 21: warn in the import form before dates or numbers are kept as text."""
+    from frontend.components.labels import keep_as_text_conflicts
+
+    sheets = [
+        {"name": "A", "detected_types": {"Tanggal": "date", "Nilai": "numeric", "ID": "text"}},
+        {"name": "B", "detected_types": {"Waktu": "datetime", "Jumlah": "integer"}},
+    ]
+
+    dates, numbers = keep_as_text_conflicts(sheets, ["A"], ["Tanggal", "Nilai", "ID", "Waktu"])
+
+    assert dates == ["Tanggal"]  # "Waktu" is only in sheet B, which is not imported
+    assert numbers == ["Nilai"]
+
+
+def test_keep_as_text_conflicts_csv_and_old_backend() -> None:
+    from frontend.components.labels import keep_as_text_conflicts
+
+    csv = [{"name": "data", "detected_types": {"Tgl": "date"}}]
+    old = [{"name": "data"}]  # inspection without detected_types
+
+    assert keep_as_text_conflicts(csv, [None], ["Tgl"]) == (["Tgl"], [])
+    assert keep_as_text_conflicts(old, [None], ["Tgl"]) == ([], [])

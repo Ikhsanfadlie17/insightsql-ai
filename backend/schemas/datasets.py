@@ -29,6 +29,9 @@ class SheetInfo(BaseModel):
     name: str
     row_count: int
     columns: list[str] = Field(default_factory=list)  # header row as written
+    # Type each header would get at import, from a sample of rows (Task 21: warn before
+    # a date or number column is chosen under "Keep as text").
+    detected_types: dict[str, LogicalTypeName] = Field(default_factory=dict)
 
 
 class UploadInspection(BaseModel):

@@ -17,6 +17,9 @@ from backend.api import (
     health,
     usage,
 )
+from backend.api import (
+    settings as settings_api,
+)
 from backend.core.config import Settings, get_settings
 from backend.core.errors import register_error_handlers
 from backend.core.logging import setup_logging
@@ -58,11 +61,12 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     history_repo = HistoryRepository(settings.metadata_db_path)
     if llm_client is None and settings.llm_configured:
         llm_client = OpenAIClient(settings)
+    pricing = load_pricing(settings.pricing_file)
     llm_gateway = LLMGateway(
         llm_client,
         settings,
         usage_repo,
-        load_pricing(settings.pricing_file),
+        pricing,
         prompt_version=PROMPT_VERSION,
     )
     executor = QueryExecutor(settings)
@@ -88,6 +92,7 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
 
     app = FastAPI(title="InsightSQL AI", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
+    app.state.pricing = pricing
     app.state.dataset_service = dataset_service
     app.state.mapping_service = mapping_service
     app.state.dataset_repo = repo
@@ -115,6 +120,7 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     app.include_router(analyses.router)
     app.include_router(conversations.router)
     app.include_router(exports.router)
+    app.include_router(settings_api.router)
     return app
 
 

@@ -321,7 +321,10 @@ def test_user_chosen_text_columns(service: DatasetService) -> None:
 
     columns = {c.name: c for c in service.columns(dataset_id)}
     assert columns["pelanggan"].logical_type == "text"
-    assert [n.code for n in columns["pelanggan"].notes] == ["kept_as_text_by_user"]
+    assert [n.code for n in columns["pelanggan"].notes] == [
+        "kept_as_text_by_user",
+        "kept_as_text_looks_like_number",  # Task 21: info only; text is right for IDs
+    ]
     assert columns["nilai"].logical_type == "integer"
     assert service.get(dataset_id).text_columns == ["Pelanggan"]
 
@@ -331,3 +334,22 @@ def test_unknown_text_column_is_rejected(service: DatasetService) -> None:
 
     with pytest.raises(ValidationError, match="Nope"):
         service.create_dataset(inspection.upload_id, None, None, text_columns=["Nope"])
+
+
+def test_inspection_detects_column_types(service: DatasetService) -> None:
+    """Task 21: the import form warns before a date/number column is kept as text."""
+    csv = service.inspect_upload(
+        "a.csv", b"Kode,Tanggal,Nilai,Nama\nK1,03/01/2026,1.5,Ani\nK2,04/01/2026,2,Budi\n"
+    )
+    xlsx = service.inspect_upload(SAMPLE_XLSX.name, SAMPLE_XLSX.read_bytes())
+
+    assert csv.sheets[0].detected_types == {
+        "Kode": "text",
+        "Tanggal": "date",
+        "Nilai": "numeric",
+        "Nama": "text",
+    }
+    first = xlsx.sheets[0].detected_types
+    assert first["Tanggal Layanan"] in {"date", "datetime"}
+    assert first["Pendapatan (Rp)"] in {"integer", "numeric"}
+    assert first["ID Klien"] == "text"

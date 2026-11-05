@@ -521,3 +521,51 @@ def test_identifier_header_detection_accepts_raw_headers() -> None:
     _, logical, _ = _infer_named("Client ID", values)
 
     assert logical == "text"
+
+
+# ------------------------------------------------- Task 21: "Keep as text" follow-up
+def test_dates_kept_as_text_are_flagged() -> None:
+    """User test 2026-11-04: dates chosen as "Keep as text" silently lost period analysis."""
+    frame = pd.DataFrame({"tanggal": pd.Series(["03/01/2026", "04/01/2026"], dtype="string")})
+
+    result = infer_types(frame, text_columns={"tanggal"})
+
+    assert result.types["tanggal"] == "text"
+    codes = [n.code for n in result.notes["tanggal"]]
+    assert codes == ["kept_as_text_by_user", "kept_as_text_looks_like_date"]
+    note = result.notes["tanggal"][1]
+    assert note.level == "warning"
+    assert "date" in note.message and "Keep as text" in note.message
+
+
+def test_numbers_kept_as_text_are_flagged() -> None:
+    frame = pd.DataFrame({"pendapatan": pd.Series(["8200000", "104500000"], dtype="string")})
+
+    result = infer_types(frame, text_columns={"pendapatan"})
+
+    codes = [n.code for n in result.notes["pendapatan"]]
+    assert codes == ["kept_as_text_by_user", "kept_as_text_looks_like_number"]
+    assert result.notes["pendapatan"][1].level == "info"  # IDs are often kept as text on purpose
+
+
+def test_identifiers_kept_as_text_are_not_flagged() -> None:
+    """Text is already the right type for numeric-looking IDs."""
+    frame = pd.DataFrame({"id_klien": pd.Series(["1001", "1002"], dtype="string")})
+
+    result = infer_types(frame, text_columns={"id_klien"})
+
+    assert [n.code for n in result.notes["id_klien"]] == ["kept_as_text_by_user"]
+
+
+def test_detect_types_reports_the_type_without_converting() -> None:
+    from backend.services.type_inference import detect_types
+
+    frame = pd.DataFrame(
+        {
+            "tanggal": pd.Series(["03/01/2026", "04/01/2026"], dtype="string"),
+            "nilai": pd.Series(["1.5", "2"], dtype="string"),
+            "nama": pd.Series(["a", "b"], dtype="string"),
+        }
+    )
+
+    assert detect_types(frame) == {"tanggal": "date", "nilai": "numeric", "nama": "text"}

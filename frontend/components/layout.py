@@ -40,11 +40,6 @@ def page_header(title: str, subtitle: str) -> None:
     st.caption(subtitle)
 
 
-def coming_soon(feature: str, phase: int) -> None:
-    """Honest placeholder for features that are not built yet (no fake data)."""
-    st.info(f"{feature} will be available after Phase {phase} of the implementation plan.")
-
-
 def empty_state(message: str) -> None:
     """Shown when there is nothing to display yet."""
     st.info(message, icon=":material/inbox:")

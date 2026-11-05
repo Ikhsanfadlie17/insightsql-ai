@@ -70,6 +70,27 @@ ROLES = [
     "status",
 ]
 EMPTY_MAPPING = {role: None for role in ROLES}
+SETTINGS: dict[str, Any] = {
+    "llm": {"configured": False, "api_key_set": False, "model": None, "insight_model": None,
+            "model_has_price": False, "timeout_seconds": 30.0, "total_timeout_seconds": 90.0,
+            "max_retries": 2, "max_output_tokens": 1500},
+    "limits": {"max_upload_mb": 50.0, "query_timeout_seconds": 10.0, "max_result_rows": 5000,
+               "max_question_chars": 1000, "max_sql_repairs": 2},
+    "toggles": {"send_sample_values": True, "enable_llm_insights": True},
+}  # fmt: skip
+
+
+def usage_totals(key: str = "all", **values: Any) -> dict[str, Any]:
+    """A UsageTotals payload."""
+    base = {"key": key, "requests": 0, "succeeded": 0, "failed": 0, "input_tokens": 0,
+            "output_tokens": 0, "cached_tokens": 0, "estimated_cost_usd": 0.0,
+            "requests_without_cost": 0}  # fmt: skip
+    return base | values
+
+
+EMPTY_USAGE: dict[str, Any] = {
+    "currency": "USD", "totals": usage_totals(), "by_model": [], "by_purpose": [],
+}  # fmt: skip
 
 
 def mapping_state(confirmed: bool) -> dict[str, Any]:
@@ -110,6 +131,9 @@ class FakeApi:
         self.failing = failing or set()
         self.confirm_calls: list[dict[str, Any]] = []
         self.create_calls: list[dict[str, Any]] = []
+        self.rename_calls: list[tuple[str, str]] = []
+        self.delete_dataset_calls: list[str] = []
+        self.usage: dict[str, Any] = copy.deepcopy(EMPTY_USAGE)
 
     def _check(self, endpoint: str = "") -> None:
         if self.down:
@@ -128,6 +152,26 @@ class FakeApi:
     def recent_analyses(self, limit: int = 5) -> list[dict[str, Any]]:
         self._check("recent_analyses")
         return []
+
+    def settings(self) -> dict[str, Any]:
+        self._check("settings")
+        return copy.deepcopy(SETTINGS)
+
+    def usage_summary(self) -> dict[str, Any]:
+        self._check("usage_summary")
+        return copy.deepcopy(self.usage)
+
+    def rename_dataset(self, dataset_id: str, name: str) -> dict[str, Any]:
+        self._check("rename_dataset")
+        self.rename_calls.append((dataset_id, name))
+        record = next(d for d in self.datasets if d["id"] == dataset_id)
+        record["name"] = name
+        return record
+
+    def delete_dataset(self, dataset_id: str) -> None:
+        self._check("delete_dataset")
+        self.delete_dataset_calls.append(dataset_id)
+        self.datasets = [d for d in self.datasets if d["id"] != dataset_id]
 
     def get_dataset(self, dataset_id: str) -> dict[str, Any]:
         self._check("get_dataset")
@@ -374,6 +418,13 @@ class AnalystFakeApi(AnalyticsFakeApi):
     def health(self) -> dict[str, Any]:
         self._check("health")
         return {"status": "ok", "llm_configured": self.llm, "model": "m" if self.llm else None}
+
+    def settings(self) -> dict[str, Any]:
+        data = super().settings()
+        if self.llm:
+            data["llm"] |= {"configured": True, "api_key_set": True, "model": "m",
+                            "insight_model": "m"}  # fmt: skip
+        return data
 
     def ask(self, dataset_id: str, question: str, conversation_id: str | None) -> dict[str, Any]:
         self._check("ask")

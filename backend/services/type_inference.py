@@ -370,6 +370,29 @@ def _is_identifier_header(name: str) -> bool:
     return bool(set(re.split(r"[^a-z0-9]+", name.lower())) & _IDENTIFIER_WORDS)
 
 
+_KEPT_DATE = ColumnNote(
+    level="warning",
+    code="kept_as_text_looks_like_date",
+    message='The values look like dates, but the column was chosen under "Keep as text" at '
+    "import, so date filters, periods, and trends cannot use it. To use it as a date, "
+    "import the file again without choosing this column.",
+)
+_KEPT_NUMBER = ColumnNote(
+    level="info",
+    code="kept_as_text_looks_like_number",
+    message='The values look like numbers and were kept as text ("Keep as text" at import). '
+    "That is right for IDs, codes, and phone numbers. If this is an amount, import the "
+    "file again without choosing this column so it can be summed.",
+)
+# Type the values would have had without "Keep as text" -> the note that says so.
+_LOOKS_LIKE: dict[str, ColumnNote] = {
+    "date": _KEPT_DATE,
+    "datetime": _KEPT_DATE,
+    "integer": _KEPT_NUMBER,
+    "numeric": _KEPT_NUMBER,
+}
+
+
 def _infer_column(
     name: str,
     text: pd.Series,
@@ -386,6 +409,9 @@ def _infer_column(
                 message="Kept as text, as chosen at import.",
             )
         )
+        _, would_be, _, _ = _infer_column(name, text, number_format, date_order, False)
+        if would_be in _LOOKS_LIKE:
+            notes.append(_LOOKS_LIKE[would_be])
         return text, "text", 0, notes
     if text.notna().sum() == 0:
         return text, "text", 0, notes
@@ -480,3 +506,10 @@ def infer_types(
         if notes:
             result.notes[column] = notes
     return result
+
+
+def detect_types(
+    df: pd.DataFrame, number_format: NumberFormat = "auto", date_order: DateOrder = "auto"
+) -> dict[str, LogicalType]:
+    """Logical type each column would get at import (used on a sample at inspection)."""
+    return infer_types(df, number_format=number_format, date_order=date_order).types

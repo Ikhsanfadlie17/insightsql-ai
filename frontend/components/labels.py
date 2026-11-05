@@ -43,3 +43,25 @@ def suggestion_caption(
     name = md_escape(labels.get(chosen["column"], chosen["original_name"]))
     reasons = "; ".join(md_escape(r) for r in chosen["reasons"])
     return f"Suggested: **{name}** ({chosen['confidence']:.0%}) — {reasons}"
+
+
+_DATE_TYPES = {"date", "datetime"}
+_NUMBER_TYPES = {"integer", "numeric"}
+
+
+def keep_as_text_conflicts(
+    sheets: list[dict[str, Any]], chosen: list[str | None], text_columns: list[str]
+) -> tuple[list[str], list[str]]:
+    """Columns chosen under "Keep as text" that look like dates, and that look like numbers.
+
+    ``chosen`` holds sheet names (``[None]`` for a CSV). Types come from the inspection
+    sample (``detected_types``); identifier headers are already reported as text there.
+    """
+    detected: dict[str, str] = {}
+    for sheet in sheets:
+        if None in chosen or sheet["name"] in chosen:
+            for header, logical in sheet.get("detected_types", {}).items():
+                detected.setdefault(header, logical)
+    dates = [c for c in text_columns if detected.get(c) in _DATE_TYPES]
+    numbers = [c for c in text_columns if detected.get(c) in _NUMBER_TYPES]
+    return dates, numbers

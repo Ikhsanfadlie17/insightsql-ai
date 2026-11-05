@@ -74,6 +74,14 @@ class ApiClient:
         """``GET /health``."""
         return self._request("GET", "/health")
 
+    def settings(self) -> dict[str, Any]:
+        """``GET /settings`` (models, limits, toggles; never secrets)."""
+        return self._request("GET", "/settings")
+
+    def usage_summary(self) -> dict[str, Any]:
+        """``GET /usage/summary`` (token totals and estimated cost)."""
+        return self._request("GET", "/usage/summary")
+
     def inspect_upload(self, filename: str, content: bytes) -> dict[str, Any]:
         """``POST /datasets/inspect`` with a multipart file."""
         return self._request("POST", "/datasets/inspect", files={"file": (filename, content)})

@@ -44,7 +44,7 @@ from backend.services.file_loader import (
 )
 from backend.services.query_results import rows_to_jsonable
 from backend.services.sql_utils import quote_identifier
-from backend.services.type_inference import infer_types
+from backend.services.type_inference import detect_types, infer_types
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ _UPLOAD_ID = re.compile(r"^[0-9a-f]{32}$")
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._ -]+")
 _META_FILE = "upload.json"
 _HEAD_BYTES = 64 * 1024
+INSPECT_SAMPLE_ROWS = 500  # rows read at inspection to suggest column types
 
 
 def _safe_filename(filename: str) -> str:
@@ -102,21 +103,45 @@ class DatasetService:
             upload_id=upload_id, filename=safe_name, file_type=file_type, sheets=sheets
         )
 
-    @staticmethod
-    def _sheets(path: Path, file_type: FileType, content: bytes) -> list[SheetInfo]:
+    @classmethod
+    def _sheets(cls, path: Path, file_type: FileType, content: bytes) -> list[SheetInfo]:
         if file_type == "xlsx":
             sheets = list_sheets(path)
             if not sheets:
                 raise UploadError("The workbook has no sheets.")
-            return sheets
-        lines = [line for line in content.splitlines() if line.strip()]
-        return [
-            SheetInfo(
-                name=path.stem,
-                row_count=max(len(lines) - 1, 0),
-                columns=read_headers(path, file_type, None),
+        else:
+            lines = [line for line in content.splitlines() if line.strip()]
+            sheets = [
+                SheetInfo(
+                    name=path.stem,
+                    row_count=max(len(lines) - 1, 0),
+                    columns=read_headers(path, file_type, None),
+                )
+            ]
+        for sheet in sheets:
+            sheet.detected_types = cls._detected_types(
+                path, file_type, sheet.name if file_type == "xlsx" else None
             )
-        ]
+        return sheets
+
+    @staticmethod
+    def _detected_types(path: Path, file_type: FileType, sheet: str | None) -> dict[str, str]:
+        """Type of each header in a sample of rows; empty when the sample cannot be read.
+
+        Only a hint for the import form: the stored types come from all rows at ingest.
+        """
+        try:
+            frame = load_dataframe(path, file_type, sheet, max_rows=INSPECT_SAMPLE_ROWS)
+        except UploadError:
+            return {}  # e.g. an empty sheet: the import itself reports the problem
+        names = normalize_columns([str(c) for c in frame.columns])
+        frame.columns = [n.name for n in names]
+        types = detect_types(frame, number_format="plain" if file_type == "xlsx" else "auto")
+        detected: dict[str, str] = {}
+        for n in names:
+            if n.original and n.original not in detected:
+                detected[n.original] = types[n.name]
+        return detected
 
     def _upload(self, upload_id: str) -> tuple[Path, FileType]:
         if not _UPLOAD_ID.match(upload_id):

@@ -134,7 +134,7 @@ def _is_blank_header(header: object) -> bool:
     return text == "" or text.startswith("Unnamed:")
 
 
-def _load_csv(path: Path) -> pd.DataFrame:
+def _load_csv(path: Path, max_rows: int | None = None) -> pd.DataFrame:
     sample, encoding = _read_text(path)
     if not sample.strip():
         raise UploadError("The file is empty.")
@@ -146,28 +146,39 @@ def _load_csv(path: Path) -> pd.DataFrame:
         encoding=encoding,
         keep_default_na=False,
         na_values=_NA_VALUES,
+        nrows=None if max_rows is None else max_rows + 1,  # + the header row
     )
     return _with_header_row(raw)
 
 
-def _load_xlsx(path: Path, sheet: str | None) -> pd.DataFrame:
+def _load_xlsx(path: Path, sheet: str | None, max_rows: int | None = None) -> pd.DataFrame:
     names = [s.name for s in list_sheets(path)]
     if not names:
         raise UploadError("The workbook has no sheets.")
     target = sheet or names[0]
     if target not in names:
         raise UploadError(f"Sheet '{target}' was not found in the workbook.")
-    raw = pd.read_excel(path, sheet_name=target, engine="calamine", dtype="string", header=None)
+    raw = pd.read_excel(
+        path,
+        sheet_name=target,
+        engine="calamine",
+        dtype="string",
+        header=None,
+        nrows=None if max_rows is None else max_rows + 1,
+    )
     return _with_header_row(raw)
 
 
-def load_dataframe(path: Path, file_type: FileType, sheet: str | None) -> pd.DataFrame:
+def load_dataframe(
+    path: Path, file_type: FileType, sheet: str | None, max_rows: int | None = None
+) -> pd.DataFrame:
     """Read a CSV or one Excel sheet with every value as text.
 
     Args:
         path: Location of the stored upload.
         file_type: ``"csv"`` or ``"xlsx"``.
         sheet: Worksheet name for Excel files (first sheet when None).
+        max_rows: Read only the first data rows (a sample); None reads all.
 
     Raises:
         UploadError: If the file is empty, unreadable, or the sheet is missing.
@@ -176,7 +187,7 @@ def load_dataframe(path: Path, file_type: FileType, sheet: str | None) -> pd.Dat
         A frame whose column labels are the raw header cells (possibly repeated or "").
     """
     try:
-        df = _load_csv(path) if file_type == "csv" else _load_xlsx(path, sheet)
+        df = _load_csv(path, max_rows) if file_type == "csv" else _load_xlsx(path, sheet, max_rows)
     except UploadError:
         raise
     except pd.errors.ParserError as exc:
