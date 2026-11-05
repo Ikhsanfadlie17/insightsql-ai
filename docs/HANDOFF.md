@@ -96,6 +96,16 @@ benchmark penuh hanya bila perlu (`python -m eval.run_eval --only ...` untuk sub
 `python -m eval.regrade` gratis). **Berikutnya: tunggu review user, lalu Phase 8**
 (Task 25 Docker, Task 26 dokumentasi).
 
+## 3c. Phase 8 (sesi 2026-11-05, terhenti karena batas pemakaian)
+
+Selesai dan di-commit: Task 25 Docker (`14b23b1`; build image BELUM diverifikasi karena
+Docker/WSL tidak terpasang — lihat DEPLOYMENT.md §3), Task 26 dokumentasi (`3d0e5ef`:
+README, ARCHITECTURE as-built, DATABASE, PROMPTS, DEPLOYMENT, screenshot, tests/test_docs.py).
+Semua perintah README terverifikasi di clone bersih kecuali Docker (995 test lulus).
+**Sisa:** review independen Phase 8 + checklist PRD §12 (review sempat dimulai lalu
+dihentikan, belum ada hasil — jalankan ulang), perbaiki temuan, laporan Phase 8 di
+`phase-log.md`, tunggu review user. 25+ commit lokal belum di-push.
+
 ## 3. Pekerjaan berikutnya (setelah user menyetujui Phase 5)
 
 Phase 6 — lihat plan, Task 19–21:
