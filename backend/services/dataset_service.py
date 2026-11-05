@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
+import threading
 import time
 import uuid
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -41,6 +44,7 @@ from backend.services.file_loader import (
     list_sheets,
     load_dataframe,
     read_headers,
+    read_samples,
 )
 from backend.services.query_results import rows_to_jsonable
 from backend.services.sql_utils import quote_identifier
@@ -70,6 +74,9 @@ class DatasetService:
     def __init__(self, settings: Settings, repo: DatasetRepository) -> None:
         self._settings = settings
         self._repo = repo
+        # Uploads with an import created but not finished: never removed by cleanup.
+        self._uploads_in_use: Counter[str] = Counter()
+        self._uploads_lock = threading.Lock()
 
     # ----------------------------------------------------------------- uploads
     def inspect_upload(self, filename: str, content: bytes) -> UploadInspection:
@@ -118,29 +125,43 @@ class DatasetService:
                     columns=read_headers(path, file_type, None),
                 )
             ]
+        try:
+            samples = read_samples(path, file_type, INSPECT_SAMPLE_ROWS)
+        except Exception:
+            # Only a hint for the import form; the import reports real problems itself.
+            logger.warning("Could not sample the upload for type hints", exc_info=True)
+            samples = {}
         for sheet in sheets:
-            sheet.detected_types = cls._detected_types(
-                path, file_type, sheet.name if file_type == "xlsx" else None
-            )
+            frame = samples.get(sheet.name if file_type == "xlsx" else None)
+            sheet.detected_types = cls._detected_types(frame, sheet.columns, file_type)
         return sheets
 
     @staticmethod
-    def _detected_types(path: Path, file_type: FileType, sheet: str | None) -> dict[str, str]:
-        """Type of each header in a sample of rows; empty when the sample cannot be read.
+    def _detected_types(
+        frame: pd.DataFrame | None, headers: list[str], file_type: FileType
+    ) -> dict[str, str]:
+        """Type of each header (as shown in the form) in a sample of rows; {} on failure.
 
         Only a hint for the import form: the stored types come from all rows at ingest.
+        Columns are matched by position, so the keys are exactly ``SheetInfo.columns``
+        (e.g. "2024-01-01" for a date header cell, "NA" for a CSV header written NA).
         """
+        if frame is None or frame.empty:
+            return {}
+        width = frame.shape[1]
+        labels = (list(headers) + [""] * width)[:width]
         try:
-            frame = load_dataframe(path, file_type, sheet, max_rows=INSPECT_SAMPLE_ROWS)
-        except UploadError:
-            return {}  # e.g. an empty sheet: the import itself reports the problem
-        names = normalize_columns([str(c) for c in frame.columns])
-        frame.columns = [n.name for n in names]
-        types = detect_types(frame, number_format="plain" if file_type == "xlsx" else "auto")
+            names = normalize_columns(labels)  # same names as at ingest (identifier rule)
+            sample = frame.set_axis([n.name for n in names], axis=1)
+            number_format = "plain" if file_type == "xlsx" else "auto"
+            types = detect_types(sample, number_format=number_format)
+        except Exception:
+            logger.warning("Type hints failed for an upload sample", exc_info=True)
+            return {}
         detected: dict[str, str] = {}
-        for n in names:
-            if n.original and n.original not in detected:
-                detected[n.original] = types[n.name]
+        for label, n in zip(labels, names, strict=True):
+            if label and label not in detected:
+                detected[label] = types[n.name]
         return detected
 
     def _upload(self, upload_id: str) -> tuple[Path, FileType]:
@@ -159,7 +180,11 @@ class DatasetService:
             return 0
         cutoff = time.time() - max_age_hours * 3600
         removed = 0
+        with self._uploads_lock:
+            in_use = set(self._uploads_in_use)
         for entry in root.iterdir():
+            if entry.name in in_use:
+                continue
             if entry.is_dir() and entry.stat().st_mtime < cutoff:
                 shutil.rmtree(entry, ignore_errors=True)
                 removed += 1
@@ -220,7 +245,13 @@ class DatasetService:
             date_order=date_order,
             text_columns=requested,
         )
-        return self._repo.create(record)
+        created = self._repo.create(record)
+        # Phase 6 review L2: the import restarts the upload's 24 h clock, and cleanup
+        # skips the upload until ingestion has finished.
+        os.utime(path.parent)
+        with self._uploads_lock:
+            self._uploads_in_use[upload_id] += 1
+        return created
 
     def ingest(self, dataset_id: str, upload_id: str, sheet: str | None) -> None:
         """Load, normalize, type, and store the data; sets the status to ready/failed.
@@ -266,6 +297,11 @@ class DatasetService:
             target.unlink(missing_ok=True)
             logger.exception("Ingestion failed for dataset %s", dataset_id)
             self._mark_failed(dataset_id, "The file could not be processed.")
+        finally:
+            with self._uploads_lock:
+                self._uploads_in_use[upload_id] -= 1
+                if self._uploads_in_use[upload_id] <= 0:
+                    del self._uploads_in_use[upload_id]
 
     def _save_profile(self, dataset_id: str, path: Path, columns: list[DatasetColumn]) -> None:
         """Profile at ingest time; a profiling failure must not fail the import."""
@@ -373,8 +409,15 @@ class DatasetService:
 
     def delete(self, dataset_id: str) -> None:
         """Delete the dataset's DuckDB file and all of its metadata."""
+        # A processing dataset may be deleted: ingest notices and cleans up (Phase 2 L2).
         self._repo.get(dataset_id)
         path = self.duckdb_path(dataset_id)
-        path.unlink(missing_ok=True)
-        path.with_suffix(".duckdb.wal").unlink(missing_ok=True)
+        try:
+            path.unlink(missing_ok=True)
+            path.with_suffix(".duckdb.wal").unlink(missing_ok=True)
+        except PermissionError as exc:
+            # Windows: a running query, profile, or export still has the file open.
+            raise ValidationError(
+                "This dataset is in use by a running query or export. Try again in a moment."
+            ) from exc
         self._repo.delete(dataset_id)

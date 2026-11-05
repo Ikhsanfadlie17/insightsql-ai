@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import math
 import re
 import unicodedata
 from datetime import timedelta
@@ -229,6 +230,11 @@ class _Pdf(FPDF):
                 self.para(f"- {item}")
 
 
+def _swap_separators(text: str) -> str:
+    """Python's 1,234.5 -> Indonesian 1.234,5."""
+    return text.replace(",", "\0").replace(".", ",").replace("\0", ".")
+
+
 def _pdf_value(value: Any) -> str:
     """Numbers in Indonesian format (1.234,5), like the app."""
     if value is None:
@@ -238,8 +244,17 @@ def _pdf_value(value: Any) -> str:
     if isinstance(value, int):
         return f"{value:,}".replace(",", ".")
     if isinstance(value, float):
-        text = f"{value:,.0f}" if value.is_integer() else f"{value:,.2f}"
-        return text.replace(",", "\0").replace(".", ",").replace("\0", ".")
+        if value.is_integer():
+            return _swap_separators(f"{value:,.0f}")
+        # Phase 6 review L3: small fractions keep 3 significant digits (0,0045, not 0,00).
+        decimals = 2
+        if abs(value) < 1:
+            decimals = min(max(2, 2 - math.floor(math.log10(abs(value)))), 8)
+        text = _swap_separators(f"{value:,.{decimals}f}")
+        if decimals > 2:
+            whole, _, frac = text.partition(",")
+            text = f"{whole},{frac.rstrip('0').ljust(2, '0')}"
+        return text
     return str(value)
 
 

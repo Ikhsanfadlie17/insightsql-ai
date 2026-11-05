@@ -353,3 +353,121 @@ def test_inspection_detects_column_types(service: DatasetService) -> None:
     assert first["Tanggal Layanan"] in {"date", "datetime"}
     assert first["Pendapatan (Rp)"] in {"integer", "numeric"}
     assert first["ID Klien"] == "text"
+
+
+# ------------------------------------------------- Phase 6 independent review fixes
+def test_inspection_reads_each_sheet_a_bounded_number_of_times(
+    service: DatasetService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """H1: type detection re-parsed every sheet once per sheet (S² parses, 10x slower)."""
+    import backend.services.dataset_service as ds_module
+    import backend.services.file_loader as loader
+
+    calls = {"list_sheets": 0, "read_excel": 0}
+    real_list, real_read = loader.list_sheets, loader.pd.read_excel
+
+    def counting_list(*args, **kwargs):
+        calls["list_sheets"] += 1
+        return real_list(*args, **kwargs)
+
+    def counting_read(*args, **kwargs):
+        calls["read_excel"] += 1
+        return real_read(*args, **kwargs)
+
+    monkeypatch.setattr(loader, "list_sheets", counting_list)
+    monkeypatch.setattr(ds_module, "list_sheets", counting_list)
+    monkeypatch.setattr(loader.pd, "read_excel", counting_read)
+
+    inspection = service.inspect_upload(SAMPLE_XLSX.name, SAMPLE_XLSX.read_bytes())
+
+    assert len(inspection.sheets) >= 2
+    assert all(s.detected_types for s in inspection.sheets)
+    assert calls == {"list_sheets": 1, "read_excel": 1}
+
+
+def test_detected_types_use_the_header_text_shown_in_the_form(
+    service: DatasetService, tmp_path: Path
+) -> None:
+    """L1: date and NA-like headers were keyed differently from SheetInfo.columns."""
+    import datetime as dt
+
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append([dt.datetime(2024, 1, 1), "Tanggal"])
+    sheet.append([5, dt.datetime(2026, 1, 3)])
+    sheet.append([6, dt.datetime(2026, 1, 4)])
+    path = tmp_path / "dated.xlsx"
+    workbook.save(path)
+
+    xlsx = service.inspect_upload("dated.xlsx", path.read_bytes()).sheets[0]
+    csv = service.inspect_upload("na.csv", b"NA,Tanggal\nx,03/01/2026\ny,04/01/2026\n").sheets[0]
+
+    assert set(xlsx.detected_types) == set(xlsx.columns) == {"2024-01-01", "Tanggal"}
+    assert xlsx.detected_types["Tanggal"] in {"date", "datetime"}
+    assert csv.detected_types == {"NA": "text", "Tanggal": "date"}
+
+
+def test_type_hint_failure_never_fails_the_inspection(
+    service: DatasetService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """L1: the hint is optional; an unexpected error must not turn inspection into a 500."""
+    import backend.services.dataset_service as ds_module
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("unexpected parser failure")
+
+    monkeypatch.setattr(ds_module, "detect_types", broken)
+
+    inspection = service.inspect_upload("a.csv", b"A,B\n1,2\n")
+
+    assert inspection.sheets[0].detected_types == {}
+    assert inspection.sheets[0].columns == ["A", "B"]
+
+
+def test_creating_a_dataset_refreshes_the_upload_age(
+    service: DatasetService, settings: Settings
+) -> None:
+    """L2: an import started near the 24 h limit must not lose its upload to cleanup."""
+    inspection = service.inspect_upload("a.csv", b"A,B\n1,2\n")
+    upload_dir = settings.uploads_dir / inspection.upload_id
+    old = time.time() - 23.9 * 3600
+    os.utime(upload_dir, (old, old))
+
+    service.create_dataset(inspection.upload_id, None, None)
+
+    assert service.cleanup_stale_uploads(max_age_hours=24) == 0
+    assert upload_dir.exists()
+    assert upload_dir.stat().st_mtime > time.time() - 60
+
+
+def test_cleanup_skips_uploads_of_processing_datasets(
+    service: DatasetService, settings: Settings
+) -> None:
+    """L2: never remove an upload while a dataset is still being ingested from it."""
+    inspection = service.inspect_upload("a.csv", b"A,B\n1,2\n")
+    service.create_dataset(inspection.upload_id, None, None)  # status: processing
+    upload_dir = settings.uploads_dir / inspection.upload_id
+    old = time.time() - 48 * 3600
+    os.utime(upload_dir, (old, old))
+
+    assert service.cleanup_stale_uploads(max_age_hours=24) == 0
+    assert upload_dir.exists()
+
+
+def test_delete_of_a_file_in_use_is_a_clear_error(
+    service: DatasetService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """L4: on Windows an open DuckDB file cannot be removed; say so instead of a 500."""
+    dataset_id = _ingest_bytes(service, "a.csv", b"A,B\n1,2\n")
+
+    def locked(self, missing_ok: bool = False) -> None:
+        raise PermissionError("in use")
+
+    monkeypatch.setattr(Path, "unlink", locked)
+
+    with pytest.raises(ValidationError, match="in use"):
+        service.delete(dataset_id)
+    monkeypatch.undo()
+    assert service.get(dataset_id).status == "ready"  # metadata kept, consistent

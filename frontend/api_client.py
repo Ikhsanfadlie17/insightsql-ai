@@ -84,7 +84,10 @@ class ApiClient:
 
     def inspect_upload(self, filename: str, content: bytes) -> dict[str, Any]:
         """``POST /datasets/inspect`` with a multipart file."""
-        return self._request("POST", "/datasets/inspect", files={"file": (filename, content)})
+        # Large multi-sheet workbooks take several seconds to read (50 MB limit).
+        return self._request(
+            "POST", "/datasets/inspect", files={"file": (filename, content)}, timeout=120.0
+        )
 
     def create_dataset(
         self,

@@ -66,3 +66,14 @@ def test_keep_as_text_conflicts_csv_and_old_backend() -> None:
 
     assert keep_as_text_conflicts(csv, [None], ["Tgl"]) == (["Tgl"], [])
     assert keep_as_text_conflicts(old, [None], ["Tgl"]) == ([], [])
+
+
+def test_fmt_stat_keeps_small_fractions() -> None:
+    """Phase 6 review L3: profile Min/Mean/Median showed 0.004 as "0,00"."""
+    from frontend.components.formatting import fmt_stat
+
+    assert fmt_stat(None) == ""
+    assert fmt_stat(4000000.0) == "4.000.000"
+    assert fmt_stat(38247512.5) == "38.247.512,50"
+    assert fmt_stat(0.0045) == "0,0045"
+    assert fmt_stat(-0.000123456) == "-0,000123"

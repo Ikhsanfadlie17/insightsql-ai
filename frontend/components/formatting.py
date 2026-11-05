@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 NA = "N/A"
 
 
@@ -52,3 +54,29 @@ def fmt_value(value: object) -> str:
     if isinstance(value, float):
         return fmt_number(value, 2)
     return str(value)
+
+
+def fraction_decimals(value: float) -> int:
+    """2 decimals; small fractions get enough for 3 significant digits (at most 8)."""
+    if value == 0 or abs(value) >= 1:
+        return 2
+    return min(max(2, 2 - math.floor(math.log10(abs(value)))), 8)
+
+
+def trim_decimals(text: str, keep: int = 2) -> str:
+    """Drop trailing zeros after the decimal comma, keeping at least ``keep`` decimals."""
+    whole, _, decimals = text.partition(",")
+    if not decimals:
+        return text
+    decimals = decimals.rstrip("0").ljust(keep, "0")
+    return f"{whole},{decimals}"
+
+
+def fmt_stat(value: float | None) -> str:
+    """Profile statistic: 4.000.000, 38.247.512,50, or 0,0045 (small fractions keep their
+    significant digits); blank when not applicable."""
+    if value is None:
+        return ""
+    if float(value).is_integer():
+        return fmt_number(value, 0)
+    return trim_decimals(fmt_number(value, fraction_decimals(value)))

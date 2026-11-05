@@ -135,10 +135,15 @@ def _is_blank_header(header: object) -> bool:
 
 
 def _load_csv(path: Path, max_rows: int | None = None) -> pd.DataFrame:
+    return _with_header_row(_read_csv_raw(path, max_rows))
+
+
+def _read_csv_raw(path: Path, max_rows: int | None = None) -> pd.DataFrame:
+    """The CSV as text cells, header row included (row 0)."""
     sample, encoding = _read_text(path)
     if not sample.strip():
         raise UploadError("The file is empty.")
-    raw = pd.read_csv(
+    return pd.read_csv(
         path,
         sep=_sniff_delimiter(sample),
         header=None,
@@ -148,7 +153,6 @@ def _load_csv(path: Path, max_rows: int | None = None) -> pd.DataFrame:
         na_values=_NA_VALUES,
         nrows=None if max_rows is None else max_rows + 1,  # + the header row
     )
-    return _with_header_row(raw)
 
 
 def _load_xlsx(path: Path, sheet: str | None, max_rows: int | None = None) -> pd.DataFrame:
@@ -201,3 +205,26 @@ def load_dataframe(
     if df.empty or len(df.columns) == 0:
         raise UploadError("The file contains no data rows.")
     return df
+
+
+def read_samples(path: Path, file_type: FileType, max_rows: int) -> dict[str | None, pd.DataFrame]:
+    """First ``max_rows`` data rows of every sheet (key: sheet name; ``None`` for a CSV).
+
+    Values are text, as at ingest; columns are positions matching the header row (which
+    is excluded). Every Excel sheet is parsed once, in a single ``read_excel`` call.
+    """
+    if file_type == "csv":
+        raws: dict[str | None, pd.DataFrame] = {None: _read_csv_raw(path, max_rows)}
+    else:
+        raws = pd.read_excel(
+            path,
+            sheet_name=None,
+            engine="calamine",
+            dtype="string",
+            header=None,
+            nrows=max_rows + 1,
+        )
+    return {
+        name: raw.iloc[1:].reset_index(drop=True).set_axis(range(raw.shape[1]), axis=1)
+        for name, raw in raws.items()
+    }

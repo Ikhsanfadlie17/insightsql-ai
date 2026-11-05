@@ -9,7 +9,7 @@ import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.data_table import render_result
-from frontend.components.formatting import fmt_int, fmt_number
+from frontend.components.formatting import fmt_int, fmt_number, fmt_stat
 from frontend.components.labels import (
     column_labels,
     keep_as_text_conflicts,
@@ -223,10 +223,8 @@ _STAT_COLUMNS = ("Min", "Max", "Mean", "Median")
 
 
 def _fmt_number(value: float | None) -> str:
-    """Indonesian format (4.000.000 / 38.247.512,50); blank when not applicable."""
-    if value is None:
-        return ""
-    return fmt_number(value, 0 if float(value).is_integer() else 2)
+    """Indonesian format (4.000.000 / 38.247.512,50 / 0,0045); blank when not applicable."""
+    return fmt_stat(value)
 
 
 def _profile_tab(profile: dict[str, Any]) -> None:

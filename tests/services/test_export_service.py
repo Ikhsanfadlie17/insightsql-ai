@@ -247,3 +247,14 @@ def _retention(**overrides):
 
     data = retention(**overrides)
     return RetentionResult.model_validate(data)
+
+
+def test_pdf_small_fractions_are_not_shown_as_zero() -> None:
+    """Phase 6 review L3: 0.0045 rendered as "0,00"."""
+    from backend.services.export_service import _pdf_value
+
+    assert _pdf_value(0.0045) == "0,0045"
+    assert _pdf_value(-0.000123456) == "-0,000123"
+    assert _pdf_value(0.5) == "0,50"
+    assert _pdf_value(1234.5) == "1.234,50"
+    assert _pdf_value(0.0) == "0"
