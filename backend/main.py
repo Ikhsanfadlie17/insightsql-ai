@@ -25,6 +25,7 @@ from backend.api import (
 from backend.core.config import Settings, get_settings
 from backend.core.errors import register_error_handlers
 from backend.core.logging import setup_logging
+from backend.core.redaction import register_secret
 from backend.repositories.dataset_repo import DatasetRepository
 from backend.repositories.history_repo import HistoryRepository
 from backend.repositories.usage_repo import UsageRepository
@@ -73,6 +74,8 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     """
     settings = settings or get_settings()
     setup_logging(settings.log_level)
+    if settings.openai_api_key is not None:
+        register_secret(settings.openai_api_key.get_secret_value())
 
     repo = DatasetRepository(settings.metadata_db_path)
     dataset_service = DatasetService(settings, repo)

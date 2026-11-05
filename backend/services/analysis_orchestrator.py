@@ -25,6 +25,7 @@ from backend.core.errors import (
     MappingRequiredError,
     ValidationError,
 )
+from backend.core.redaction import redact
 from backend.repositories.history_repo import HistoryRepository
 from backend.repositories.usage_repo import UsageRepository
 from backend.schemas.analysis import KPI, AnalysisResponse, AnalysisUsage
@@ -216,7 +217,7 @@ class AnalysisOrchestrator:
             response = self._answer(base, dataset_id, question, turns, analysis_id)
         except SQLGenerationFailed as error:
             response = AnalysisResponse(
-                **base, status="error", answer=error.message, error_code=error.code
+                **base, status="error", answer=redact(error.message), error_code=error.code
             )
             rejected = [a for a in error.attempts if a.sql]
             if rejected:
@@ -232,7 +233,7 @@ class AnalysisOrchestrator:
                 )
         except AppError as error:  # provider errors, mapping required, invalid periods
             response = AnalysisResponse(
-                **base, status="error", answer=error.message, error_code=error.code
+                **base, status="error", answer=redact(error.message), error_code=error.code
             )
         except Exception:  # never lose the question: store a generic error
             logger.exception("Analysis %s failed unexpectedly", analysis_id)

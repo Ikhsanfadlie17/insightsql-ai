@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 
 from backend.core.config import Settings
 from backend.core.errors import LLMError, LLMNotConfiguredError
+from backend.core.redaction import redact
 from backend.repositories.usage_repo import UsageRepository
 from backend.schemas.usage import UsageRecord
 from backend.services.llm.client import LLMClient, LLMResponse, T, TokenUsage
@@ -97,7 +98,7 @@ class LLMGateway:
                     cost_status=cost_status(usage, price_model, self._pricing),
                     latency_ms=(time.perf_counter() - started) * 1000,
                     error_code=error.code,
-                    error_message=error.message[:200],
+                    error_message=redact(error.message)[:200],
                 )
             )
             logger.warning("LLM %s request failed: %s", purpose, error.code)
