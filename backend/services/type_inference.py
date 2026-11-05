@@ -68,6 +68,32 @@ _IDENTIFIER_WORDS = {
 _INT64_LIMIT = 2**63
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$")
 _PARTS_DATE = re.compile(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$")
+# Dates written with a month name (Google Sheets / Excel display formats): 22/Jan/2025,
+# 22 Dec 2025, 10-Feb-2025, 17 Agustus 2025, Jan 22, 2025. Month names are unambiguous,
+# so no day/month order question arises.
+_DAY_MONTH_NAME = re.compile(r"^(\d{1,2})[\s/.-]+([A-Za-z]{3,9})\.?[\s/.,-]+(\d{4})$")
+_MONTH_NAME_DAY = re.compile(r"^([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$")
+_MONTHS = {
+    name: number
+    for number, names in enumerate(
+        [
+            ("jan", "januari", "january"),
+            ("feb", "februari", "pebruari", "february", "peb"),
+            ("mar", "maret", "march"),
+            ("apr", "april"),
+            ("may", "mei"),
+            ("jun", "juni", "june"),
+            ("jul", "juli", "july"),
+            ("aug", "agu", "agt", "agustus", "august", "ags"),
+            ("sep", "sept", "september"),
+            ("oct", "okt", "oktober", "october"),
+            ("nov", "nop", "november", "nopember"),
+            ("dec", "des", "desember", "december"),
+        ],
+        start=1,
+    )
+    for name in names
+}
 _TRUE = {"true", "yes", "ya"}
 _FALSE = {"false", "no", "tidak"}
 _TYPE_WORDS = {"integer": "whole numbers", "numeric": "numbers", "date": "dates",
@@ -257,10 +283,35 @@ def _format_day(value: date) -> str:
     return f"{value.day} {value.strftime('%B')} {value.year}"
 
 
+def _named_month_dates(values: pd.Series) -> pd.Series | None:
+    """Parse dates written with a month name; None when they are not that kind of column.
+    Unknown month names (or impossible dates) become NaT and are reported by the caller."""
+    day_first = values.str.extract(_DAY_MONTH_NAME)
+    month_first = values.str.extract(_MONTH_NAME_DAY)
+    if day_first.notna().all(axis=1).mean() >= MIXED_TYPE_THRESHOLD:
+        day, month, year = day_first[0], day_first[1], day_first[2]
+    elif month_first.notna().all(axis=1).mean() >= MIXED_TYPE_THRESHOLD:
+        month, day, year = month_first[0], month_first[1], month_first[2]
+    else:
+        return None
+    month_number = month.str.lower().map(_MONTHS)
+    iso = (
+        year
+        + "-"
+        + month_number.astype("Int64").astype("string").str.zfill(2)
+        + "-"
+        + day.str.zfill(2)
+    )
+    return pd.to_datetime(iso, format="%Y-%m-%d", errors="coerce")
+
+
 def _try_date(text: pd.Series, date_order: DateOrder) -> _Attempt | None:
     values = text.dropna()
     notes: list[ColumnNote] = []
-    if values.str.match(_ISO_DATE).mean() >= MIXED_TYPE_THRESHOLD:
+    named = _named_month_dates(values)
+    if named is not None:
+        parsed = named
+    elif values.str.match(_ISO_DATE).mean() >= MIXED_TYPE_THRESHOLD:
         parsed = pd.to_datetime(values, format="ISO8601", errors="coerce")
     else:
         parts = values.str.extract(_PARTS_DATE).dropna()

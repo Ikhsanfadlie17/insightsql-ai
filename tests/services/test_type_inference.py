@@ -569,3 +569,44 @@ def test_detect_types_reports_the_type_without_converting() -> None:
     )
 
     assert detect_types(frame) == {"tanggal": "date", "nilai": "numeric", "nama": "text"}
+
+
+# ----------------------------------- real-data test 2026-11-05: dates with month names
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        (["22/Jan/2025", "4/Feb/2025", "28/May/2025"], ["2025-01-22", "2025-02-04", "2025-05-28"]),
+        (["22 Dec 2025", "2 Jan 2026"], ["2025-12-22", "2026-01-02"]),
+        (["10-Feb-2025", "26-Mar-2025"], ["2025-02-10", "2025-03-26"]),
+        (["17 Agustus 2025", "1 Mei 2026", "5 Okt 2025", "9 Des 2025"],
+         ["2025-08-17", "2026-05-01", "2025-10-05", "2025-12-09"]),
+        (["Jan 22, 2025", "Feb 4, 2025"], ["2025-01-22", "2025-02-04"]),
+        (["3 Agt 2025", "7 Nop 2025", "1 Pebruari 2025"],
+         ["2025-08-03", "2025-11-07", "2025-02-01"]),
+    ],
+)  # fmt: skip
+def test_dates_with_month_names(values: list[str], expected: list[str]) -> None:
+    series, logical, notes = _infer_full(values)
+
+    assert logical == "date"
+    assert [d.date().isoformat() for d in series] == expected
+    assert not any(n.code in {"ambiguous_date_order", "mixed_date_order"} for n in notes)
+
+
+def test_unknown_month_names_are_reported_not_guessed() -> None:
+    values = [f"{d}/Jan/2025" for d in range(1, 25)] + ["5/Foo/2025"]  # 96% parse
+
+    series, logical, notes = _infer_full(values)
+
+    assert logical == "date"
+    assert pd.isna(series.iloc[-1])
+    note = next(n for n in notes if n.code == "unconverted_values")
+    assert "5/Foo/2025" in note.message
+
+
+def test_month_name_dates_are_detected_at_inspection() -> None:
+    from backend.services.type_inference import detect_types
+
+    frame = pd.DataFrame({"tgl": pd.Series(["22/Jan/2025", "14/Jan/2025"], dtype="string")})
+
+    assert detect_types(frame) == {"tgl": "date"}
