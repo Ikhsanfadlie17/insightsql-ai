@@ -1,6 +1,12 @@
 {
   "currency": "USD",
-  "updated": null,
-  "source": "Fill in from your provider's current pricing page. Prices change; nothing here is assumed.",
-  "models": {}
+  "updated": "2026-11-05",
+  "source": "https://developers.openai.com/api/docs/pricing (Standard tier, per 1M tokens). Prices change; check before relying on estimates.",
+  "models": {
+    "gpt-6-luna": {
+      "input_per_1m_usd": 0.10,
+      "output_per_1m_usd": 0.50,
+      "cached_input_per_1m_usd": 0.01
+    }
+  }
 }
