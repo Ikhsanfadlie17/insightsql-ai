@@ -472,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Not run: OPENAI_API_KEY and a model (OPENAI_MODEL or --model) are required.")
             return 2
         started = datetime.now(UTC)
+        commit = _commit()  # before the run: the code that is loaded now is what runs
         records = run(questions, settings)
     summary = summarize(records)
     meta = {
@@ -480,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
         "model": settings.openai_model,
         "insight_model": settings.insight_model,
         "prompt_version": PROMPT_VERSION,
-        "commit": _commit(),
+        "commit": commit,
         "questions_file": str(args.questions.relative_to(ROOT)),
     }
     args.out.mkdir(parents=True, exist_ok=True)
