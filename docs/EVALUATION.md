@@ -84,8 +84,28 @@ code `78a18c0`, question file v2, final grader, gpt-6-luna:
 Both wrong answers (dat-02 "transactions in each calendar year", cpx-04 "for each calendar
 year …") limited every year to January–October: the rule-11 behaviour of prompt v2 seen in
 run 1 (cpx-04), absent in run 2, back in run 3. Rule 12 (new in v3) was not involved. The
-behaviour varies between runs, so rule 11 needs a narrower wording; it has not been changed
-in response to these results.
+behaviour varies between runs, so rule 11 needed a narrower wording.
+
+**Run 4 — after an adjustment (`eval/results/20261105T084359Z`).** SQL prompt
+`2026-11-05.sql-v4` narrows rule 11: the same span (year-to-date) only when named periods are
+compared; breakdowns per period use whole periods. **This change was made after seeing
+cpx-04 and dat-02 fail**, so those two questions are no longer unseen for this prompt; the
+score without them is given too. Code `35d3a47`, question file v2, final grader,
+gpt-6-luna, one run:
+
+| Metric | Run 4 |
+|---|---|
+| SQL execution success (after repair / first attempt) | 100% (30/30) / 96.7% (29/30) |
+| Query result accuracy, all data questions | 100% (40/40) |
+| … without cpx-04 and dat-02 (the questions the change was made for) | 100% (38/38) |
+| … without the smoke-test overlap | 100% (37/37) |
+| Clarify / reject accuracy | 100% (10/10) |
+| Latency average / median | 6.3 s / 5.8 s |
+| LLM requests · tokens in / out · cost | 91 · 131,710 / 20,836 · US$0.0171 |
+
+The year-to-date comparison questions (ret-04, ret-05, new-05) were still answered with the
+same span. One run on 50 questions written by the developer: read with the limitations in
+§4; a new, unseen question set would be the honest next measurement.
 
 **Reproduce** (needs `OPENAI_API_KEY` and network; costs real money):
 

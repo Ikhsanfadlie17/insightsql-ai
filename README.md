@@ -145,14 +145,15 @@ Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md) · storage: [DATABASE.md](docs/
 Measured on 2026-11-05 ([EVALUATION.md](docs/EVALUATION.md); raw results in
 `eval/results/`). Text-to-SQL benchmark: 50 questions (10 PRD categories, 30 in Indonesian),
 references written by hand or computed by the retention engine, `gpt-6-luna`, current SQL
-prompt (v3), one run (earlier runs with prompt v2: 97.5% both times):
+prompt (v4), one run. Prompt v4 fixed a rule after two questions of this set failed with
+v3 (95.0%, 38/40), so this score is **after an adjustment**; v2 scored 97.5% twice:
 
 | Metric | Target (PRD) | Result |
 |---|---|---|
-| SQL execution success | ≥ 95% | 100% (30/30, also on the first attempt) |
-| Query result accuracy | ≥ 90% | 95.0% (38/40) |
+| SQL execution success | ≥ 95% | 100% (30/30; 29/30 on the first attempt) |
+| Query result accuracy | ≥ 90% | 100% (40/40) |
 | Clarify / reject correctly | — | 100% (10/10) |
-| Cost of the 50 questions | — | US$0.018 (average latency 5.8 s per question) |
+| Cost of the 50 questions | — | US$0.017 (average latency 6.3 s per question) |
 
 These are one run of one model on a small synthetic set written by the same developer;
 EVALUATION.md lists the wrong answers, the overlap with an earlier smoke test, and other
