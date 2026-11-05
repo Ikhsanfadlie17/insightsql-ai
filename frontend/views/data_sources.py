@@ -9,6 +9,7 @@ import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
 from frontend.components.data_table import render_result
+from frontend.components.formatting import fmt_int, fmt_number
 from frontend.components.labels import (
     column_labels,
     keep_as_text_conflicts,
@@ -96,11 +97,11 @@ def _upload_section(api: ApiClient) -> None:
                 "Sheets to import",
                 options,
                 default=options[:1],
-                format_func=lambda name: f"{name} ({rows[name]:,} rows)",
+                format_func=lambda name: f"{name} ({fmt_int(rows[name])} rows)",
             )
         else:
             chosen = [None]
-            st.caption(f"{sheets[0]['row_count']:,} data rows detected.")
+            st.caption(f"{fmt_int(sheets[0]['row_count'])} data rows detected.")
 
         name = None
         if len(chosen) == 1:
@@ -218,10 +219,14 @@ def _datasets_table(datasets: list[dict[str, Any]]) -> None:
     st.dataframe(frame, hide_index=True)
 
 
+_STAT_COLUMNS = ("Min", "Max", "Mean", "Median")
+
+
 def _fmt_number(value: float | None) -> str:
+    """Indonesian format (4.000.000 / 38.247.512,50); blank when not applicable."""
     if value is None:
         return ""
-    return f"{value:,.0f}" if float(value).is_integer() else f"{value:,.2f}"
+    return fmt_number(value, 0 if float(value).is_integer() else 2)
 
 
 def _profile_tab(profile: dict[str, Any]) -> None:
@@ -229,25 +234,36 @@ def _profile_tab(profile: dict[str, Any]) -> None:
     cols[0].metric("Rows", fmt_count(profile["row_count"]))
     cols[1].metric("Columns", fmt_count(profile["column_count"]))
     cols[2].metric("Duplicate rows", fmt_count(profile["duplicate_row_count"]))
-    cols[3].metric("Missing cells", f"{profile['missing_pct']:.1f}%")
+    cols[3].metric("Missing cells", f"{fmt_number(profile['missing_pct'])}%")
 
     table = pd.DataFrame(
         {
             "Column": list(column_labels(profile["columns"]).values()),
             "Type": [TYPE_LABELS[c["logical_type"]] for c in profile["columns"]],
-            "Missing": [f"{c['null_count']:,} ({c['null_pct']:.1f}%)" for c in profile["columns"]],
+            "Missing": [
+                f"{fmt_int(c['null_count'])} ({fmt_number(c['null_pct'])}%)"
+                for c in profile["columns"]
+            ],
             "Unique": [c["unique_count"] for c in profile["columns"]],
             "Min": [_fmt_number(c["min"]) or (c["date_min"] or "") for c in profile["columns"]],
             "Max": [_fmt_number(c["max"]) or (c["date_max"] or "") for c in profile["columns"]],
             "Mean": [_fmt_number(c["mean"]) for c in profile["columns"]],
             "Median": [_fmt_number(c["median"]) for c in profile["columns"]],
             "Most frequent": [
-                ", ".join(f"{v['value']} ({v['count']:,})" for v in c["top_values"][:3])
+                ", ".join(f"{v['value']} ({fmt_int(v['count'])})" for v in c["top_values"][:3])
                 for c in profile["columns"]
             ],
         }
     )
-    st.dataframe(table, hide_index=True)
+    # Keep the long "Most frequent" text from squeezing the statistics columns.
+    st.dataframe(
+        table,
+        hide_index=True,
+        column_config={
+            **{name: st.column_config.TextColumn(width=120) for name in _STAT_COLUMNS},
+            "Most frequent": st.column_config.TextColumn(width="medium"),
+        },
+    )
 
 
 def _mapping_tab(
@@ -271,8 +287,8 @@ def _mapping_tab(
         )
     if state.get("unique_clients") is not None:
         st.caption(
-            f"{state['unique_clients']:,} unique clients (counted by unique client identity, "
-            "not by transactions)."
+            f"{fmt_int(state['unique_clients'])} unique clients (counted by unique client "
+            "identity, not by transactions)."
         )
 
     current = saved or state["draft"]

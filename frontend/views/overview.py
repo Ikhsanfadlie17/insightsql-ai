@@ -7,6 +7,7 @@ from typing import Any
 import streamlit as st
 
 from frontend.api_client import ApiClient, ApiError
+from frontend.components.formatting import fmt_number
 from frontend.components.layout import (
     empty_state,
     fmt_count,
@@ -56,7 +57,7 @@ def _active_panel(api: ApiClient, active: dict[str, Any]) -> None:
             n["level"] == "warning" for c in profile["columns"] for n in c["notes"]
         )
         quality[0].metric("Duplicate rows", fmt_count(profile["duplicate_row_count"]))
-        quality[1].metric("Missing cells", f"{profile['missing_pct']:.1f}%")
+        quality[1].metric("Missing cells", f"{fmt_number(profile['missing_pct'])}%")
         quality[2].metric("Data-quality warnings", fmt_count(warnings))
     elif profile_error:
         st.warning(f"The data profile is unavailable: {md_escape(profile_error.message)}")

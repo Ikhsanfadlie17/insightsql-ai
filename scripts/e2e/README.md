@@ -17,6 +17,14 @@ or `PUT /datasets/{id}/column-mapping`), then:
 ```bash
 node scripts/e2e/client_analytics.js /tmp/shots   # KPIs, warnings, charts, departments
 node scripts/e2e/ai_analyst.js /tmp/shots         # SQL answer, retention, clarification, DROP rejected
+node scripts/e2e/all_pages.js /tmp/shots          # all six pages, desktop + phone width
 ```
 
 The scripts print `check true/false` lines and the number of browser page errors.
+
+`all_pages.js` fails a page when its marker text is missing, Streamlit shows an exception
+or "Page not found", or content is wider than the main column. Ask a few questions first
+so AI Analyst, Query History, and Settings have content.
+
+On Windows without a global Playwright: install it in any scratch folder
+(`npm install playwright`) and run the scripts with `NODE_PATH=<that folder>/node_modules`.

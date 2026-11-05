@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -43,6 +45,24 @@ from backend.services.sql_generator import TextToSQLService
 logger = logging.getLogger(__name__)
 
 
+async def _cleanup_uploads(service: DatasetService) -> None:
+    """Remove stale raw uploads off the event loop; a failure is logged, never raised."""
+    try:
+        removed = await asyncio.to_thread(service.cleanup_stale_uploads)
+    except Exception:
+        logger.exception("Stale-upload cleanup failed")
+        return
+    if removed:
+        logger.info("Removed %d stale uploads", removed)
+
+
+async def _cleanup_uploads_forever(service: DatasetService, interval_s: float) -> None:
+    """Phase 2 review M4: clean up while running, not only at startup."""
+    while True:
+        await asyncio.sleep(interval_s)
+        await _cleanup_uploads(service)
+
+
 def create_app(settings: Settings | None = None, llm_client: LLMClient | None = None) -> FastAPI:
     """Build the API application.
 
@@ -81,14 +101,21 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     )
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app_: FastAPI) -> AsyncIterator[None]:
         interrupted = dataset_service.recover_interrupted_imports()
         if interrupted:
             logger.warning("Marked %d interrupted imports as failed", interrupted)
-        removed = dataset_service.cleanup_stale_uploads()
-        if removed:
-            logger.info("Removed %d stale uploads", removed)
-        yield
+        service = app_.state.dataset_service
+        await _cleanup_uploads(service)
+        task = asyncio.create_task(
+            _cleanup_uploads_forever(service, settings.upload_cleanup_interval_minutes * 60)
+        )
+        try:
+            yield
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     app = FastAPI(title="InsightSQL AI", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings

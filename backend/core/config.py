@@ -28,6 +28,8 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     max_upload_mb: float = Field(default=50, gt=0)
+    # Raw uploads older than 24 h are removed at startup and then every interval.
+    upload_cleanup_interval_minutes: float = Field(default=60, gt=0)
     query_timeout_seconds: float = Field(default=10.0, gt=0)
     max_result_rows: int = Field(default=5000, gt=0)
     query_threads: int = Field(default=2, gt=0, le=16)

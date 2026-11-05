@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +141,24 @@ class LLMOutputError(LLMError):
     status_code = 502
 
 
-def _error_body(code: str, message: str) -> dict[str, dict[str, str]]:
-    return {"error": {"code": code, "message": message}}
+_HTTP_CODES = {404: "not_found", 405: "method_not_allowed"}
+_MAX_DETAILS = 10
+
+
+def _error_body(code: str, message: str, details: list[dict[str, str]] | None = None) -> dict:
+    body: dict = {"code": code, "message": message}
+    if details is not None:
+        body["details"] = details
+    return {"error": body}
+
+
+def _validation_details(exc: RequestValidationError) -> list[dict[str, str]]:
+    """Field + message only: pydantic's ``input``/``ctx`` echo the rejected value."""
+    details = []
+    for error in exc.errors()[:_MAX_DETAILS]:
+        field = ".".join(str(part) for part in error.get("loc", ()))
+        details.append({"field": field, "message": str(error.get("msg", "Invalid value."))})
+    return details
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -149,6 +167,24 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content=_error_body(exc.code, exc.message))
+
+    @app.exception_handler(RequestValidationError)
+    async def handle_validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+        details = _validation_details(exc)
+        summary = "; ".join(f"{d['field'].split('.', 1)[-1]}: {d['message']}" for d in details[:3])
+        return JSONResponse(
+            status_code=422,
+            content=_error_body("validation_error", f"Invalid request — {summary}", details),
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+        message = exc.detail if isinstance(exc.detail, str) else "Request failed."
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=_error_body(_HTTP_CODES.get(exc.status_code, "http_error"), message),
+            headers=exc.headers,
+        )
 
     @app.exception_handler(Exception)
     async def handle_unexpected(_: Request, exc: Exception) -> JSONResponse:

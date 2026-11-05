@@ -77,3 +77,11 @@ button {
     animation: none !important;
   }
 }
+
+/* Markdown tables (e.g. Settings) scroll inside their card on narrow screens instead of
+   being clipped by the bordered container. */
+[data-testid="stMarkdownContainer"] table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}

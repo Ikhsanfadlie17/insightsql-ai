@@ -195,3 +195,29 @@ def test_delete_confirmation_does_not_carry_over_to_another_dataset() -> None:
     inspect.set_value("d3").run()
 
     assert "cannot be undone" not in _text(at)
+
+
+# ------------------------------------------------- UI polish (Phase 5 review L8)
+def test_profile_table_uses_indonesian_number_format() -> None:
+    import copy
+
+    from tests.frontend.fakes import PROFILE
+
+    class NumericProfileApi(FakeApi):
+        def profile(self, dataset_id: str) -> dict:
+            data = copy.deepcopy(PROFILE)
+            data["columns"][0] |= {"logical_type": "integer", "min": 4000000.0,
+                                   "max": 189100000.0, "mean": 38247512.5,
+                                   "median": 29500000.0, "null_count": 1234,
+                                   "null_pct": 12.5}  # fmt: skip
+            data["missing_pct"] = 0.6
+            return data
+
+    at = _page(NumericProfileApi(datasets=[dict(READY)]), "data_sources")
+    table = at.dataframe[1].value  # [0] is the datasets table
+    row = table.iloc[0]
+
+    assert row["Min"] == "4.000.000"
+    assert row["Mean"] == "38.247.512,50"
+    assert row["Missing"] == "1.234 (12,5%)"
+    assert {m.label: m.value for m in at.metric}["Missing cells"] == "0,6%"
