@@ -7,7 +7,7 @@ Melanjutkan di sesi/mesin baru: baca `docs/HANDOFF.md` dulu.
 
 ## Status
 
-**Phase 6 disetujui user (2026-11-05). Phase 7 (Quality) selesai + direview (laporan di `docs/evidence/phase-log.md`, angka di `docs/EVALUATION.md`); MENUNGGU review user sebelum Phase 8. OpenAI API sungguhan sudah diuji pertama kali dengan `gpt-6-luna` (2026-11-05, `docs/evidence/experiments/2026-11-05-first-real-api.md`); `.env` lokal berisi `OPENAI_MODEL=gpt-6-luna`, saldo user terbatas (±US$2) — hemat panggilan API.**
+**Phase 6 disetujui user (2026-11-05). Phase 7 (Quality) disetujui user (2026-11-05; angka di `docs/EVALUATION.md`). Phase 8 (Deployment) sedang dikerjakan. Docker/WSL TIDAK terpasang di mesin user: build image belum bisa diverifikasi lokal. OpenAI API sungguhan sudah diuji pertama kali dengan `gpt-6-luna` (2026-11-05, `docs/evidence/experiments/2026-11-05-first-real-api.md`); `.env` lokal berisi `OPENAI_MODEL=gpt-6-luna`, saldo user terbatas (±US$2) — hemat panggilan API.**
 Setelah tiap phase: review independen, perbaiki temuan critical/high, lapor, lalu TUNGGU review user. Laporan berisi ringkasan,
 file yang berubah, keputusan arsitektur, hasil test, kegagalan, dan phase berikutnya.
 Jangan mengklaim fitur selesai tanpa implementasi + test.

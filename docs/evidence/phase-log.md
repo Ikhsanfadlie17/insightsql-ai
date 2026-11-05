@@ -196,3 +196,4 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   5 soal mirip smoke test yang mendahului prompt v2; soal v2 diubah setelah review yang
   melihat hasil run 1; aturan prompt v2 #11 kadang diterapkan terlalu luas (cpx-04 run 1);
   new-05 v2 masih bisa ditafsirkan dua cara.
+- **Status:** disetujui user 2026-11-05.

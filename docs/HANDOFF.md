@@ -15,8 +15,8 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 | 4 Integrasi AI (Task 9–13) | selesai, direview, disetujui user | 558 |
 | 5 Analytics (Task 14–18) | selesai, direview, disetujui user (2026-11-04) | 757 |
 | 6 Product Features (Task 19–21) | selesai, direview, disetujui user (2026-11-05) | 877 (+1 skip di Windows) |
-| 7 Quality (evaluasi Text-to-SQL, performa) | selesai, direview (2026-11-05), **menunggu review user** | 958 (+1 skip di Windows, +1 perf) |
-| 8 Deployment (Docker, README final) | belum | — |
+| 7 Quality (evaluasi Text-to-SQL, performa) | selesai, direview, disetujui user (2026-11-05) | 958 (+1 skip di Windows, +1 perf) |
+| 8 Deployment (Docker, README final) | **sedang dikerjakan** (mulai 2026-11-05) | — |
 
 - API OpenAI sungguhan **belum pernah diuji** (jaringan diblokir di lingkungan cloud, belum
   ada key). Semua test AI memakai LLM palsu (`tests/llm_fakes.py`,
