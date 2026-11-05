@@ -32,6 +32,11 @@ class SheetInfo(BaseModel):
     # Type each header would get at import, from a sample of rows (Task 21: warn before
     # a date or number column is chosen under "Keep as text").
     detected_types: dict[str, LogicalTypeName] = Field(default_factory=dict)
+    # Smart import: where the table is inside the sheet (title rows, side tables).
+    header_row: int = 1  # 1-based
+    header_detected: bool = True  # False when the user chose the header row
+    ignored_columns: list[str] = Field(default_factory=list)  # side tables / helper columns
+    template_rows: int = 0  # trailing template rows the import will skip (CSV)
 
 
 class UploadInspection(BaseModel):
@@ -41,6 +46,15 @@ class UploadInspection(BaseModel):
     filename: str
     file_type: FileType
     sheets: list[SheetInfo]
+
+
+class ImportLayout(BaseModel):
+    """How the table was found inside the file (smart import), shown to the user."""
+
+    header_row: int  # 1-based row used as the header
+    header_chosen: bool  # True when the user picked it, False when detected
+    ignored_columns: list[str] = Field(default_factory=list)
+    template_rows_skipped: int = 0
 
 
 class DatasetRecord(BaseModel):
@@ -58,6 +72,9 @@ class DatasetRecord(BaseModel):
     number_format: NumberFormat = "auto"
     date_order: DateOrder = "auto"
     text_columns: list[str] = Field(default_factory=list)  # original headers kept as text
+    header_row: int | None = None  # requested header row; None = detect
+    skip_template_rows: bool = True
+    layout: ImportLayout | None = None  # filled in at ingest
 
 
 class DatasetColumn(BaseModel):

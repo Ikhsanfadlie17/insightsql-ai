@@ -106,6 +106,16 @@ Semua perintah README terverifikasi di clone bersih kecuali Docker (995 test lul
 dihentikan, belum ada hasil — jalankan ulang), perbaiki temuan, laporan Phase 8 di
 `phase-log.md`, tunggu review user. 25+ commit lokal belum di-push.
 
+## 3d. Data nyata pertama + import pintar (2026-11-05, di luar rencana fase)
+
+User mencoba file Google Sheets asli (data kerja; berisi data pribadi, TIDAK
+masuk repo). Ditemukan dan diperbaiki: tanggal bernama bulan tidak terbaca tanpa peringatan
+(`442fa83`), dan sheet bertata letak "untuk manusia" (judul di atas header, tabel samping,
+baris template) tidak bisa diimpor tanpa dirapikan → **import pintar** (deteksi baris
+header yang bisa dikoreksi, tabel utama, baris template; dilaporkan di form & detail
+dataset). Bukti: `docs/evidence/experiments/2026-11-05-first-real-file.md`. Fitur ini perlu
+ikut dicakup review independen Phase 8 yang masih tertunda.
+
 ## 3. Pekerjaan berikutnya (setelah user menyetujui Phase 5)
 
 Phase 6 — lihat plan, Task 19–21:

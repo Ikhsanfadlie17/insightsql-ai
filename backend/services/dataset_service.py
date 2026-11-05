@@ -32,6 +32,7 @@ from backend.schemas.datasets import (
     DatasetRecord,
     DateOrder,
     FileType,
+    ImportLayout,
     NumberFormat,
     SheetInfo,
     UploadInspection,
@@ -41,9 +42,14 @@ from backend.schemas.query import QueryResult
 from backend.services.column_normalizer import normalize_columns
 from backend.services.data_profiler import profile_dataset
 from backend.services.file_loader import (
+    apply_layout,
+    blank_na,
     detect_file_type,
+    detect_layout,
+    layout_headers,
     list_sheets,
-    load_dataframe,
+    load_table,
+    read_csv_cells,
     read_headers,
     read_samples,
 )
@@ -119,23 +125,76 @@ class DatasetService:
                 raise UploadError("The workbook has no sheets.")
         else:
             lines = [line for line in content.splitlines() if line.strip()]
-            sheets = [
-                SheetInfo(
-                    name=path.stem,
-                    row_count=max(len(lines) - 1, 0),
-                    columns=read_headers(path, file_type, None),
-                )
-            ]
-        try:
-            samples = read_samples(path, file_type, INSPECT_SAMPLE_ROWS)
-        except Exception:
-            # Only a hint for the import form; the import reports real problems itself.
-            logger.warning("Could not sample the upload for type hints", exc_info=True)
-            samples = {}
+            sheets = [SheetInfo(name=path.stem, row_count=max(len(lines) - 1, 0))]
+        samples = cls._samples(path, file_type)
         for sheet in sheets:
-            frame = samples.get(sheet.name if file_type == "xlsx" else None)
-            sheet.detected_types = cls._detected_types(frame, sheet.columns, file_type)
+            cls._describe(
+                sheet, samples.get(sheet.name if file_type == "xlsx" else None), file_type
+            )
         return sheets
+
+    @staticmethod
+    def _samples(path: Path, file_type: FileType) -> dict[str | None, pd.DataFrame]:
+        """Raw cells for the inspection: the whole CSV (cheap, and it gives exact row
+        counts), or the first rows of every Excel sheet (one pass over the workbook)."""
+        try:
+            if file_type == "csv":
+                return {None: read_csv_cells(path)}
+            return read_samples(path, file_type, INSPECT_SAMPLE_ROWS)
+        except UploadError:
+            return {}  # e.g. an empty file: the import reports it
+        except Exception:
+            logger.warning("Could not sample the upload", exc_info=True)
+            return {}
+
+    @classmethod
+    def _describe(
+        cls,
+        sheet: SheetInfo,
+        raw: pd.DataFrame | None,
+        file_type: FileType,
+        header_row: int | None = None,
+    ) -> None:
+        """Fill in where the table is (smart import), its headers, and type hints."""
+        if raw is None or raw.empty:
+            return
+        complete = file_type == "csv"  # the whole CSV was read; Excel is a sample
+        layout = detect_layout(
+            raw,
+            header_index=None if header_row is None else header_row - 1,
+            skip_template_rows=complete,
+        )
+        sheet.columns = layout_headers(raw, layout)
+        sheet.header_row = layout.header_row
+        sheet.header_detected = not layout.chosen
+        sheet.ignored_columns = layout.ignored_column_labels
+        sheet.template_rows = layout.template_rows
+        table = apply_layout(raw, layout)
+        if file_type == "csv":
+            table = blank_na(table).dropna(how="all")
+        if complete:
+            sheet.row_count = len(table)  # exact: what the import will store
+        else:
+            sheet.row_count = max(sheet.row_count - layout.header_index, 0)  # estimate
+        body = table.head(INSPECT_SAMPLE_ROWS).set_axis(range(len(table.columns)), axis=1)
+        sheet.detected_types = cls._detected_types(body, sheet.columns, file_type)
+
+    def sheet_layout(self, upload_id: str, sheet: str | None, header_row: int) -> SheetInfo:
+        """The sheet described with a header row chosen by the user (import form)."""
+        path, file_type = self._upload(upload_id)
+        if file_type == "xlsx":
+            infos = {s.name: s for s in list_sheets(path)}
+            name = sheet or next(iter(infos))
+            if name not in infos:
+                raise ValidationError(f"Sheet '{name}' does not exist in this workbook.")
+            info = infos[name]
+        else:
+            name = None
+            lines = [line for line in path.read_bytes().splitlines() if line.strip()]
+            info = SheetInfo(name=path.stem, row_count=max(len(lines) - 1, 0))
+        samples = self._samples(path, file_type)
+        self._describe(info, samples.get(name), file_type, header_row)
+        return info
 
     @staticmethod
     def _detected_types(
@@ -200,6 +259,8 @@ class DatasetService:
         number_format: NumberFormat = "auto",
         date_order: DateOrder = "auto",
         text_columns: list[str] | None = None,
+        header_row: int | None = None,
+        skip_template_rows: bool = True,
     ) -> DatasetRecord:
         """Register a dataset in ``processing`` state; call :meth:`ingest` afterwards.
 
@@ -226,7 +287,7 @@ class DatasetService:
 
         requested = list(dict.fromkeys(text_columns or []))
         if requested:
-            headers = set(read_headers(path, file_type, sheet))
+            headers = set(read_headers(path, file_type, sheet, header_row))
             unknown = [h for h in requested if h not in headers]
             if unknown:
                 raise ValidationError(
@@ -245,6 +306,8 @@ class DatasetService:
             number_format=number_format,
             date_order=date_order,
             text_columns=requested,
+            header_row=header_row,
+            skip_template_rows=skip_template_rows,
         )
         created = self._repo.create(record)
         # Phase 6 review L2: the import restarts the upload's 24 h clock, and cleanup
@@ -263,7 +326,22 @@ class DatasetService:
         try:
             record = self._repo.get(dataset_id)
             path, file_type = self._upload(upload_id)
-            frame = load_dataframe(path, file_type, sheet)
+            frame, layout = load_table(
+                path,
+                file_type,
+                sheet,
+                header_row=record.header_row,
+                skip_template_rows=record.skip_template_rows,
+            )
+            self._repo.save_layout(
+                dataset_id,
+                ImportLayout(
+                    header_row=layout.header_row,
+                    header_chosen=layout.chosen,
+                    ignored_columns=layout.ignored_column_labels,
+                    template_rows_skipped=layout.template_rows,
+                ),
+            )
             names = normalize_columns([str(c) for c in frame.columns])
             frame.columns = [n.name for n in names]
             inference = infer_types(

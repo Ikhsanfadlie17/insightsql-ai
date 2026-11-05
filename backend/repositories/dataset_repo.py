@@ -12,7 +12,12 @@ from pydantic import BaseModel
 
 from backend.core.errors import NotFoundError
 from backend.repositories.db import connect
-from backend.schemas.datasets import DatasetColumn, DatasetRecord, DatasetStatus
+from backend.schemas.datasets import (
+    DatasetColumn,
+    DatasetRecord,
+    DatasetStatus,
+    ImportLayout,
+)
 
 DocumentKind = Literal["profile", "mapping"]
 _DOCUMENT_TABLES: dict[DocumentKind, str] = {
@@ -29,6 +34,9 @@ def _now() -> str:
 def _to_record(row: sqlite3.Row) -> DatasetRecord:
     data = dict(row)
     data["text_columns"] = json.loads(data.pop("text_columns_json", None) or "[]")
+    layout = data.pop("layout_json", None)
+    data["layout"] = json.loads(layout) if layout else None
+    data["skip_template_rows"] = bool(data.get("skip_template_rows", 1))
     return DatasetRecord.model_validate(data)
 
 
@@ -51,7 +59,8 @@ class DatasetRepository:
             conn.execute(
                 """INSERT INTO datasets (id, name, source_filename, sheet_name, status, error,
                    row_count, column_count, created_at, number_format, date_order,
-                   text_columns_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   text_columns_json, header_row, skip_template_rows)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     record.id,
                     record.name,
@@ -65,9 +74,19 @@ class DatasetRepository:
                     record.number_format,
                     record.date_order,
                     json.dumps(record.text_columns),
+                    record.header_row,
+                    int(record.skip_template_rows),
                 ),
             )
         return record
+
+    def save_layout(self, dataset_id: str, layout: ImportLayout) -> None:
+        """Store how the table was found in the file (shown in Data Sources)."""
+        with connect(self._db_path) as conn:
+            conn.execute(
+                "UPDATE datasets SET layout_json = ? WHERE id = ?",
+                (layout.model_dump_json(), dataset_id),
+            )
 
     def get(self, dataset_id: str) -> DatasetRecord:
         """Return one dataset or raise ``NotFoundError``."""

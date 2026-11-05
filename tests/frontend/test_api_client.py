@@ -79,6 +79,8 @@ def test_create_dataset_payload() -> None:
             "number_format": "auto",
             "date_order": "auto",
             "text_columns": [],
+            "header_row": None,  # detect (smart import)
+            "skip_template_rows": True,
         }
         return httpx.Response(201, json={"id": "d1", "status": "processing"})
 
@@ -129,3 +131,21 @@ def test_export_error_is_an_api_error() -> None:
         _client(handler).export_analysis("a1", "csv")
 
     assert caught.value.code == "nothing_to_export"
+
+
+def test_create_dataset_sends_the_layout_choice() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["header_row"] == 4 and body["skip_template_rows"] is False
+        return httpx.Response(200, json={"id": "d1"})
+
+    _client(handler).create_dataset("u1", header_row=4, skip_template_rows=False)
+
+
+def test_sheet_layout_posts_the_header_row() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/datasets/uploads/u1/layout"
+        assert json.loads(request.content) == {"sheet": "S1", "header_row": 3}
+        return httpx.Response(200, json={"name": "S1", "row_count": 2, "header_row": 3})
+
+    assert _client(handler).sheet_layout("u1", "S1", 3)["header_row"] == 3

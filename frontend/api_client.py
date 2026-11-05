@@ -97,8 +97,11 @@ class ApiClient:
         number_format: str = "auto",
         date_order: str = "auto",
         text_columns: list[str] | None = None,
+        header_row: int | None = None,
+        skip_template_rows: bool = True,
     ) -> dict[str, Any]:
-        """``POST /datasets``; ingestion continues in the background."""
+        """``POST /datasets``; ingestion continues in the background. ``header_row``
+        (1-based) overrides the detected header row."""
         payload = {
             "upload_id": upload_id,
             "sheet": sheet,
@@ -106,8 +109,15 @@ class ApiClient:
             "number_format": number_format,
             "date_order": date_order,
             "text_columns": text_columns or [],
+            "header_row": header_row,
+            "skip_template_rows": skip_template_rows,
         }
         return self._request("POST", "/datasets", json=payload)
+
+    def sheet_layout(self, upload_id: str, sheet: str | None, header_row: int) -> dict[str, Any]:
+        """``POST /datasets/uploads/{upload_id}/layout``: the sheet with a chosen header row."""
+        body = {"sheet": sheet, "header_row": header_row}
+        return self._request("POST", f"/datasets/uploads/{upload_id}/layout", json=body)
 
     def list_datasets(self) -> list[dict[str, Any]]:
         """``GET /datasets``."""

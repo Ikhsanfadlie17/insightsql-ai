@@ -32,7 +32,10 @@ CREATE TABLE IF NOT EXISTS datasets (
     created_at TEXT NOT NULL,
     number_format TEXT NOT NULL DEFAULT 'auto',
     date_order TEXT NOT NULL DEFAULT 'auto',
-    text_columns_json TEXT NOT NULL DEFAULT '[]'
+    text_columns_json TEXT NOT NULL DEFAULT '[]',
+    header_row INTEGER,
+    skip_template_rows INTEGER NOT NULL DEFAULT 1,
+    layout_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS dataset_columns (
@@ -119,6 +122,9 @@ connection. Columns added after the first release are added with `ALTER TABLE` w
 | `datasets` | `date_order` | `TEXT NOT NULL DEFAULT 'auto'` |
 | `datasets` | `text_columns_json` | `TEXT NOT NULL DEFAULT '[]'` |
 | `dataset_columns` | `notes_json` | `TEXT NOT NULL DEFAULT '[]'` |
+| `datasets` | `header_row` | `INTEGER` |
+| `datasets` | `skip_template_rows` | `INTEGER NOT NULL DEFAULT 1` |
+| `datasets` | `layout_json` | `TEXT` |
 
 A legacy empty `llm_usage` table (the Phase 1 design) is dropped when found.
 

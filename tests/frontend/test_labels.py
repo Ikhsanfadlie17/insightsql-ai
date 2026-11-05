@@ -77,3 +77,46 @@ def test_fmt_stat_keeps_small_fractions() -> None:
     assert fmt_stat(38247512.5) == "38.247.512,50"
     assert fmt_stat(0.0045) == "0,0045"
     assert fmt_stat(-0.000123456) == "-0,000123"
+
+
+# --- smart import -----------------------------------------------------------------------
+def test_layout_summary_for_the_import_form() -> None:
+    from frontend.components.labels import layout_summary
+
+    plain = {"header_row": 1, "header_detected": True, "ignored_columns": [], "template_rows": 0}
+    sheet = {
+        "header_row": 4,
+        "header_detected": True,
+        "ignored_columns": ["column 58", "Daftar hari libur"],
+        "template_rows": 320,
+    }
+
+    assert layout_summary(plain) is None  # nothing to say for a plain table
+    text = layout_summary(sheet)
+    assert "row 4" in text and "Daftar hari libur" in text and "320" in text
+
+
+def test_import_layout_caption_for_a_dataset() -> None:
+    from frontend.components.labels import import_layout_caption
+
+    assert import_layout_caption(None) is None
+    assert (
+        import_layout_caption(
+            {
+                "header_row": 1,
+                "header_chosen": False,
+                "ignored_columns": [],
+                "template_rows_skipped": 0,
+            }
+        )
+        is None
+    )
+    text = import_layout_caption(
+        {
+            "header_row": 4,
+            "header_chosen": True,
+            "ignored_columns": ["Daftar hari libur"],
+            "template_rows_skipped": 320,
+        }
+    )
+    assert "row 4 (chosen)" in text and "320" in text and "Daftar hari libur" in text

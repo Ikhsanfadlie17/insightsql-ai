@@ -65,3 +65,43 @@ def keep_as_text_conflicts(
     dates = [c for c in text_columns if detected.get(c) in _DATE_TYPES]
     numbers = [c for c in text_columns if detected.get(c) in _NUMBER_TYPES]
     return dates, numbers
+
+
+def _ignored_text(columns: list[str]) -> str:
+    shown = ", ".join(md_escape(c) for c in columns[:3])
+    more = f" and {len(columns) - 3} more" if len(columns) > 3 else ""
+    return f"{len(columns)} column(s) beside the table ignored ({shown}{more})"
+
+
+def layout_summary(sheet: dict[str, Any]) -> str | None:
+    """What smart import found in an uploaded sheet; None for a plain table."""
+    parts = []
+    if sheet.get("header_row", 1) != 1:
+        how = "found" if sheet.get("header_detected", True) else "chosen"
+        parts.append(f"Header {how} in row {sheet['header_row']} (rows above it are skipped)")
+    if sheet.get("ignored_columns"):
+        parts.append(_ignored_text(sheet["ignored_columns"]))
+    if sheet.get("template_rows"):
+        parts.append(f"{sheet['template_rows']:,} empty template row(s) at the end will be skipped")
+    return " · ".join(parts) if parts else None
+
+
+def import_layout_caption(layout: dict[str, Any] | None) -> str | None:
+    """How a dataset's table was read from its file; None when nothing was adjusted."""
+    if not layout:
+        return None
+    adjusted = (
+        layout["header_row"] != 1
+        or layout.get("header_chosen")
+        or layout.get("ignored_columns")
+        or layout.get("template_rows_skipped")
+    )
+    if not adjusted:
+        return None
+    how = "chosen" if layout.get("header_chosen") else "detected"
+    parts = [f"Header row {layout['header_row']} ({how})"]
+    if layout.get("ignored_columns"):
+        parts.append(_ignored_text(layout["ignored_columns"]))
+    if layout.get("template_rows_skipped"):
+        parts.append(f"{layout['template_rows_skipped']:,} empty template row(s) skipped")
+    return " · ".join(parts)

@@ -221,3 +221,17 @@ def test_profile_table_uses_indonesian_number_format() -> None:
     assert row["Mean"] == "38.247.512,50"
     assert row["Missing"] == "1.234 (12,5%)"
     assert {m.label: m.value for m in at.metric}["Missing cells"] == "0,6%"
+
+
+def test_dataset_detail_explains_how_the_table_was_read() -> None:
+    layout = {
+        "header_row": 4,
+        "header_chosen": False,
+        "ignored_columns": ["Daftar hari libur"],
+        "template_rows_skipped": 320,
+    }
+    api = FakeApi(datasets=[{**READY, "layout": layout}])
+
+    at = _page(api, "data_sources")
+
+    assert "Header row 4 (detected)" in _text(at) and "320" in _text(at)

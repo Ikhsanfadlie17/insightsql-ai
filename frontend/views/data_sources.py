@@ -12,7 +12,9 @@ from frontend.components.data_table import render_result
 from frontend.components.formatting import fmt_int, fmt_number, fmt_stat
 from frontend.components.labels import (
     column_labels,
+    import_layout_caption,
     keep_as_text_conflicts,
+    layout_summary,
     suggestion_caption,
 )
 from frontend.components.layout import (
@@ -103,6 +105,13 @@ def _upload_section(api: ApiClient) -> None:
             chosen = [None]
             st.caption(f"{fmt_int(sheets[0]['row_count'])} data rows detected.")
 
+        header_row, skip_template_rows = None, True
+        if len(chosen) == 1:
+            header_row, skip_template_rows = _layout_controls(
+                api, inspection, uploaded.file_id, chosen[0]
+            )
+            sheets = st.session_state["inspection"]["sheets"]  # may hold a re-read sheet
+
         name = None
         if len(chosen) == 1:
             name = st.text_input("Dataset name (optional)", max_chars=120) or None
@@ -157,8 +166,61 @@ def _upload_section(api: ApiClient) -> None:
 
         if st.button("Import", type="primary", disabled=not chosen, icon=":material/upload:"):
             _import(
-                api, inspection["upload_id"], chosen, name, number_format, date_order, text_columns
+                api,
+                inspection["upload_id"],
+                chosen,
+                name,
+                number_format,
+                date_order,
+                text_columns,
+                header_row,
+                skip_template_rows,
             )
+
+
+def _layout_controls(
+    api: ApiClient, inspection: dict[str, Any], file_id: str, sheet: str | None
+) -> tuple[int | None, bool]:
+    """Smart import: show where the table was found; let the user correct the header row
+    and keep or skip trailing template rows. Returns (header_row override, skip flag)."""
+    sheets = inspection["sheets"]
+    index = next((i for i, s in enumerate(sheets) if sheet is None or s["name"] == sheet), 0)
+    # The sheet as first detected, so going back to the detected row restores it exactly.
+    original = st.session_state.setdefault(f"detected_sheet::{file_id}::{sheet}", sheets[index])
+    detected = int(original.get("header_row", 1))
+    # Filled in after the header row is read, so the summary is never one step behind.
+    summary_slot = st.empty()
+    with st.expander("Table layout", icon=":material/tune:", expanded=False):
+        chosen = int(
+            st.number_input(
+                "Header row",
+                min_value=1,
+                max_value=1000,
+                value=int(detected),
+                step=1,
+                key=f"header_row::{file_id}::{sheet}",
+                help="The row that holds the column names. Rows above it (titles, notes) are "
+                "skipped. It is detected automatically; change it if the detection is wrong.",
+            )
+        )
+        skip = st.checkbox(
+            "Skip empty template rows at the end",
+            value=True,
+            key=f"skip_template::{file_id}::{sheet}",
+            help="Rows at the end that hold only row numbers or formula results (a "
+            "pre-filled template) are not data.",
+        )
+    if chosen == detected:
+        sheets[index] = original
+    elif chosen != sheets[index].get("header_row", 1):
+        try:
+            sheets[index] = api.sheet_layout(inspection["upload_id"], sheet, chosen)
+        except ApiError as error:
+            show_api_error(error)
+    summary = layout_summary(sheets[index])
+    if summary:
+        summary_slot.info(summary, icon=":material/table_view:")
+    return (None if chosen == detected else chosen), skip
 
 
 def _sheet_headers(sheet: str | None) -> list[str]:
@@ -177,6 +239,8 @@ def _import(
     number_format: str,
     date_order: str,
     text_columns: list[str],
+    header_row: int | None = None,
+    skip_template_rows: bool = True,
 ) -> None:
     try:
         created = []
@@ -184,7 +248,16 @@ def _import(
             headers = set(_sheet_headers(sheet))
             keep = [h for h in text_columns if h in headers]
             created.append(
-                api.create_dataset(upload_id, sheet, name, number_format, date_order, keep)
+                api.create_dataset(
+                    upload_id,
+                    sheet,
+                    name,
+                    number_format,
+                    date_order,
+                    keep,
+                    header_row,
+                    skip_template_rows,
+                )
             )
         with st.spinner("Importing and profiling data…"):
             records = wait_for_datasets(api, [c["id"] for c in created])
@@ -396,6 +469,9 @@ def _dataset_detail(api: ApiClient, dataset: dict[str, Any]) -> None:
         return
     if dataset.get("number_format") in NUMBER_FORMATS and dataset["number_format"] != "auto":
         st.caption(f"Number format: {NUMBER_FORMATS[dataset['number_format']]}")
+    layout_caption = import_layout_caption(dataset.get("layout"))
+    if layout_caption:
+        st.caption(f":material/table_view: {layout_caption}")
 
     profile_tab, mapping_tab, preview_tab, columns_tab = st.tabs(
         ["Profile", "Column mapping", "Preview", "Columns"]

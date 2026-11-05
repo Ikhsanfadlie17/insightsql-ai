@@ -16,9 +16,13 @@ Outputs) · Python 3.13
 
 ## Features
 
-- **Data Sources** — upload `.xlsx` (one sheet = one dataset) or `.csv`; careful type
-  inference (Indonesian `1.234,5` numbers, day-first dates, IDs with leading zeros kept as
-  text) where every interpretation is reported, never applied silently; a profile (missing
+- **Data Sources** — upload `.xlsx` (one sheet = one dataset) or `.csv`, also sheets laid
+  out for people as downloaded from Google Sheets: **smart import** finds the header row
+  below title rows, sets side tables aside, and skips trailing template rows (each step is
+  reported; the header row can be corrected). Careful type inference (Indonesian `1.234,5`
+  numbers, day-first dates, dates with month names such as `22/Jan/2025` or `17 Agustus
+  2025`, IDs with leading zeros kept as text) where every interpretation is reported,
+  never applied silently; a profile (missing
   values, duplicates, statistics); suggested column roles that the user confirms; rename and
   delete.
 - **AI Analyst** — questions in Indonesian or English become a plan: read-only SQL, a

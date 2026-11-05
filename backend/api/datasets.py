@@ -18,7 +18,13 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import get_dataset_service, get_mapping_service
 from backend.core.errors import UploadError
-from backend.schemas.datasets import DatasetColumn, DatasetRecord, DateOrder, UploadInspection
+from backend.schemas.datasets import (
+    DatasetColumn,
+    DatasetRecord,
+    DateOrder,
+    SheetInfo,
+    UploadInspection,
+)
 from backend.schemas.mapping import MappingState, MappingUpdate
 from backend.schemas.profile import DatasetProfile
 from backend.schemas.query import QueryResult
@@ -39,12 +45,27 @@ class CreateDatasetRequest(BaseModel):
     number_format: Literal["auto", "id", "en"] = "auto"
     date_order: DateOrder = "auto"
     text_columns: list[str] = Field(default_factory=list, max_length=1000)
+    header_row: int | None = Field(default=None, ge=1, le=1000)  # None = detect
+    skip_template_rows: bool = True
+
+
+class SheetLayoutQuery(BaseModel):
+    """A header row chosen in the import form."""
+
+    sheet: str | None = None
+    header_row: int = Field(ge=1, le=1000)
 
 
 class RenameDatasetRequest(BaseModel):
     """New display name for a dataset."""
 
     name: str = Field(max_length=200)
+
+
+@router.post("/uploads/{upload_id}/layout", response_model=SheetInfo)
+def sheet_layout(upload_id: str, body: SheetLayoutQuery, service: Service) -> SheetInfo:
+    """Headers and type hints of an inspected upload with a header row chosen by the user."""
+    return service.sheet_layout(upload_id, body.sheet, body.header_row)
 
 
 @router.post("/inspect", response_model=UploadInspection)
@@ -76,6 +97,8 @@ def create_dataset(
         body.number_format,
         body.date_order,
         body.text_columns,
+        body.header_row,
+        body.skip_template_rows,
     )
     background.add_task(service.ingest, record.id, body.upload_id, record.sheet_name)
     return record

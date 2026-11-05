@@ -108,14 +108,34 @@ SQLite tables: `datasets`, `dataset_columns`, `dataset_profiles`, `column_mappin
    (`auto` | `id` | `en`; CSV only, Excel always uses `plain`) and `date_order`
    (`auto` | `day_first` | `month_first`) — create a dataset record in status
    `processing` and run ingestion as a FastAPI background task.
-3. Ingestion: read (CSV via pandas; XLSX via the `calamine` engine; header row read raw so
-   duplicate headers keep their names) → normalize headers → infer types and record
+3. Ingestion: read (CSV with the `csv` module; XLSX via the `calamine` engine; every cell
+   as text, header row read raw so duplicate headers keep their names) → **smart import**
+   (`file_loader.detect_layout`, below) → normalize headers → infer types and record
    per-column notes → write DuckDB table → profile (stored; a profiling failure does not
    fail the import) → status `ready` (or `failed` with a safe error message).
 4. The frontend polls `GET /datasets/{id}` until it is ready and then shows profile,
    column-mapping review, preview, and columns.
 5. At startup, datasets left in `processing` by a restart are marked `failed`
    ("import was interrupted") and partial `*.tmp.duckdb` files are removed.
+
+**Smart import** (`file_loader.detect_layout`, added after the first real-data file, see
+`docs/evidence/experiments/2026-11-05-first-real-file.md`). Sheets made for people are read as
+they are downloaded:
+
+- *Header row*: the first of the first 30 rows that is at least half as wide as the widest
+  row there and whose cells are mostly text labels (not numbers or dates), at least half of
+  them distinct (duplicate headers are allowed). No such row → row 1. The user can choose
+  another row in the import form (`header_row`), which re-reads headers and type hints
+  (`POST /datasets/uploads/{upload_id}/layout`).
+- *Main table*: columns are split at runs of two or more fully empty columns; the block
+  with the most header labels is the table, the others (side tables, helper columns) are
+  ignored and named in the layout.
+- *Template rows*: a trailing block of at least 3 rows that hold at most 20% of what a full
+  row holds, counting only columns that are not filled in (almost) every row and treating
+  NA markers ("-") and spreadsheet errors (`#REF!`) as no value. Never rows in the middle,
+  never every row; can be switched off (`skip_template_rows`).
+- What was done is stored as `DatasetRecord.layout` and shown in Data Sources. A plain table
+  (header in row 1, one block, no template rows) is read exactly as before.
 
 Type inference rules (`services/type_inference.py`, all covered by tests). **No value is
 changed silently:** every interpretation the user might disagree with produces a
@@ -153,6 +173,10 @@ changed silently:** every interpretation the user might disagree with produces a
     and reported (`currency_removed`). A column with more than one currency stays text
     (`mixed_currency`). Spaces are only accepted as 3-digit group separators (`1 000 000`).
 - Excel numbers are already canonical (`4.125` is 4.125), so Excel imports use `plain`.
+- **Dates with month names** (`22/Jan/2025`, `22 Dec 2025`, `10-Feb-2025`,
+  `17 Agustus 2025`, `Jan 22, 2025`) are read with Indonesian and English month names and
+  abbreviations; they are unambiguous, so no order question arises. Unknown month names
+  are reported as unconverted values.
 - **Date order:** chosen at import. In `auto`, day-first if any first part > 12,
   month-first if any second part > 12; otherwise day-first with an
   `ambiguous_date_order` warning. A column proven to contain both orders gets a
@@ -255,7 +279,8 @@ errors add `details: [{field, message}]` (never the rejected input).
 |---|---|---|
 | `GET /health` | — | `{status, llm_configured: bool, model: str \| null}` |
 | `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count, columns, detected_types}]}` |
-| `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first, text_columns: [original headers]}` | `DatasetRecord` (status `processing`) |
+| `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first, text_columns: [original headers], header_row: int \| null (null = detect), skip_template_rows: bool}` | `DatasetRecord` (status `processing`; `layout` filled in at ingest) |
+| `POST /datasets/uploads/{upload_id}/layout` | `{sheet, header_row}` | `SheetInfo` described with the header row chosen in the import form (smart import) |
 | `GET /datasets` | — | `DatasetRecord[]` |
 | `GET /datasets/{id}` | — | `DatasetRecord` |
 | `DELETE /datasets/{id}` | — | `204`; removes DuckDB file, metadata, history (`422` while the file is in use by a query) |
