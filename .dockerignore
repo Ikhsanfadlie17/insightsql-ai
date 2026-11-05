@@ -1,0 +1,28 @@
+# Never send secrets, local data, or development tooling to the Docker build.
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+.venv/
+venv/
+data/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.claude/
+graphify-out/
+*.duckdb
+*.duckdb.wal
+
+# Not needed at runtime
+tests/
+eval/
+docs/
+scripts/
+requirements-dev.txt
+CLAUDE.md
+Dockerfile
+docker-compose.yml
+.dockerignore
