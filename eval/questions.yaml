@@ -14,6 +14,11 @@
 #   reject     the assistant must refuse (unsupported) and run nothing.
 # Questions are written so that each has one defensible answer; anything open to more than
 # one reading is in the "ambiguous" category on purpose.
+#
+# Version 2 (2026-11-05, after the Phase 7 review; the first run used version 1):
+#   new-05 states the definition of a new client; mul-03 uses a threshold that leaves a
+#   non-zero answer (v1: > 50 million, which no row in those departments exceeds);
+#   grp-05 and cpx-04 state how missing revenue / client IDs are treated.
 
 # ----------------------------------------------------------------- 1. simple aggregation
 - id: agg-01
@@ -114,7 +119,9 @@
 - id: grp-05
   category: grouping
   language: id
-  question: Berapa rata-rata pendapatan per transaksi untuk setiap departemen?
+  question: >-
+    Berapa rata-rata pendapatan per transaksi untuk setiap departemen, tanpa menghitung
+    transaksi yang pendapatannya kosong?
   expected:
     kind: result
     reference_sql: >-
@@ -254,7 +261,9 @@
 - id: new-05
   category: new_vs_existing
   language: id
-  question: Berapa klien baru pada Januari–Juni 2026 jika dibandingkan dengan Januari–Juni 2025?
+  question: >-
+    Berapa klien baru pada Januari–Juni 2026, yaitu klien yang belum pernah bertransaksi
+    sebelum 2026? Bandingkan dengan periode Januari–Juni 2025.
   expected:
     kind: retention
     previous: {start: "2025-01-01", end: "2025-07-01"}
@@ -285,12 +294,12 @@
   language: id
   question: >-
     Berapa jumlah transaksi departemen Pelatihan atau Perpajakan dengan pendapatan di atas
-    50 juta rupiah?
+    20 juta rupiah?
   expected:
     kind: result
     reference_sql: >-
       SELECT COUNT(*) AS n FROM dataset WHERE departemen IN ('Pelatihan', 'Perpajakan')
-      AND pendapatan_rp > 50000000
+      AND pendapatan_rp > 20000000
 - id: mul-04
   category: multi_condition
   language: en
@@ -402,8 +411,8 @@
   category: complex_business
   language: en
   question: >-
-    For each year, what is the total revenue divided by the number of unique clients in that
-    year?
+    For each calendar year, what is the total revenue divided by the number of unique client
+    IDs in that year (all revenue, including rows without a client ID)?
   expected:
     kind: result
     reference_sql: >-

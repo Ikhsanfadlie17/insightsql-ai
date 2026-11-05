@@ -25,6 +25,7 @@ import pandas as pd
 
 from backend.core.config import Settings
 from backend.core.errors import NotFoundError, UploadError, ValidationError
+from backend.core.redaction import redact
 from backend.repositories.dataset_repo import DatasetRepository
 from backend.schemas.datasets import (
     DatasetColumn,
@@ -324,7 +325,7 @@ class DatasetService:
 
     def _mark_failed(self, dataset_id: str, message: str) -> None:
         try:
-            self._repo.update_status(dataset_id, "failed", error=message)
+            self._repo.update_status(dataset_id, "failed", error=redact(message))
         except NotFoundError:
             logger.info("Dataset %s was deleted during ingestion", dataset_id)
 

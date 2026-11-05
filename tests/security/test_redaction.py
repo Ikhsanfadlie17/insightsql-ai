@@ -33,3 +33,24 @@ def test_log_messages_and_tracebacks_are_redacted(caplog: pytest.LogCaptureFixtu
     assert SECRET not in caplog.text
     assert caplog.text.count(REDACTED) >= 2
     assert "RuntimeError" in caplog.text  # the traceback is still there, only redacted
+
+
+def test_stack_info_is_redacted() -> None:
+    """Review L2: stack info passes through the same record factory."""
+    register_secret(SECRET)
+    make = logging.getLogRecordFactory()
+
+    record = make("tests.redaction", logging.INFO, __file__, 1, "msg", None, None,
+                  sinfo=f"Stack (most recent call last):\n  key={SECRET}")  # fmt: skip
+
+    assert SECRET not in record.stack_info and REDACTED in record.stack_info
+
+
+def test_a_broken_record_never_breaks_logging() -> None:
+    """Redaction failures are swallowed: a bad format string must still produce a record."""
+    register_secret(SECRET)
+    make = logging.getLogRecordFactory()
+
+    record = make("tests.redaction", logging.INFO, __file__, 1, "%d items", ("x",), None)
+
+    assert record.msg == "%d items"

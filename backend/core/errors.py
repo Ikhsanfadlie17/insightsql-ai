@@ -178,12 +178,14 @@ def register_error_handlers(app: FastAPI) -> None:
         summary = "; ".join(f"{d['field'].split('.', 1)[-1]}: {d['message']}" for d in details[:3])
         return JSONResponse(
             status_code=422,
-            content=_error_body("validation_error", f"Invalid request — {summary}", details),
+            content=_error_body(
+                "validation_error", redact(f"Invalid request — {summary}"), details
+            ),
         )
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
-        message = exc.detail if isinstance(exc.detail, str) else "Request failed."
+        message = redact(exc.detail) if isinstance(exc.detail, str) else "Request failed."
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_body(_HTTP_CODES.get(exc.status_code, "http_error"), message),

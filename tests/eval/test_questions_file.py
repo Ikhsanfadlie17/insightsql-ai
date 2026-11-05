@@ -81,8 +81,11 @@ def test_top_n_references_have_no_tie_at_the_cut(
     limit = int(re.search(r"\bLIMIT\s+(\d+)", sql).group(1))
     wider = re.sub(r"\bLIMIT\s+\d+", f"LIMIT {limit + 1}", sql)
     with duckdb.connect(str(service.duckdb_path(dataset_id)), read_only=True) as conn:
-        rows = conn.execute(wider).fetchall()
-    order_column = 1  # every top-N reference orders by its second column
+        cursor = conn.execute(wider)
+        names = [d[0] for d in cursor.description]
+        rows = cursor.fetchall()
+    key = re.search(r"\bORDER\s+BY\s+(\w+)", sql, re.IGNORECASE).group(1)
+    order_column = int(key) - 1 if key.isdigit() else names.index(key)
     assert rows[limit - 1][order_column] != rows[limit][order_column]
 
 
