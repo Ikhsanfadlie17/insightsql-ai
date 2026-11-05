@@ -434,3 +434,35 @@ def test_partial_year_note_ignores_full_year_date_literals() -> None:
 
     assert partial_year_note(result, date(2026, 10, 31), [2025, 2026], whole_years)
     assert partial_year_note(result, date(2026, 10, 31), [2025, 2026], same_months) is None
+
+
+# --- real-data feedback (2026-11-05): process stages / bottlenecks ----------------------
+STAGES_SQL = (
+    "SELECT 'Order -> Kirim' AS tahap, COUNT(*) AS n, "
+    "MEDIAN(date_diff('day', tanggal_order, tanggal_kirim)) AS median_hari, "
+    "AVG(date_diff('day', tanggal_order, tanggal_kirim)) AS rata_hari, "
+    "COUNT(*) FILTER (WHERE date_diff('day', tanggal_order, tanggal_kirim) < 0) AS negatif "
+    "FROM dataset WHERE tanggal_order IS NOT NULL AND tanggal_kirim IS NOT NULL "
+    "UNION ALL "
+    "SELECT 'Kirim -> Terima', COUNT(*), MEDIAN(date_diff('day', tanggal_kirim, tanggal_terima)), "
+    "AVG(date_diff('day', tanggal_kirim, tanggal_terima)), "
+    "COUNT(*) FILTER (WHERE date_diff('day', tanggal_kirim, tanggal_terima) < 0) "
+    "FROM dataset WHERE tanggal_kirim IS NOT NULL AND tanggal_terima IS NOT NULL"
+)
+
+
+def test_stage_duration_sql_passes_the_validator() -> None:
+    """The prompt asks for this shape; the validator must accept it."""
+    from backend.services.sql_validator import TableSchema, validate_sql
+
+    schema = TableSchema(columns={"tanggal_order": "date", "tanggal_kirim": "date",
+                                  "tanggal_terima": "date"})  # fmt: skip
+    validate_sql(STAGES_SQL, schema)
+
+
+def test_sql_prompt_v3_handles_process_durations() -> None:
+    from backend.services.llm.prompts import PROMPT_VERSION, SQL_SYSTEM_PROMPT
+
+    assert PROMPT_VERSION == "2026-11-05.sql-v3"
+    assert "bottleneck" in SQL_SYSTEM_PROMPT and "UNION ALL" in SQL_SYSTEM_PROMPT
+    assert "which step" in SQL_SYSTEM_PROMPT

@@ -105,3 +105,23 @@ def import_layout_caption(layout: dict[str, Any] | None) -> str | None:
     if layout.get("template_rows_skipped"):
         parts.append(f"{layout['template_rows_skipped']:,} empty template row(s) skipped")
     return " · ".join(parts)
+
+
+_TYPE_GROUPS = (
+    ("date", {"date", "datetime"}, "date", "dates"),
+    ("number", {"integer", "numeric"}, "number", "numbers"),
+    ("boolean", {"boolean"}, "yes/no", "yes/no"),
+    ("text", {"text"}, "text", "text"),
+)
+
+
+def columns_summary(columns: list[dict[str, Any]]) -> str:
+    """'54 columns read: 11 dates, 2 numbers, 41 text' — proof that every column came in."""
+    total = len(columns)
+    parts = []
+    for _, types, singular, plural in _TYPE_GROUPS:
+        count = sum(1 for c in columns if c.get("logical_type") in types)
+        if count:
+            parts.append(f"{count} {singular if count == 1 else plural}")
+    noun = "column" if total == 1 else "columns"
+    return f"{total} {noun} read: " + ", ".join(parts)

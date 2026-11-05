@@ -254,13 +254,22 @@ def render_schema_context(context: SchemaContext) -> str:
         *(_column_json(c) for c in context.columns),
         "</data>",
     ]
+    dates = [c.name for c in context.columns if c.type in ("date", "datetime")]
+    if len(dates) >= 2:
+        # Real-data feedback (2026-11-05): monitoring sheets record one date per process
+        # step; their order in the file is the usual order of the steps.
+        lines.append(
+            "DATE COLUMNS in file order (often the steps of one process): " + ", ".join(dates)
+        )
     if context.roles:
         roles = ", ".join(f"{role} = {column}" for role, column in context.roles.items())
         lines.append(f"CONFIRMED COLUMN ROLES: {roles}.")
     else:
         lines.append(
-            "No column roles have been confirmed by the user: do not assume which column "
-            "is the client ID, date, or revenue; ask for clarification instead."
+            "No column roles have been confirmed by the user. Use columns whose header "
+            "clearly names what the question asks about (for example a 'Tanggal Kirim' column "
+            "for the shipping date). If the question is about clients, revenue, or 'the date' and "
+            "more than one column could be meant, ask which one."
         )
     if context.definitions:
         lines.append("DEFINITIONS:")

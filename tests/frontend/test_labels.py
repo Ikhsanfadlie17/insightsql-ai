@@ -120,3 +120,12 @@ def test_import_layout_caption_for_a_dataset() -> None:
         }
     )
     assert "row 4 (chosen)" in text and "320" in text and "Daftar hari libur" in text
+
+
+def test_columns_summary() -> None:
+    from frontend.components.labels import columns_summary
+
+    columns = [{"logical_type": t} for t in ["date"] * 11 + ["integer", "numeric"] + ["text"] * 41]
+
+    assert columns_summary(columns) == "54 columns read: 11 dates, 2 numbers, 41 text"
+    assert columns_summary([{"logical_type": "boolean"}]) == "1 column read: 1 yes/no"

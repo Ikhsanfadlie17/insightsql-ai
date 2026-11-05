@@ -6,7 +6,7 @@ sandbox, and its insight text is checked against the query result (ARCHITECTURE 
 
 | Prompt | Version | Code |
 |---|---|---|
-| SQL planning (and repair) | `2026-11-05.sql-v2` | `backend/services/llm/prompts.py` |
+| SQL planning (and repair) | `2026-11-05.sql-v3` | `backend/services/llm/prompts.py` |
 | Insight | `2026-11-04.insight-v1` | `backend/services/insight_generator.py` |
 
 Every LLM request records its prompt version in `llm_requests.prompt_version`, so results
@@ -53,6 +53,15 @@ Rules:
     extends past the end of the data (e.g. the current year), compare the same span of
     every period (year-to-date): set ytd=true for retention, or filter the earlier periods
     to the same months in SQL, and state it in assumptions.
+12. Process durations ("how long does it take", "where / di mana / at which step is it
+    slowest", "bottleneck", "lama proses", "tahap mana yang paling lama"): when DATE
+    COLUMNS lists the steps of a process, answer with one row per pair of consecutive
+    steps (in the listed order, from the start step to the end step the user names),
+    combined with UNION ALL: a step label, COUNT(*) of rows where both dates exist,
+    MEDIAN and AVG of date_diff('day', start, end), and the number of negative durations.
+    Filter a period on the start step's date. Here "where / di mana" means which step,
+    not which category: compare categories only when the user names one. Say in
+    assumptions that durations are calendar days.
 ```
 
 ### User message
@@ -416,4 +425,5 @@ marks as untrusted data. `SEND_SAMPLE_VALUES=false` removes the example values e
 |---|---|---|---|
 | `2026-11-04.sql-v1` | 2026-11-04 | First version. | Phase 4 |
 | `2026-11-05.sql-v2` | 2026-11-05 | Client-count comparisons between periods go to the retention engine; periods past the end of the data are compared year-to-date. | `docs/evidence/experiments/2026-11-05-first-real-api.md` (finding 1); side effect seen in the benchmark (cpx-04, run 1), see `docs/EVALUATION.md` |
+| `2026-11-05.sql-v3` | 2026-11-05 | Process durations / bottlenecks: one row per consecutive pair of date steps (UNION ALL; count, median, average, negatives); "di mana" about a process means which step. Schema context lists date columns in file order; unmapped datasets may use clearly named columns. | `docs/evidence/experiments/2026-11-05-first-real-file.md` |
 | `2026-11-04.insight-v1` | 2026-11-04 | First version (unchanged). | Phase 5 |

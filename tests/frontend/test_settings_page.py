@@ -235,3 +235,28 @@ def test_dataset_detail_explains_how_the_table_was_read() -> None:
     at = _page(api, "data_sources")
 
     assert "Header row 4 (detected)" in _text(at) and "320" in _text(at)
+
+
+# --- real-data feedback (2026-11-05): all columns are read; roles are optional -----------
+def test_dataset_detail_says_how_many_columns_were_read() -> None:
+    at = _page(FakeApi(datasets=[dict(READY)]), "data_sources")
+    text = _text(at)
+
+    assert "2 columns read" in text and "1 date" in text and "1 text" in text
+    assert "AI Analyst" in text  # every column can be used there
+
+
+def test_column_roles_are_marked_optional_and_explained() -> None:
+    at = _page(FakeApi(datasets=[dict(READY)]), "data_sources")
+
+    labels = [t.label for t in at.tabs]
+    assert "Column mapping (optional)" in labels and "Columns (2)" in labels
+    text = _text(at)
+    assert "Not used" in text and "Client Analytics" in text
+
+
+def test_ai_analyst_does_not_push_the_mapping() -> None:
+    at = _page(AnalystFakeApi(mapped=False), "ai_analyst")
+
+    assert "may need clarification" not in _text(at)
+    assert "optional" in _text(at).lower()

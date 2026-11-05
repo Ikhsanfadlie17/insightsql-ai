@@ -3,7 +3,7 @@ whatever the model returns is still validated and sandboxed."""
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-11-05.sql-v2"
+PROMPT_VERSION = "2026-11-05.sql-v3"
 
 SQL_SYSTEM_PROMPT = """\
 You translate questions about ONE tabular dataset into ONE DuckDB SQL query, or decide
@@ -40,6 +40,15 @@ Rules:
     extends past the end of the data (e.g. the current year), compare the same span of
     every period (year-to-date): set ytd=true for retention, or filter the earlier periods
     to the same months in SQL, and state it in assumptions.
+12. Process durations ("how long does it take", "where / di mana / at which step is it
+    slowest", "bottleneck", "lama proses", "tahap mana yang paling lama"): when DATE
+    COLUMNS lists the steps of a process, answer with one row per pair of consecutive
+    steps (in the listed order, from the start step to the end step the user names),
+    combined with UNION ALL: a step label, COUNT(*) of rows where both dates exist,
+    MEDIAN and AVG of date_diff('day', start, end), and the number of negative durations.
+    Filter a period on the start step's date. Here "where / di mana" means which step,
+    not which category: compare categories only when the user names one. Say in
+    assumptions that durations are calendar days.
 """
 
 

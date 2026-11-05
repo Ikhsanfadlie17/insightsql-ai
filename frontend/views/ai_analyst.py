@@ -141,8 +141,9 @@ def main() -> None:
     mapping = mapping_state.get("mapping")
     if not mapping:
         st.caption(
-            ":material/info: The column mapping is not confirmed: questions about clients, "
-            "dates, or revenue may need clarification. Confirm it in Data Sources."
+            ":material/info: Every column can be used in your questions. Optional: "
+            "confirming client roles (Data Sources → Column mapping) tells the AI which "
+            "column means *client* or *revenue*."
         )
 
     conversation_id = _conversation_picker(api, active["id"])

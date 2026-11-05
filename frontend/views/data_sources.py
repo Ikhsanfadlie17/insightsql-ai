@@ -12,6 +12,7 @@ from frontend.components.data_table import render_result
 from frontend.components.formatting import fmt_int, fmt_number, fmt_stat
 from frontend.components.labels import (
     column_labels,
+    columns_summary,
     import_layout_caption,
     keep_as_text_conflicts,
     layout_summary,
@@ -267,7 +268,10 @@ def _import(
     for record in records:
         label = md_escape(record["name"])
         if record["status"] == "ready":
-            st.success(f"Imported **{label}** ({fmt_count(record['row_count'])} rows).")
+            st.success(
+                f"Imported **{label}** ({fmt_count(record['row_count'])} rows, "
+                f"{fmt_count(record['column_count'])} columns)."
+            )
         elif record["status"] == "failed":
             st.error(f"**{label}** could not be imported: {md_escape(record['error'])}")
         else:
@@ -340,6 +344,15 @@ def _profile_tab(profile: dict[str, Any]) -> None:
 def _mapping_tab(
     api: ApiClient, dataset_id: str, state: dict[str, Any], labels: dict[str, str]
 ) -> None:
+    st.info(
+        "**Optional.** Every column is already imported and can be used in AI Analyst. "
+        "These roles tell **Client Analytics** which column identifies a client and when "
+        "they bought, so it can count new, returning, and not-returned clients; they also "
+        "tell the AI what you mean by *client* or *revenue*. If your data has no such "
+        "column, leave the role on **— Not used —**. Without a client and a date role only "
+        "Client Analytics is unavailable.",
+        icon=":material/help:",
+    )
     flash_key = f"mapping-confirmed-{dataset_id}"
     if st.session_state.pop(flash_key, False):
         st.success("Column mapping saved.", icon=":material/check_circle:")
@@ -473,14 +486,21 @@ def _dataset_detail(api: ApiClient, dataset: dict[str, Any]) -> None:
     if layout_caption:
         st.caption(f":material/table_view: {layout_caption}")
 
-    profile_tab, mapping_tab, preview_tab, columns_tab = st.tabs(
-        ["Profile", "Column mapping", "Preview", "Columns"]
-    )
     columns: list[dict[str, Any]] = []
     try:
         columns = api.columns(dataset["id"])
     except ApiError as error:
         show_api_error(error)
+    if columns:
+        # Real-data feedback: say plainly that every column came in and can be used.
+        st.caption(
+            f":material/view_column: {columns_summary(columns)}. All of them can be used in "
+            "AI Analyst; the full list with types is in the Columns tab."
+        )
+
+    profile_tab, mapping_tab, preview_tab, columns_tab = st.tabs(
+        ["Profile", "Column mapping (optional)", "Preview", f"Columns ({len(columns)})"]
+    )
 
     with profile_tab:
         try:
