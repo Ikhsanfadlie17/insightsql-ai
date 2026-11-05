@@ -22,6 +22,7 @@ from backend.core.config import Settings
 from backend.core.errors import (
     AppError,
     LLMNotConfiguredError,
+    MappingRequiredError,
     ValidationError,
 )
 from backend.repositories.history_repo import HistoryRepository
@@ -323,10 +324,22 @@ class AnalysisOrchestrator:
             warnings=r.warnings,
         )
 
+    def _partial_period_note(self, dataset_id: str, result: QueryResult) -> ColumnNote | None:
+        """Warn when a result compares complete years with the year the data stops in."""
+        try:
+            coverage = self._analytics.coverage(dataset_id)
+        except MappingRequiredError:
+            return None  # no confirmed transaction date: the data end is unknown
+        except Exception:
+            logger.warning("Coverage unavailable for the partial-period check", exc_info=True)
+            return None
+        return partial_year_note(result, coverage.data_end, coverage.years)
+
     def _sql_answer(self, common, dataset_id, question, plan, outcome, analysis_id):
         result: QueryResult = outcome.result
         context = self._contexts.build(dataset_id)
         safe_values = {v for c in context.columns if c.examples for v in c.examples}
+        partial = self._partial_period_note(dataset_id, result)
         insight = self._insights.generate(
             question=question,
             language=plan.language,
@@ -335,8 +348,10 @@ class AnalysisOrchestrator:
             safe_values=safe_values,
             dataset_id=dataset_id,
             analysis_id=analysis_id,
+            sql=outcome.sql,
+            notes=[partial.message] if partial else None,
         )
-        warnings: list[ColumnNote] = []
+        warnings: list[ColumnNote] = [partial] if partial else []
         if result.truncated:
             warnings.append(
                 ColumnNote(
@@ -377,3 +392,37 @@ class AnalysisOrchestrator:
             insight=insight,
             warnings=warnings,
         )
+
+
+def _as_year(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and 1900 <= value <= 2100:
+        return value
+    if isinstance(value, str) and len(value) == 4 and value.isdigit():
+        return _as_year(int(value))
+    return None
+
+
+def partial_year_note(
+    result: QueryResult, data_end: date | None, years: list[int]
+) -> ColumnNote | None:
+    """A result column of years that includes the year the data stops in, next to other
+    years: comparing them is not like-for-like (first real-API run, 2026-11-05: all of 2025
+    was compared with 2026 up to 31 October)."""
+    if data_end is None or (data_end.month, data_end.day) == (12, 31) or not result.rows:
+        return None
+    known = set(years)
+    for index, name in enumerate(result.columns):
+        found = {_as_year(row[index]) for row in result.rows}
+        if None in found or len(found) < 2 or not found <= known or data_end.year not in found:
+            continue
+        return ColumnNote(
+            level="warning",
+            code="partial_period",
+            message=f"Data for {data_end.year} ends on {data_end.isoformat()}, so "
+            f"{data_end.year} is only part of a year while the other years in '{name}' are "
+            "complete. Compare the same months (year-to-date), for example in Client "
+            "Analytics, before drawing conclusions.",
+        )
+    return None

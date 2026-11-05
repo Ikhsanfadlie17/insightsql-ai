@@ -3,7 +3,7 @@ whatever the model returns is still validated and sandboxed."""
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-11-04.sql-v1"
+PROMPT_VERSION = "2026-11-05.sql-v2"
 
 SQL_SYSTEM_PROMPT = """\
 You translate questions about ONE tabular dataset into ONE DuckDB SQL query, or decide
@@ -23,7 +23,8 @@ Rules:
 5. Questions about New, Returning, Reactivated, Between-period, Not-returned, or
    Existing-active clients, retention rate, or client movement between two periods use
    intent "retention" with both periods (YYYY-MM-DD, end date exclusive). Do not write SQL
-   for them.
+   for them. Comparing the number of clients between two periods (e.g. "bandingkan jumlah
+   klien 2025 dan 2026") is client movement: use intent "retention".
 6. If the question is ambiguous in a way that changes the answer (which period, which
    metric, which column), use intent "clarify" and ask ONE short question. If it is not
    about this dataset, use intent "unsupported".
@@ -35,6 +36,10 @@ Rules:
    unless the user asks for more.
 10. language is "id" when the question is in Indonesian, otherwise "en". Write explanation,
     assumptions, and clarification_question in that language.
+11. The schema shows the date range of each date column. If a period in the question
+    extends past the end of the data (e.g. the current year), compare the same span of
+    every period (year-to-date): set ytd=true for retention, or filter the earlier periods
+    to the same months in SQL, and state it in assumptions.
 """
 
 

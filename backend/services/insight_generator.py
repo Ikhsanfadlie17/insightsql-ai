@@ -299,6 +299,18 @@ def _add_date(subject: InsightSubject, day: date) -> None:
     subject.allowed.add(Decimal(day.year))
 
 
+_CONTEXT_YEAR = re.compile(r"(?<!\d)(19\d{2}|20\d{2})(?!\d)")
+
+
+def add_context_years(subject: InsightSubject, text: str) -> None:
+    """Years written in the question or used in the SQL filter may be named in the text.
+
+    Only years: other numbers in the question (e.g. "naik 20%?") are claims to verify,
+    not facts (first real-API run, 2026-11-05: "Pada 2026, ..." was rejected).
+    """
+    subject.allowed.update(Decimal(year) for year in _CONTEXT_YEAR.findall(text))
+
+
 def subject_from_result(
     result: QueryResult,
     language: Language,
@@ -793,8 +805,14 @@ class InsightGenerator:
         safe_values: set[str] | None = None,
         dataset_id: str | None = None,
         analysis_id: str | None = None,
+        sql: str | None = None,
+        notes: list[str] | None = None,
     ) -> Insight:
-        """Insight for exactly one of ``result`` / ``retention``."""
+        """Insight for exactly one of ``result`` / ``retention``.
+
+        ``sql`` (the executed query) and the question may supply years the text can name;
+        ``notes`` are extra caveats for the model (e.g. a partial last year).
+        """
         if (result is None) == (retention is None):
             raise ValueError("Pass exactly one of result or retention.")
         subject = (
@@ -802,6 +820,8 @@ class InsightGenerator:
             if retention is not None
             else subject_from_result(result, language, definitions, safe_values)
         )
+        add_context_years(subject, f"{question}\n{sql or ''}")
+        subject.notes.extend(notes or [])
 
         def fallback(reason: str, ungrounded: list[str] | None = None, request_id=None):
             insight = deterministic_insight(subject)

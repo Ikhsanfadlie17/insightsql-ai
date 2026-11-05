@@ -431,3 +431,44 @@ def test_unexpected_insight_failure_falls_back(make) -> None:
     insight = generator.generate(question="q", language="id", result=DEPTS)
 
     assert insight.source == "deterministic" and insight.fallback_reason == "llm_error"
+
+
+# --- first real-API run (2026-11-05): years from the question or SQL filter -----------------
+def test_years_from_the_question_and_sql_are_grounded(make) -> None:
+    """gpt-6-luna wrote "Pada 2026, ..." for a result filtered to 2026; the year is not in
+    the result table, so the explanation was rejected."""
+    output = _output(
+        summary="Pada 2026, Audit memiliki klien aktif terbanyak (34).",
+        facts=["Di 2026: Audit 34, Perpajakan 29, Pelatihan 25."],
+    )
+    generator, _ = make(output, output)
+
+    by_question = generator.generate(question="Klien per departemen di 2026?", language="id",
+                                     result=DEPTS)  # fmt: skip
+    by_sql = generator.generate(
+        question="Klien per departemen tahun ini?", language="id", result=DEPTS,
+        sql="SELECT ... WHERE year(tanggal_layanan) = 2026 GROUP BY 1",
+    )  # fmt: skip
+
+    assert by_question.source == "llm" and by_question.ungrounded_numbers == []
+    assert by_sql.source == "llm"
+
+
+def test_other_numbers_from_the_question_are_not_grounded(make) -> None:
+    """Only years count as context: a claim echoing the question's "20%" is not a fact."""
+    generator, _ = make(_output(summary="Jumlah klien Audit naik 20%.", facts=["Audit 34."]))
+
+    insight = generator.generate(question="Apakah klien Audit naik 20%?", language="id",
+                                 result=DEPTS)  # fmt: skip
+
+    assert insight.source == "deterministic"
+    assert "20" in insight.ungrounded_numbers
+
+
+def test_extra_notes_reach_the_insight_prompt(make) -> None:
+    generator, fake = make(_output(summary="Audit 34.", facts=["Audit 34."]))
+
+    generator.generate(question="q", language="id", result=DEPTS,
+                       notes=["Data for 2026 ends on 2026-10-31."])  # fmt: skip
+
+    assert "Data for 2026 ends on 2026-10-31." in fake.calls[0].user

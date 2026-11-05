@@ -350,3 +350,49 @@ def test_unexpected_failure_is_stored_as_an_error(env_factory, monkeypatch) -> N
 
     assert r.status == "error" and r.error_code == "internal_error"
     assert env.app.state.history_repo.get_conversation(r.conversation_id).analyses
+
+
+# --- first real-API run (2026-11-05): full year vs a partial year ---------------------------
+YEARS_SQL = (
+    "SELECT year(tanggal_layanan) AS tahun, COUNT(DISTINCT id_klien) AS jumlah_klien "
+    "FROM dataset WHERE year(tanggal_layanan) IN ({}) GROUP BY 1 ORDER BY 1"
+)
+
+
+def test_comparing_a_full_year_with_a_partial_year_warns(env_factory) -> None:
+    """gpt-6-luna compared all of 2025 (91) with 2026, whose data ends on 31 Oct (103)."""
+    env = env_factory(plan(sql=YEARS_SQL.format("2025, 2026"), chart=None), insight_echo)
+
+    r = env.ask("Bandingkan jumlah klien 2025 dan 2026")
+
+    [warning] = [w for w in r.warnings if w.code == "partial_period"]
+    assert warning.level == "warning"
+    assert "2026" in warning.message and "2026-10-31" in warning.message
+    assert "year-to-date" in warning.message
+    assert "2026-10-31" in env.fake.calls[-1].user  # the AI explanation is told too
+
+
+def test_complete_years_do_not_warn(env_factory) -> None:
+    env = env_factory(plan(sql=YEARS_SQL.format("2024, 2025"), chart=None), insight_echo)
+
+    r = env.ask("Bandingkan jumlah klien 2024 dan 2025")
+
+    assert not any(w.code == "partial_period" for w in r.warnings)
+
+
+def test_partial_year_check_needs_no_mapping(env_factory) -> None:
+    env = env_factory(plan(sql=YEARS_SQL.format("2025, 2026"), chart=None), insight_echo)
+    unmapped = env.upload(mapping={"department": "departemen"})
+
+    r = env.ask("Bandingkan jumlah klien 2025 dan 2026", dataset_id=unmapped)
+
+    assert r.status == "answered"  # no transaction date confirmed: no warning, no crash
+    assert not any(w.code == "partial_period" for w in r.warnings)
+
+
+def test_sql_prompt_routes_client_count_comparisons_to_retention() -> None:
+    from backend.services.llm.prompts import PROMPT_VERSION, SQL_SYSTEM_PROMPT
+
+    assert "number of clients" in SQL_SYSTEM_PROMPT
+    assert "year-to-date" in SQL_SYSTEM_PROMPT
+    assert PROMPT_VERSION != "2026-11-04.sql-v1"
