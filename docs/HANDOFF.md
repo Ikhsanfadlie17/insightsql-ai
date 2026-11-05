@@ -14,7 +14,7 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 | 3 Data Intelligence (Task 7–8) | selesai, direview, disetujui user | 290 |
 | 4 Integrasi AI (Task 9–13) | selesai, direview, disetujui user | 558 |
 | 5 Analytics (Task 14–18) | selesai, direview, disetujui user (2026-11-04) | 757 |
-| 6 Product Features (Task 19–21) | **sedang dikerjakan** — Task 19 (`dff19dd`) dan Task 20 (`f7554f6`) selesai + test; Task 21 belum | 810 (+1 skip di Windows) |
+| 6 Product Features (Task 19–21) | selesai, direview (2026-11-05), **menunggu review user** | 862 (+1 skip di Windows) |
 | 7 Quality (evaluasi Text-to-SQL, performa) | belum | — |
 | 8 Deployment (Docker, README final) | belum | — |
 
@@ -79,14 +79,12 @@ Sesi 2026-11-05 (Windows lokal) — Task 21 sebagian besar selesai (full pytest 
   (info — teks memang benar untuk ID/kode); pesan `no_date_column` menyebut kolomnya dan cara
   memperbaiki. Test lama `test_user_chosen_text_columns` diperbarui (kini ada note info).
 
-Sisa sebelum laporan Phase 6:
-- Polish UI dengan checklist (kontras, spacing, empty/loading/error) + screenshot enam
-  halaman (Playwright). Panel browser bawaan sempat tidak menggambar saat uji 2026-11-05.
-- Dari plan (dijadwalkan ke Task 21): L5 envelope `{"error": ...}` untuk error validasi
-  FastAPI & route tak dikenal; M4 pembersihan upload kedaluwarsa berkala (kini hanya saat
-  startup). Juga L8 format angka Indonesia di `st.dataframe` (opsional).
-- Review independen, perbaikan Critical/High, evidence Phase 6 di `phase-log.md`, lalu
-  tunggu review user.
+Sesi 2026-11-05 lanjutan: L5 (envelope error), M4 (cleanup berkala), polish UI +
+screenshot enam halaman (`scripts/e2e/all_pages.js`), review independen (0 Critical,
+1 High, 4 Low — semua diperbaiki, `090bacc`). Laporan: `docs/evidence/phase-log.md`
+bagian Phase 6. **Berikutnya: tunggu review user, lalu Phase 7** (Task 22 integration test,
+Task 23 benchmark Text-to-SQL — butuh API key + `OPENAI_MODEL` + jaringan, Task 24
+keamanan & performa 300k baris).
 
 ## 3. Pekerjaan berikutnya (setelah user menyetujui Phase 5)
 

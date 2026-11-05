@@ -554,6 +554,39 @@ Accepted / follow-up:
 
 **Phase 6 report.**
 
+
+**Phase 6 as built — additions and deviations (with reasons):**
+- Recent activity uses `GET /analyses/recent` (5 newest across datasets) instead of being
+  derived from `GET /conversations`; conversation summaries carry `last_question` and
+  `last_activity_at`.
+- Exports are built when the download button is clicked (no work on page load). CSV has a
+  BOM and neutralises leading `= + - @ \t \r`; Excel text cells are never formulas; the PDF
+  uses a built-in font (non-Latin characters become `?`, and the PDF says so); empty
+  exports return 409 `nothing_to_export`. `ExportMeta` gained `assumptions` and `notes`.
+- `GET /settings` returns whitelisted fields only, with `api_key_set` (bool) instead of any
+  part of the key, plus `model_has_price`. Paths are not returned.
+- Data Sources rename/delete controls are inline, not in an expander: Streamlit resets an
+  expander whose `expanded` argument changes, which hid the delete confirmation.
+- Added from the 2026-11-04 user test: inspection returns `SheetInfo.detected_types` (sample
+  of 500 rows) so the import form warns before a date/number column is kept as text;
+  ingest adds `kept_as_text_looks_like_date` (warning) / `_number` (info) notes and the
+  `no_date_column` note names the column and the fix.
+- Phase 2 L5 done (validation errors, unknown routes, wrong methods use the error
+  envelope; details are field + message only). Phase 2 M4 done (cleanup every
+  `UPLOAD_CLEANUP_INTERVAL_MINUTES`). Phase 5 L8 done for the profile table and Overview
+  (Indonesian number format); result tables already used it.
+- `scripts/e2e/all_pages.js`: desktop + phone screenshots of all six pages with exception,
+  "Page not found", and overflow checks.
+
+**Phase 6 independent review — outcome:** 0 Critical, 1 High, 0 Medium, 4 Low. Fixed: H1
+(Excel inspection parsed the workbook once per sheet; one `read_excel(sheet_name=None)`
+call now samples all sheets, 20.9 s → 4.3 s on 8 × 40k rows), L1 (hint keys match the form's
+header text; hint failures never fail inspection), L2 (an import refreshes the upload's age;
+cleanup skips uploads whose import is unfinished), L3 (small fractions keep 3 significant
+digits), L4 (deleting an open DuckDB file returns a clear 422). Not taken: refusing to
+delete `processing` datasets in the API, because deleting during ingest is supported by
+design (Phase 2 L2).
+
 ---
 
 ## Phase 7 — Quality

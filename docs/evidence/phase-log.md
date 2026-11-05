@@ -105,3 +105,49 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   diturunkan* dari hasil, bukan bahwa angka melekat pada metrik yang benar; angka dalam
   bentuk kata tidak dicek; tabel hasil (`st.dataframe`) belum berformat Indonesia; duplikat
   terdeteksi setelah konversi tipe.
+
+
+## Phase 6 — Product Features (Task 19–21)
+
+- **Tanggal:** 2026-11-04 (Task 19–20) dan 2026-11-05 (Task 21, review), Windows lokal.
+- **Tujuan:** riwayat & manajemen percakapan, export, halaman Settings, manajemen dataset,
+  penyempurnaan UI.
+- **Commit:** `dff19dd` (Task 19), `f7554f6` (Task 20), `2c3bcec` + `df17da2` (Task 21),
+  `090bacc` (perbaikan review).
+- **Komponen baru:** `api/conversations.py` (`GET /conversations`, `GET/DELETE
+  /conversations/{id}`, `GET /analyses/recent`), `export_service.py` + `api/exports.py`
+  (CSV/Excel/PDF/SQL), `api/settings.py` (`GET /settings`), halaman Query History & Settings,
+  rename/hapus dataset di Data Sources, tombol unduh di AI Analyst & Client Analytics,
+  `scripts/e2e/all_pages.js`.
+- **Keputusan & deviasi** (rinci di plan, "Phase 6 as built"): recent activity dari
+  `GET /analyses/recent`; export dibuat saat tombol diklik; CSV menetralkan awalan formula;
+  `/settings` hanya field whitelist dan `api_key_set` ya/tidak; konfirmasi hapus inline
+  (expander Streamlit menyembunyikannya); deteksi tipe dari sampel 500 baris saat inspect
+  untuk peringatan "Keep as text"; envelope `{"error": ...}` juga untuk error validasi &
+  route tak dikenal; pembersihan upload berkala.
+- **Test:** 757 (akhir Phase 5) → 810 (Task 19–20) → 854 sebelum review → **862 lulus,
+  1 skip** setelah perbaikan (`.venv\Scripts\python -m pytest -q`, ±2,5 menit, Windows; skip =
+  test watchdog memori yang hanya berlaku di Linux). Ruff check + format bersih.
+- **Keamanan yang diuji:** key (utuh dan potongan) tidak pernah ada di respons `/settings`
+  maupun log; path server tidak bocor; error validasi tidak mengulang input; injeksi formula
+  CSV/Excel dinetralkan; teks dari file di-escape sebelum masuk Markdown.
+- **E2E (LLM: mock):** enam halaman × desktop/HP, 12/12 lolos, 0 error browser
+  ([experiments/2026-11-05-phase6-e2e-all-pages.md](experiments/2026-11-05-phase6-e2e-all-pages.md)).
+  Empat masalah hanya terlihat di aplikasi yang berjalan/screenshot (konfirmasi hapus
+  tersembunyi, tabel terpotong di HP, statistik profil terpotong & format Inggris, rute
+  `/overview` di skrip) — semuanya diperbaiki.
+- **Review independen:** 0 Critical, 1 High, 0 Medium, 4 Low; semuanya diperbaiki kecuali
+  satu saran opsional (lihat tabel).
+  | Temuan | Sebelum | Sesudah |
+  |---|---|---|
+  | H1 | Inspect Excel mem-parse workbook sekali per sheet (≈S²); 8 sheet × 40k baris 20,9 s | Satu `read_excel` untuk semua sheet: 4,3 s, tipe identik ([benchmark](experiments/2026-11-05-phase6-inspect-benchmark.md)); timeout inspect 120 s |
+  | L1 | Header tanggal/"NA" tidak cocok dengan kunci hint; error hint → 500 | Kunci = teks header di form; kegagalan hint → `{}` |
+  | L2 | Cleanup berkala bisa menghapus upload yang sedang di-import | `create_dataset` memperbarui umur upload; cleanup melewati upload yang import-nya belum selesai |
+  | L3 | Pecahan kecil tampil 0 (0,0045 → "0,00") | 3 digit signifikan di PDF & profil |
+  | L4 | Hapus dataset yang filenya terbuka → 500 | 422 "in use, try again" |
+  | L4 (opsional) | Tolak hapus dataset `processing` di backend | Tidak diambil: hapus saat ingest memang didukung sejak Phase 2 (ingest membersihkan diri); UI tetap menonaktifkan tombol |
+- **Token/biaya:** tidak ada data nyata (LLM palsu, harga kosong → biaya "N/A").
+- **Keterbatasan:** API OpenAI sungguhan belum diuji; hint tipe CSV selalu memakai format
+  angka/tanggal "auto" (bukan pilihan di form); inspect Excel masih ±2× biaya sebelum
+  Phase 6 dan workbook 50 MB tidak diukur; PDF memakai font bawaan (karakter non-Latin
+  diganti `?`); pembersihan berkala hanya untuk upload mentah, bukan dataset.
