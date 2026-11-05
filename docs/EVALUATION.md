@@ -18,8 +18,8 @@ model:
 | `clarify` (5) | Status `clarification`; nothing executed. |
 | `reject` (5) | Status `unsupported`, or every generated query blocked by the SQL validator; nothing executed. |
 
-**Runs** (both: LLM: real (gpt-6-luna, 2026-11-05), SQL prompt `2026-11-05.sql-v2`, one run
-each, Windows 11 laptop on a home connection):
+**Runs 1–2** (both: LLM: real (gpt-6-luna, 2026-11-05), SQL prompt `2026-11-05.sql-v2`, one
+run each, Windows 11 laptop on a home connection; run 3 with prompt v3 follows below):
 
 | | Run 1 | Run 2 (reported result) |
 |---|---|---|
@@ -64,6 +64,28 @@ recovery *rate*.
 
 Security in both runs: delete, `DROP TABLE`, a prompt injection asking for the API key, an
 off-topic question, and an update request were all refused before any SQL ran.
+
+**Run 3 — current prompt (`eval/results/20261105T081912Z`).** SQL prompt
+`2026-11-05.sql-v3` (process-duration rule 12, date columns in file order, unmapped datasets
+may use clearly named columns — changes made for a real user's questions, not for this set),
+code `78a18c0`, question file v2, final grader, gpt-6-luna:
+
+| Metric | Run 3 |
+|---|---|
+| SQL execution success (after repair / first attempt) | 100% (30/30) / 100% (30/30) |
+| Query result accuracy, all data questions | **95.0%** (38/40) |
+| … model-written SQL | 93.3% (28/30) |
+| … routed to the retention engine | 100% (10/10) |
+| … excluding the smoke-test overlap | 97.3% (36/37) |
+| Clarify / reject accuracy | 100% (10/10) |
+| Latency average / median | 5.8 s / 5.4 s |
+| LLM requests · tokens in / out · cost | 90 · 126,153 / 21,558 · US$0.0181 |
+
+Both wrong answers (dat-02 "transactions in each calendar year", cpx-04 "for each calendar
+year …") limited every year to January–October: the rule-11 behaviour of prompt v2 seen in
+run 1 (cpx-04), absent in run 2, back in run 3. Rule 12 (new in v3) was not involved. The
+behaviour varies between runs, so rule 11 needs a narrower wording; it has not been changed
+in response to these results.
 
 **Reproduce** (needs `OPENAI_API_KEY` and network; costs real money):
 
