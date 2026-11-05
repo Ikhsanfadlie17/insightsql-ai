@@ -463,6 +463,15 @@ def test_stage_duration_sql_passes_the_validator() -> None:
 def test_sql_prompt_v3_handles_process_durations() -> None:
     from backend.services.llm.prompts import PROMPT_VERSION, SQL_SYSTEM_PROMPT
 
-    assert PROMPT_VERSION == "2026-11-05.sql-v3"
+    assert PROMPT_VERSION >= "2026-11-05.sql-v3"
     assert "bottleneck" in SQL_SYSTEM_PROMPT and "UNION ALL" in SQL_SYSTEM_PROMPT
     assert "which step" in SQL_SYSTEM_PROMPT
+
+
+def test_sql_prompt_v4_keeps_whole_periods_for_breakdowns() -> None:
+    """Benchmark runs 1 and 3: "for each calendar year" was cut to January-October."""
+    from backend.services.llm.prompts import PROMPT_VERSION, SQL_SYSTEM_PROMPT
+
+    assert PROMPT_VERSION == "2026-11-05.sql-v4"
+    assert "whole periods" in SQL_SYSTEM_PROMPT
+    assert "never cut" in SQL_SYSTEM_PROMPT

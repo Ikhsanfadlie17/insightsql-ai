@@ -6,7 +6,7 @@ sandbox, and its insight text is checked against the query result (ARCHITECTURE 
 
 | Prompt | Version | Code |
 |---|---|---|
-| SQL planning (and repair) | `2026-11-05.sql-v3` | `backend/services/llm/prompts.py` |
+| SQL planning (and repair) | `2026-11-05.sql-v4` | `backend/services/llm/prompts.py` |
 | Insight | `2026-11-04.insight-v1` | `backend/services/insight_generator.py` |
 
 Every LLM request records its prompt version in `llm_requests.prompt_version`, so results
@@ -49,10 +49,13 @@ Rules:
    unless the user asks for more.
 10. language is "id" when the question is in Indonesian, otherwise "en". Write explanation,
     assumptions, and clarification_question in that language.
-11. The schema shows the date range of each date column. If a period in the question
-    extends past the end of the data (e.g. the current year), compare the same span of
-    every period (year-to-date): set ytd=true for retention, or filter the earlier periods
-    to the same months in SQL, and state it in assumptions.
+11. The schema shows the date range of each date column. When the question compares
+    named periods ("2025 vs 2026", "tahun lalu dengan tahun ini") and the latest one
+    extends past the end of the data, compare the same span of every period
+    (year-to-date): set ytd=true for retention, or filter the earlier periods to the same
+    months in SQL, and state it in assumptions. A breakdown by period ("per year", "each
+    calendar year", "per tahun", "tiap bulan") uses whole periods: never cut the other
+    periods to the months of the last one (the app warns that the last one is partial).
 12. Process durations ("how long does it take", "where / di mana / at which step is it
     slowest", "bottleneck", "lama proses", "tahap mana yang paling lama"): when DATE
     COLUMNS lists the steps of a process, answer with one row per pair of consecutive
@@ -426,4 +429,5 @@ marks as untrusted data. `SEND_SAMPLE_VALUES=false` removes the example values e
 | `2026-11-04.sql-v1` | 2026-11-04 | First version. | Phase 4 |
 | `2026-11-05.sql-v2` | 2026-11-05 | Client-count comparisons between periods go to the retention engine; periods past the end of the data are compared year-to-date. | `docs/evidence/experiments/2026-11-05-first-real-api.md` (finding 1); side effect seen in the benchmark (cpx-04, run 1), see `docs/EVALUATION.md` |
 | `2026-11-05.sql-v3` | 2026-11-05 | Process durations / bottlenecks: one row per consecutive pair of date steps (UNION ALL; count, median, average, negatives); "di mana" about a process means which step. Schema context lists date columns in file order; unmapped datasets may use clearly named columns. | `docs/evidence/experiments/2026-11-05-first-real-file.md` |
+| `2026-11-05.sql-v4` | 2026-11-05 | Rule 11 narrowed: same-span (year-to-date) only when comparing named periods; breakdowns per period use whole periods. | Benchmark runs 1 and 3 (cpx-04, dat-02), `docs/EVALUATION.md` |
 | `2026-11-04.insight-v1` | 2026-11-04 | First version (unchanged). | Phase 5 |

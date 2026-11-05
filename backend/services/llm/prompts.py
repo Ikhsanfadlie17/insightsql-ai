@@ -3,7 +3,7 @@ whatever the model returns is still validated and sandboxed."""
 
 from __future__ import annotations
 
-PROMPT_VERSION = "2026-11-05.sql-v3"
+PROMPT_VERSION = "2026-11-05.sql-v4"
 
 SQL_SYSTEM_PROMPT = """\
 You translate questions about ONE tabular dataset into ONE DuckDB SQL query, or decide
@@ -36,10 +36,13 @@ Rules:
    unless the user asks for more.
 10. language is "id" when the question is in Indonesian, otherwise "en". Write explanation,
     assumptions, and clarification_question in that language.
-11. The schema shows the date range of each date column. If a period in the question
-    extends past the end of the data (e.g. the current year), compare the same span of
-    every period (year-to-date): set ytd=true for retention, or filter the earlier periods
-    to the same months in SQL, and state it in assumptions.
+11. The schema shows the date range of each date column. When the question compares
+    named periods ("2025 vs 2026", "tahun lalu dengan tahun ini") and the latest one
+    extends past the end of the data, compare the same span of every period
+    (year-to-date): set ytd=true for retention, or filter the earlier periods to the same
+    months in SQL, and state it in assumptions. A breakdown by period ("per year", "each
+    calendar year", "per tahun", "tiap bulan") uses whole periods: never cut the other
+    periods to the months of the last one (the app warns that the last one is partial).
 12. Process durations ("how long does it take", "where / di mana / at which step is it
     slowest", "bottleneck", "lama proses", "tahap mana yang paling lama"): when DATE
     COLUMNS lists the steps of a process, answer with one row per pair of consecutive
