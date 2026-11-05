@@ -151,3 +151,4 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   angka/tanggal "auto" (bukan pilihan di form); inspect Excel masih ±2× biaya sebelum
   Phase 6 dan workbook 50 MB tidak diukur; PDF memakai font bawaan (karakter non-Latin
   diganti `?`); pembersihan berkala hanya untuk upload mentah, bukan dataset.
+- **Status:** disetujui user 2026-11-05, setelah uji pertama API sungguhan (`gpt-6-luna`) dan perbaikan temuannya (`7d6bf4f`, `3c99c3f`; 877 test lulus, 1 skip).

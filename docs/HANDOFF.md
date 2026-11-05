@@ -14,8 +14,8 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 | 3 Data Intelligence (Task 7–8) | selesai, direview, disetujui user | 290 |
 | 4 Integrasi AI (Task 9–13) | selesai, direview, disetujui user | 558 |
 | 5 Analytics (Task 14–18) | selesai, direview, disetujui user (2026-11-04) | 757 |
-| 6 Product Features (Task 19–21) | selesai, direview (2026-11-05), **menunggu review user** | 862 (+1 skip di Windows) |
-| 7 Quality (evaluasi Text-to-SQL, performa) | belum | — |
+| 6 Product Features (Task 19–21) | selesai, direview, disetujui user (2026-11-05) | 877 (+1 skip di Windows) |
+| 7 Quality (evaluasi Text-to-SQL, performa) | **sedang dikerjakan** (mulai 2026-11-05) | — |
 | 8 Deployment (Docker, README final) | belum | — |
 
 - API OpenAI sungguhan **belum pernah diuji** (jaringan diblokir di lingkungan cloud, belum

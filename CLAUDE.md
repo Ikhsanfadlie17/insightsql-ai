@@ -7,7 +7,7 @@ Melanjutkan di sesi/mesin baru: baca `docs/HANDOFF.md` dulu.
 
 ## Status
 
-**Phase 5 disetujui user. Phase 6 selesai + direview (laporan di `docs/evidence/phase-log.md`); MENUNGGU review user sebelum Phase 7. OpenAI API sungguhan BELUM pernah diuji.**
+**Phase 6 disetujui user (2026-11-05). Phase 7 (Quality) sedang dikerjakan. OpenAI API sungguhan sudah diuji pertama kali dengan `gpt-6-luna` (2026-11-05, `docs/evidence/experiments/2026-11-05-first-real-api.md`); `.env` lokal berisi `OPENAI_MODEL=gpt-6-luna`, saldo user terbatas (±US$2) — hemat panggilan API.**
 Setelah tiap phase: review independen, perbaiki temuan critical/high, lapor, lalu TUNGGU review user. Laporan berisi ringkasan,
 file yang berubah, keputusan arsitektur, hasil test, kegagalan, dan phase berikutnya.
 Jangan mengklaim fitur selesai tanpa implementasi + test.
