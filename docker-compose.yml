@@ -14,7 +14,7 @@ services:
     volumes:
       - insightsql-data:/app/data
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # no login: this machine only (DEPLOYMENT.md section 5)
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
@@ -31,7 +31,7 @@ services:
     environment:
       BACKEND_URL: http://backend:8000
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"  # no login: this machine only (DEPLOYMENT.md section 5)
     depends_on:
       backend:
         condition: service_healthy
@@ -46,3 +46,4 @@ services:
 
 volumes:
   insightsql-data:
+    name: insightsql-data  # a fixed name, so the backup command in DEPLOYMENT.md finds it

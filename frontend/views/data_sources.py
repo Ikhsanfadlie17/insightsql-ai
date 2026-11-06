@@ -104,7 +104,6 @@ def _upload_section(api: ApiClient) -> None:
             )
         else:
             chosen = [None]
-            st.caption(f"{fmt_int(sheets[0]['row_count'])} data rows detected.")
 
         header_row, skip_template_rows = None, True
         if len(chosen) == 1:
@@ -112,6 +111,9 @@ def _upload_section(api: ApiClient) -> None:
                 api, inspection, uploaded.file_id, chosen[0]
             )
             sheets = st.session_state["inspection"]["sheets"]  # may hold a re-read sheet
+        if not is_excel:
+            kept = 0 if skip_template_rows else sheets[0].get("template_rows", 0)
+            st.caption(f"{fmt_int(sheets[0]['row_count'] + kept)} data rows detected.")
 
         name = None
         if len(chosen) == 1:
@@ -205,11 +207,12 @@ def _layout_controls(
             )
         )
         skip = st.checkbox(
-            "Skip empty template rows at the end",
+            "Skip template rows at the end",
             value=True,
             key=f"skip_template::{file_id}::{sheet}",
-            help="Rows at the end that hold only row numbers or formula results (a "
-            "pre-filled template) are not data.",
+            help="Rows at the end that hold only row numbers or the same repeated default "
+            "values (a pre-filled template) are not data. A row with a name, date, or amount "
+            "is always kept.",
         )
     if chosen == detected:
         sheets[index] = original
@@ -218,8 +221,10 @@ def _layout_controls(
             sheets[index] = api.sheet_layout(inspection["upload_id"], sheet, chosen)
         except ApiError as error:
             show_api_error(error)
-    summary = layout_summary(sheets[index])
-    if summary:
+    summary = layout_summary(sheets[index], skip)
+    if summary and sheets[index].get("table_like_rows_above"):
+        summary_slot.warning(summary, icon=":material/warning:")
+    elif summary:
         summary_slot.info(summary, icon=":material/table_view:")
     return (None if chosen == detected else chosen), skip
 
@@ -272,6 +277,9 @@ def _import(
                 f"Imported **{label}** ({fmt_count(record['row_count'])} rows, "
                 f"{fmt_count(record['column_count'])} columns)."
             )
+            layout_caption = import_layout_caption(record.get("layout"))
+            if layout_caption:
+                st.caption(f":material/table_view: {layout_caption}")
         elif record["status"] == "failed":
             st.error(f"**{label}** could not be imported: {md_escape(record['error'])}")
         else:
@@ -349,8 +357,8 @@ def _mapping_tab(
         "These roles tell **Client Analytics** which column identifies a client and when "
         "they bought, so it can count new, returning, and not-returned clients; they also "
         "tell the AI what you mean by *client* or *revenue*. If your data has no such "
-        "column, leave the role on **— Not used —**. Without a client and a date role only "
-        "Client Analytics is unavailable.",
+        "column, leave the role on **— Not used —**. Without a client and a date role, Client "
+        "Analytics and client-retention questions in AI Analyst are unavailable.",
         icon=":material/help:",
     )
     flash_key = f"mapping-confirmed-{dataset_id}"

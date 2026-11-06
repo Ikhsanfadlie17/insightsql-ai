@@ -94,6 +94,25 @@ def test_layout_summary_for_the_import_form() -> None:
     assert layout_summary(plain) is None  # nothing to say for a plain table
     text = layout_summary(sheet)
     assert "row 4" in text and "Daftar hari libur" in text and "320" in text
+    assert "empty" not in text  # these rows hold row numbers or repeated default values
+
+
+def test_layout_summary_counts_what_is_skipped() -> None:
+    from frontend.components.labels import layout_summary
+
+    sheet = {
+        "header_row": 3,
+        "header_detected": True,
+        "ignored_columns": [],
+        "template_rows": 4,
+        "rows_above_header": 2,
+        "table_like_rows_above": 1,
+    }
+
+    text = layout_summary(sheet)
+    assert "2 row(s)" in text and "1 of them" in text and "will be skipped" in text
+    kept = layout_summary(sheet, skip_template_rows=False)
+    assert "will be kept" in kept and "will be skipped" not in kept
 
 
 def test_import_layout_caption_for_a_dataset() -> None:
@@ -120,6 +139,11 @@ def test_import_layout_caption_for_a_dataset() -> None:
         }
     )
     assert "row 4 (chosen)" in text and "320" in text and "Daftar hari libur" in text
+    assert "empty" not in text
+    counted = import_layout_caption(
+        {"header_row": 3, "header_chosen": False, "rows_above_header": 2}
+    )
+    assert "2 row(s) above it skipped" in counted
 
 
 def test_columns_summary() -> None:

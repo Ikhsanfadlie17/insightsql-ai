@@ -97,8 +97,11 @@ def _sniff_delimiter(sample: str) -> str:
 HEADER_SCAN_ROWS = 30  # the header must be within the first 30 rows
 _NUMERIC_LIKE = re.compile(r"^[\d\s.,%+\-/:()]*$")
 _NAMED_DATE_LIKE = re.compile(r"^\d{1,2}[\s/.-]+[A-Za-z]{3,9}\.?[\s/.,-]+\d{4}$")
+_PERIOD_LABEL = re.compile(r"^(19|20)\d{2}$|^\d{4}-\d{2}(-\d{2})?$|^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$")
 _CONTENT_FILL = 0.98  # columns filled in (almost) every row: row numbers, formula defaults
 _MIN_TEMPLATE_BLOCK = 3
+_MAX_NOTE_ROWS = 5  # lone-cell rows allowed below a template block
+_MIN_RUNNING_LABELS = 5  # a header of running numbers: the days of a month, for example
 
 
 @dataclass
@@ -110,7 +113,9 @@ class TableLayout:
     columns: list[int]  # 0-based positions kept, in order
     ignored_columns: list[int] = field(default_factory=list)  # side tables / helper columns
     ignored_column_labels: list[str] = field(default_factory=list)
-    template_rows: int = 0  # trailing rows with only row numbers / formula defaults
+    template_rows: int = 0  # trailing rows with only row numbers / repeated default values
+    rows_above_header: int = 0  # non-empty rows above the header, which are not imported
+    table_like_rows_above: int = 0  # of those, rows about as wide as the header
 
     @property
     def header_row(self) -> int:
@@ -143,9 +148,34 @@ def _is_text_label(value: str) -> bool:
     return bool(value) and not _NUMERIC_LIKE.match(value) and not _NAMED_DATE_LIKE.match(value)
 
 
+def _as_int(value: str) -> int | None:
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    return int(number) if number.is_integer() else None
+
+
+def _has_period_labels(values: list[str]) -> bool:
+    """Text labels next to distinct years, dates, or running numbers: 'Kota, 2023, 2024'.
+
+    Other numbers do not count: 'Total, 100, 200, 300' above a table is a row of values.
+    """
+    labels = [_header_label(v) for v in values]
+    others = [v for v in labels if not _is_text_label(v)]
+    if len(others) < 2 or len(others) == len(labels) or len(set(others)) != len(others):
+        return False
+    if all(_PERIOD_LABEL.match(v) or _NAMED_DATE_LIKE.match(v) for v in others):
+        return True
+    numbers = [_as_int(v) for v in others]
+    if len(numbers) < _MIN_RUNNING_LABELS or None in numbers:  # "A, 1, 2, 3" may well be data
+        return False
+    return all(b == a + 1 for a, b in itertools.pairwise(numbers))
+
+
 def _header_index(cells: list[list[str]]) -> int:
     """First row that looks like a header: at least half as wide as the widest row near
-    the top, and its cells mostly distinct text labels (not numbers or dates)."""
+    the top, and its cells mostly distinct text labels, or labels with periods."""
     window = cells[:HEADER_SCAN_ROWS]
     widest = max((sum(bool(v) for v in row) for row in window), default=0)
     needed = max(2, -(-widest // 2))
@@ -157,7 +187,16 @@ def _header_index(cells: list[list[str]]) -> int:
         # Duplicate headers are allowed ("Nama, Nama, Kota"), so only half must differ.
         if len(text) >= 0.8 * len(values) and len(set(text)) >= 0.5 * len(text):
             return index
+        if _has_period_labels(values):
+            return index
     return 0
+
+
+def _rows_above(cells: list[list[str]], header: int) -> tuple[int, int]:
+    """Non-empty rows above the header, and how many of them are about as wide as it."""
+    widths = [sum(bool(v) for v in row) for row in cells[:header]]
+    needed = max(2, -(-sum(bool(v) for v in cells[header]) // 2))
+    return sum(w > 0 for w in widths), sum(w >= needed for w in widths)
 
 
 def _main_columns(cells: list[list[str]], header: int) -> tuple[list[int], list[int]]:
@@ -190,11 +229,50 @@ _SHEET_ERROR = re.compile(r"^#(REF!|N/A|VALUE!|DIV/0!|NAME\?|NUM!|NULL!|ERROR!|S
 _TEMPLATE_DENSITY = 0.2  # a template row holds at most 20% of what a full row holds
 
 
+def _generated_length(entries: list[tuple[int, str]], size: int) -> int:
+    """How many rows of a block one column allows, given its (position, value) cells with
+    the last sheet row at position 0. Generated values are one value repeated or a running
+    number; a value seen once, or a value that differs, may be real data."""
+    if not entries:
+        return size
+    start, first = entries[0]
+    if len(entries) == 1:
+        return start
+    repeated = next((i for i, (_, v) in enumerate(entries) if v != first), len(entries))
+    base = None if _as_int(first) is None else _as_int(first) + start
+    running = len(entries)
+    for i, (position, value) in enumerate(entries):
+        number = _as_int(value)
+        if base is None or number is None or number + position != base:
+            running = i
+            break
+    valid = max(repeated, running)
+    if valid == len(entries):
+        return size
+    return start if valid < 2 else entries[valid][0]
+
+
+def _generated_block(block: list[list[str]], columns: list[int]) -> int:
+    """Rows of ``block`` (last sheet row first) holding only generated values, in every
+    column. Shortening the block can leave a value seen once, so this repeats until stable."""
+    size = len(block)
+    while size >= _MIN_TEMPLATE_BLOCK:
+        allowed = size
+        for c in columns:
+            cells = [(i, r[c]) for i, r in enumerate(block[:size]) if c < len(r) and r[c]]
+            allowed = min(allowed, _generated_length(cells, size))
+        if allowed == size:
+            return size
+        size = allowed
+    return 0
+
+
 def _template_rows(body: list[list[str]], columns: list[int]) -> int:
-    """Trailing rows that hold far less than a full row: row numbers and formula outputs
-    of a pre-filled template. Columns filled in (almost) every row (row numbers, formula
-    defaults) are not counted; NA markers ("-") and spreadsheet errors (#REF!) are no
-    value. Only a trailing block of at least 3 rows qualifies, and never every row."""
+    """Trailing rows of a pre-filled template: far less filled than a full row, and holding
+    only row numbers and repeated default values. Columns filled in (almost) every row are
+    not counted for the fill; NA markers ("-") and spreadsheet errors (#REF!) are no value.
+    Any differing value (a name, a date, an amount) makes a row data, however sparse it is.
+    Only a trailing block of at least 3 rows qualifies, and never every row."""
     rows = [r for r in body if any(r[c] for c in columns if c < len(r))]
     if len(rows) <= _MIN_TEMPLATE_BLOCK:
         return 0
@@ -216,9 +294,25 @@ def _template_rows(body: list[list[str]], columns: list[int]) -> int:
         if value > limit:
             break
         count += 1
+    tail = cleaned[: -count - 1 : -1] if count else []
+    count = _block_with_notes(tail, columns)
     if count < _MIN_TEMPLATE_BLOCK or count >= len(rows):
         return 0
     return count
+
+
+def _block_with_notes(tail: list[list[str]], columns: list[int]) -> int:
+    """The generated block of ``tail`` (last sheet row first), plus a few lone notes below
+    it: a row with one cell under a proven template block is outside the table."""
+    for notes in range(_MAX_NOTE_ROWS + 1):
+        if notes and sum(bool(v) for v in tail[notes - 1 : notes][0]) != 1:
+            return 0
+        block = _generated_block(tail[notes:], columns)
+        if block:
+            return block + notes
+        if notes == len(tail):
+            return 0
+    return 0
 
 
 def detect_layout(
@@ -238,7 +332,8 @@ def detect_layout(
         for c in ignored
     ]
     templates = _template_rows(cells[header + 1 :], columns) if skip_template_rows else 0
-    return TableLayout(header, chosen, columns, ignored, labels, templates)
+    above, table_like = _rows_above(cells, header)
+    return TableLayout(header, chosen, columns, ignored, labels, templates, above, table_like)
 
 
 def apply_layout(raw: pd.DataFrame, layout: TableLayout) -> pd.DataFrame:
@@ -248,8 +343,10 @@ def apply_layout(raw: pd.DataFrame, layout: TableLayout) -> pd.DataFrame:
         return pd.DataFrame()
     headers = layout_headers(raw, layout)
     body = raw.iloc[layout.header_index + 1 :, layout.columns].copy()
+    # Whitespace counts as empty, as in the layout detection, or the template cut would shift.
+    filled = [any(_cell(v) for v in row) for row in body.itertuples(index=False, name=None)]
+    body = body.loc[pd.Series(filled, index=body.index, dtype=bool)]
     body.columns = headers
-    body = body.dropna(how="all")
     if layout.template_rows:
         body = body.iloc[: len(body) - layout.template_rows]
     return body.reset_index(drop=True)
@@ -288,11 +385,16 @@ def _csv_raw(path: Path, nrows: int | None = None) -> tuple[pd.DataFrame, list[i
     if not sample.strip():
         raise UploadError("The file is empty.")
     text = path.read_bytes().decode(encoding)
-    reader = csv.reader(io.StringIO(text, newline=""), delimiter=_sniff_delimiter(sample))
+    # strict: without it, an unmatched quote silently swallows the rest of the file.
+    reader = csv.reader(
+        io.StringIO(text, newline=""), delimiter=_sniff_delimiter(sample), strict=True
+    )
     try:
         rows = list(itertools.islice(reader, nrows))
     except csv.Error as exc:
-        raise UploadError("The file could not be parsed as a table.") from exc
+        raise UploadError(
+            'The file could not be parsed as a table. Check for a cell with an unmatched quote (").'
+        ) from exc
     lengths = [len(r) for r in rows]
     width = max(lengths, default=0)
     # Only empty cells are missing here; NA markers ("NA", "-", ...) are applied to data
@@ -326,7 +428,7 @@ def _raw_table(
         raise UploadError("The file could not be parsed as a table.") from exc
 
 
-def _sample_rows(max_rows: int | None, header_row: int | None) -> int | None:
+def sample_rows(max_rows: int | None, header_row: int | None) -> int | None:
     """Rows to read for a sample: enough to find the header, plus ``max_rows`` data rows."""
     if max_rows is None:
         return None
@@ -359,7 +461,7 @@ def load_table(
         The table (labels are the raw header cells, possibly repeated or "") and the
         layout that was used.
     """
-    raw, lengths = _raw_table(path, file_type, sheet, _sample_rows(max_rows, header_row))
+    raw, lengths = _raw_table(path, file_type, sheet, sample_rows(max_rows, header_row))
     layout = detect_layout(
         raw,
         header_index=None if header_row is None else header_row - 1,
@@ -392,7 +494,7 @@ def read_layout(
     path: Path, file_type: FileType, sheet: str | None, header_row: int | None = None
 ) -> tuple[list[str], TableLayout]:
     """Header labels as written and the layout, from the first rows only."""
-    raw, _ = _raw_table(path, file_type, sheet, _sample_rows(500, header_row))
+    raw, _ = _raw_table(path, file_type, sheet, sample_rows(500, header_row))
     layout = detect_layout(
         raw,
         header_index=None if header_row is None else header_row - 1,
@@ -420,11 +522,13 @@ def read_csv_cells(path: Path) -> pd.DataFrame:
     return _csv_raw(path)[0]
 
 
-def read_samples(path: Path, file_type: FileType, max_rows: int) -> dict[str | None, pd.DataFrame]:
+def read_samples(
+    path: Path, file_type: FileType, max_rows: int, header_row: int | None = None
+) -> dict[str | None, pd.DataFrame]:
     """The first rows of every sheet (key: sheet name; ``None`` for a CSV), header rows
     included, as text cells with positional columns. Every Excel sheet is parsed once, in
     a single ``read_excel`` call; the caller finds the table with :func:`detect_layout`."""
-    nrows = _sample_rows(max_rows, None)
+    nrows = sample_rows(max_rows, header_row)
     if file_type == "csv":
         return {None: _csv_raw(path, nrows)[0]}
     raws = pd.read_excel(

@@ -52,6 +52,7 @@ from backend.services.file_loader import (
     read_csv_cells,
     read_headers,
     read_samples,
+    sample_rows,
 )
 from backend.services.query_results import rows_to_jsonable
 from backend.services.sql_utils import quote_identifier
@@ -134,13 +135,15 @@ class DatasetService:
         return sheets
 
     @staticmethod
-    def _samples(path: Path, file_type: FileType) -> dict[str | None, pd.DataFrame]:
+    def _samples(
+        path: Path, file_type: FileType, header_row: int | None = None
+    ) -> dict[str | None, pd.DataFrame]:
         """Raw cells for the inspection: the whole CSV (cheap, and it gives exact row
         counts), or the first rows of every Excel sheet (one pass over the workbook)."""
         try:
             if file_type == "csv":
                 return {None: read_csv_cells(path)}
-            return read_samples(path, file_type, INSPECT_SAMPLE_ROWS)
+            return read_samples(path, file_type, INSPECT_SAMPLE_ROWS, header_row)
         except UploadError:
             return {}  # e.g. an empty file: the import reports it
         except Exception:
@@ -158,7 +161,8 @@ class DatasetService:
         """Fill in where the table is (smart import), its headers, and type hints."""
         if raw is None or raw.empty:
             return
-        complete = file_type == "csv"  # the whole CSV was read; Excel is a sample
+        # The whole CSV was read; an Excel read is complete when it ended before the limit.
+        complete = file_type == "csv" or len(raw) < sample_rows(INSPECT_SAMPLE_ROWS, header_row)
         layout = detect_layout(
             raw,
             header_index=None if header_row is None else header_row - 1,
@@ -169,6 +173,8 @@ class DatasetService:
         sheet.header_detected = not layout.chosen
         sheet.ignored_columns = layout.ignored_column_labels
         sheet.template_rows = layout.template_rows
+        sheet.rows_above_header = layout.rows_above_header
+        sheet.table_like_rows_above = layout.table_like_rows_above
         table = apply_layout(raw, layout)
         if file_type == "csv":
             table = blank_na(table).dropna(how="all")
@@ -192,8 +198,10 @@ class DatasetService:
             name = None
             lines = [line for line in path.read_bytes().splitlines() if line.strip()]
             info = SheetInfo(name=path.stem, row_count=max(len(lines) - 1, 0))
-        samples = self._samples(path, file_type)
-        self._describe(info, samples.get(name), file_type, header_row)
+        raw = self._samples(path, file_type, header_row).get(name)
+        if raw is not None and header_row > len(raw):
+            raise ValidationError(f"Row {header_row} is past the end of this sheet.")
+        self._describe(info, raw, file_type, header_row)
         return info
 
     @staticmethod
@@ -340,6 +348,8 @@ class DatasetService:
                     header_chosen=layout.chosen,
                     ignored_columns=layout.ignored_column_labels,
                     template_rows_skipped=layout.template_rows,
+                    rows_above_header=layout.rows_above_header,
+                    table_like_rows_above=layout.table_like_rows_above,
                 ),
             )
             names = normalize_columns([str(c) for c in frame.columns])

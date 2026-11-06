@@ -36,7 +36,9 @@ class SheetInfo(BaseModel):
     header_row: int = 1  # 1-based
     header_detected: bool = True  # False when the user chose the header row
     ignored_columns: list[str] = Field(default_factory=list)  # side tables / helper columns
-    template_rows: int = 0  # trailing template rows the import will skip (CSV)
+    template_rows: int = 0  # trailing template rows the import will skip (whole sheet read)
+    rows_above_header: int = 0  # non-empty rows above the header, not imported
+    table_like_rows_above: int = 0  # of those, rows about as wide as the header
 
 
 class UploadInspection(BaseModel):
@@ -55,6 +57,8 @@ class ImportLayout(BaseModel):
     header_chosen: bool  # True when the user picked it, False when detected
     ignored_columns: list[str] = Field(default_factory=list)
     template_rows_skipped: int = 0
+    rows_above_header: int = 0
+    table_like_rows_above: int = 0
 
 
 class DatasetRecord(BaseModel):

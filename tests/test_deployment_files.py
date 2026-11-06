@@ -30,6 +30,7 @@ def test_multi_stage_python_313_slim_non_root() -> None:
 def test_secrets_and_local_data_never_reach_the_image() -> None:
     for pattern in (".env", ".env.*", ".venv/", "data/", ".git/", "*.duckdb", ".claude/"):
         assert pattern in IGNORE, pattern
+    assert ".streamlit/secrets.toml" in IGNORE  # the Dockerfile copies .streamlit/
     assert "!.env.example" in IGNORE
     copied = re.findall(r"^COPY (?!--from)(.+?) \S+$", _final_stage(), re.MULTILINE)
     assert not any(".env " in f"{c} " or c.startswith("data") for c in copied)
@@ -38,10 +39,12 @@ def test_secrets_and_local_data_never_reach_the_image() -> None:
 def test_compose_services_ports_volume_and_healthchecks() -> None:
     services = COMPOSE["services"]
     assert set(services) == {"backend", "frontend"}
-    assert services["backend"]["ports"] == ["8000:8000"]
-    assert services["frontend"]["ports"] == ["8501:8501"]
+    # The app has no login, so nothing is published beyond this machine by default.
+    assert services["backend"]["ports"] == ["127.0.0.1:8000:8000"]
+    assert services["frontend"]["ports"] == ["127.0.0.1:8501:8501"]
     assert "insightsql-data:/app/data" in services["backend"]["volumes"]
-    assert "insightsql-data" in COMPOSE["volumes"]
+    # A fixed name: Compose would otherwise prefix it and the documented backup finds nothing.
+    assert COMPOSE["volumes"]["insightsql-data"]["name"] == "insightsql-data"
     assert services["frontend"]["environment"]["BACKEND_URL"] == "http://backend:8000"
     assert services["frontend"]["depends_on"]["backend"]["condition"] == "service_healthy"
     for name, path in (("backend", "/health"), ("frontend", "/_stcore/health")):
@@ -53,7 +56,7 @@ def test_env_file_is_optional_and_holds_the_secrets() -> None:
     env_file = COMPOSE["services"]["backend"]["env_file"]
     assert env_file == [{"path": ".env", "required": False}]
     assert "OPENAI_API_KEY" not in str(COMPOSE)  # never written into the compose file
-    assert "frontend" not in str(COMPOSE["services"]["frontend"].get("env_file", ""))
+    assert "env_file" not in COMPOSE["services"]["frontend"]  # the frontend holds no secrets
 
 
 def test_files_copied_into_the_image_exist() -> None:

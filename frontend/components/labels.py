@@ -73,16 +73,35 @@ def _ignored_text(columns: list[str]) -> str:
     return f"{len(columns)} column(s) beside the table ignored ({shown}{more})"
 
 
-def layout_summary(sheet: dict[str, Any]) -> str | None:
+_TEMPLATE_ROWS = (
+    "template row(s) at the end, holding only row numbers, repeated default values, or a "
+    "lone note below them,"
+)
+
+
+def _rows_above_text(above: int, table_like: int) -> str:
+    if not above:
+        return "nothing above it"
+    text = f"{above:,} row(s) above it skipped"
+    if table_like:
+        text += f", {table_like:,} of them as wide as the table: check that this is the header"
+    return text
+
+
+def layout_summary(sheet: dict[str, Any], skip_template_rows: bool = True) -> str | None:
     """What smart import found in an uploaded sheet; None for a plain table."""
     parts = []
     if sheet.get("header_row", 1) != 1:
         how = "found" if sheet.get("header_detected", True) else "chosen"
-        parts.append(f"Header {how} in row {sheet['header_row']} (rows above it are skipped)")
+        above = _rows_above_text(
+            sheet.get("rows_above_header", 0), sheet.get("table_like_rows_above", 0)
+        )
+        parts.append(f"Header {how} in row {sheet['header_row']} ({above})")
     if sheet.get("ignored_columns"):
         parts.append(_ignored_text(sheet["ignored_columns"]))
     if sheet.get("template_rows"):
-        parts.append(f"{sheet['template_rows']:,} empty template row(s) at the end will be skipped")
+        action = "skipped" if skip_template_rows else "kept"
+        parts.append(f"{sheet['template_rows']:,} {_TEMPLATE_ROWS} will be {action}")
     return " · ".join(parts) if parts else None
 
 
@@ -100,10 +119,14 @@ def import_layout_caption(layout: dict[str, Any] | None) -> str | None:
         return None
     how = "chosen" if layout.get("header_chosen") else "detected"
     parts = [f"Header row {layout['header_row']} ({how})"]
+    if layout.get("rows_above_header"):
+        parts.append(
+            _rows_above_text(layout["rows_above_header"], layout.get("table_like_rows_above", 0))
+        )
     if layout.get("ignored_columns"):
         parts.append(_ignored_text(layout["ignored_columns"]))
     if layout.get("template_rows_skipped"):
-        parts.append(f"{layout['template_rows_skipped']:,} empty template row(s) skipped")
+        parts.append(f"{layout['template_rows_skipped']:,} {_TEMPLATE_ROWS} skipped")
     return " · ".join(parts)
 
 
