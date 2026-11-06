@@ -9,7 +9,7 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 ## Phase 1 — Desain
 
 - **Tujuan:** memahami PRD, merancang arsitektur dan rencana kerja sebelum menulis kode.
-- **Commit:** `ec77482`..`5d7a1b2`.
+- **Commit:** `f309a7f`..`c78b3b5`.
 - **Hasil:** `docs/ARCHITECTURE.md` (arsitektur, aliran data, model keamanan, definisi
   retensi), rencana 26 task dalam Phase 2–8. Keputusan dengan user: eksekusi native,
   review independen tiap akhir fase, kategori Reactivated & Between-period, Existing Active
@@ -22,9 +22,9 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 
 - **Tujuan:** skeleton FastAPI/Streamlit, dataset sampel, upload → normalisasi → inferensi
   tipe → DuckDB, metadata SQLite, halaman Data Sources.
-- **Commit:** `df1581e`..`71b2b81`.
+- **Commit:** `56fb119`..`42af073`.
 - **Test:** 149 lulus, 0 gagal (akhir fase, setelah perbaikan review).
-- **Review independen:** perbaikan H1–H4, M2, M3, M5, L1, L2, L6 (commit `65d0a67`),
+- **Review independen:** perbaikan H1–H4, M2, M3, M5, L1, L2, L6 (commit `b6db97a`),
   antara lain presisi integer besar, desimal Excel terbaca sebagai ribuan, batas UTF-8 pada
   sampel, crash Overview. Follow-up yang diterima: M1, M4, L4, L5, L7 (lihat plan).
 - **Masalah teknis tercatat:** folder `pages/` membuat Streamlit menjalankan halaman secara
@@ -36,10 +36,10 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 
 - **Tujuan:** profiling di DuckDB, saran peran kolom, mapping yang dikonfirmasi user,
   opsi format angka/urutan tanggal, catatan per kolom (tidak ada perubahan diam-diam).
-- **Commit:** `8e21831`..`49c3080`.
+- **Commit:** `a70ba7c`..`ea14b23`.
 - **Test:** 290 lulus, 0 gagal.
 - **Review independen:** 0 Critical, 2 High, 3 Medium, 10 Low — semua High/Medium dan
-  10 Low diperbaiki (commit `4e39a8d`). Contoh: ID/NIK berspasi kehilangan nol di depan;
+  10 Low diperbaiki (commit `e4cabef`). Contoh: ID/NIK berspasi kehilangan nol di depan;
   ID numerik terkonversi; format `1.500`/`1,500` campuran; mata uang campuran; `Rp …,-`.
 - **Diterima:** duplikat dihitung setelah konversi tipe (L1 sebagian); `Rp 0123` → 123;
   ganti format angka = import ulang.
@@ -48,7 +48,7 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 
 - **Tujuan:** validator SQL (SQLGlot), executor sandbox, klien LLM + pencatatan biaya,
   konteks skema yang aman privasi, pipeline Text-to-SQL dengan repair terbatas.
-- **Commit:** `2de41c3`..`6afcea3`.
+- **Commit:** `4b83e1b`..`4595278`.
 - **Test:** 558 lulus, 0 gagal. Korpus serangan: 102 kasus SQL berbahaya, semuanya ditolak
   dengan aturan yang diharapkan (`tests/security/`). `LLM: mock`.
 - **Review independen (fokus keamanan SQL):** 0 Critical, 3 High, 4 Medium, ~9 Low.
@@ -64,7 +64,7 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 
 - **Tujuan:** retensi klien deterministik (fokus utama: kebenaran angka), dashboard Client
   Analytics, visualisasi, insight yang terverifikasi, AI Analyst end-to-end.
-- **Commit:** `4975caf`..(akhir fase, lihat git log).
+- **Commit:** `ebe187c`..(akhir fase, lihat git log).
 - **Komponen baru:** `analytics_service.py` (template SQL tetap → validator → worker
   sandbox, cache per dataset+mapping), `visualization_service.py`, `insight_generator.py`,
   `analysis_orchestrator.py`, `history_repo.py`, API `client-analytics/*`, `/analyses/ask`,
@@ -112,8 +112,8 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 - **Tanggal:** 2026-11-04 (Task 19–20) dan 2026-11-05 (Task 21, review), Windows lokal.
 - **Tujuan:** riwayat & manajemen percakapan, export, halaman Settings, manajemen dataset,
   penyempurnaan UI.
-- **Commit:** `dff19dd` (Task 19), `f7554f6` (Task 20), `2c3bcec` + `df17da2` (Task 21),
-  `090bacc` (perbaikan review).
+- **Commit:** `32dfc38` (Task 19), `9eebab7` (Task 20), `285234b` + `f2951cf` (Task 21),
+  `a09739f` (perbaikan review).
 - **Komponen baru:** `api/conversations.py` (`GET /conversations`, `GET/DELETE
   /conversations/{id}`, `GET /analyses/recent`), `export_service.py` + `api/exports.py`
   (CSV/Excel/PDF/SQL), `api/settings.py` (`GET /settings`), halaman Query History & Settings,
@@ -151,15 +151,15 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   angka/tanggal "auto" (bukan pilihan di form); inspect Excel masih ±2× biaya sebelum
   Phase 6 dan workbook 50 MB tidak diukur; PDF memakai font bawaan (karakter non-Latin
   diganti `?`); pembersihan berkala hanya untuk upload mentah, bukan dataset.
-- **Status:** disetujui user 2026-11-05, setelah uji pertama API sungguhan (`gpt-6-luna`) dan perbaikan temuannya (`7d6bf4f`, `3c99c3f`; 877 test lulus, 1 skip).
+- **Status:** disetujui user 2026-11-05, setelah uji pertama API sungguhan (`gpt-6-luna`) dan perbaikan temuannya (`fd6d0df`, `eca2a23`; 877 test lulus, 1 skip).
 
 
 ## Phase 7 — Quality (Task 22–24)
 
 - **Tanggal:** 2026-11-05, Windows lokal. **LLM:** real (gpt-6-luna, 2026-11-05) untuk
   benchmark; mock untuk integration test; none untuk performa & keamanan.
-- **Commit:** `231c1f0` (Task 22), `de6db38` (Task 23 kode), `f5e44dd` (Task 24 + redaksi),
-  `86a21a8` (hasil run 1), `638f484` (perbaikan review), commit dokumen fase ini.
+- **Commit:** `e0fb259` (Task 22), `a3f4c10` (Task 23 kode), `7afb751` (Task 24 + redaksi),
+  `010c8f5` (hasil run 1), `2e02fa9` (perbaikan review), commit dokumen fase ini.
 - **Komponen baru:** `tests/integration/test_end_to_end.py`; `eval/questions.yaml` (50 soal,
   10 kategori × 5, 30 Indonesia), `eval/run_eval.py`, `eval/regrade.py`, `tests/eval/`;
   `tests/security/test_api_security.py` (sapu semua 29 operasi OpenAPI),
@@ -203,9 +203,9 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
 - **Tanggal:** 2026-11-05 s.d. 2026-11-06, Windows lokal. **LLM:** none untuk perbaikan review
   dan performa; mock (`fake_llm_app.py`) untuk e2e; real (gpt-6-luna, 2026-11-05) untuk run 3
   dan 4 benchmark.
-- **Commit:** `14b23b1` (Docker), `3d0e5ef` (dokumentasi), `442fa83` (tanggal bernama bulan),
-  `5d31ef3` (import pintar), `78a18c0` (durasi tahap, role opsional), `35d3a47` (prompt v4),
-  `7c9c189` + `b354ebb` (run 3 dan 4). Perbaikan review 2026-11-06: branch `phase8-review-fixes`.
+- **Commit:** `f84fa77` (Docker), `ca5d7ce` (dokumentasi), `47c1175` (tanggal bernama bulan),
+  `82ec182` (import pintar), `d7776d1` (durasi tahap, role opsional), `37ff671` (prompt v4),
+  `e4f4483` + `9fcdeea` (run 3 dan 4), `b4981f2` + `b51cd66` (perbaikan review 2026-11-06).
 - **Review independen:** 1 Critical, 2 High, 10 Medium, 11 Low. Prinsip keamanan PRD terjaga,
   kecuali A2 dan L1 di bawah. Tidak ada data pribadi yang ter-commit.
   | Temuan | Sebelum | Sesudah |
@@ -228,8 +228,10 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   berarti biaya benchmark), L3 (teks tanpa role; belum terkonfirmasi).
 - **L11, dibersihkan 2026-11-06 atas permintaan user:** nama instansi, nama kolom, dan angka
   dari file kerja dihapus dari dokumen, fixture test, dan satu contoh di teks prompt untuk
-  dataset tanpa mapping (bagian yang tidak diuji benchmark). Teks lamanya masih ada di riwayat
-  commit lokal, termasuk tiga pesan commit, dan perlu ditulis ulang sebelum push publik.
+  dataset tanpa mapping (bagian yang tidak diuji benchmark). Riwayat commit juga ditulis ulang
+  dan di-force push hari itu, atas permintaan user: semua commit atas nama user, atribusi Claude
+  dan jejak data kerja dihapus. Semua hash berubah; rujukan hash di dokumen dan di
+  `eval/results/` diperbarui, tanpa mengubah nilai ukur.
 - **Batas perbaikan A1 dan A2:** baris berisi nilai yang sama persis dan nomor urut masih
   dianggap template; tiga baris atau lebih dengan nama klien sama di ekor sheet bisa terkena,
   jumlahnya dilaporkan dan bisa dimatikan. Baris data yang mirip header masih bisa terpilih

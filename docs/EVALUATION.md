@@ -2,7 +2,9 @@
 
 Measured results only. Every number below is copied from a file in this repository (the
 file is named next to it); nothing is estimated or projected. Targets are from PRD §9.
-Read §4 "Limitations" before quoting any figure.
+Read §4 "Limitations" before quoting any figure. The repository history was rewritten on
+2026-11-06; commit hashes here and in `eval/results/` were updated to match, and no measured
+value changed.
 
 ## 1. Text-to-SQL benchmark (PRD §9, plan Task 23)
 
@@ -24,7 +26,7 @@ run each, Windows 11 laptop on a home connection; run 3 with prompt v3 follows b
 | | Run 1 | Run 2 (reported result) |
 |---|---|---|
 | Result file | `eval/results/20261105T030657Z` | `eval/results/20261105T033221Z` |
-| Code / question file | `de6db38` / v1 | `638f484` (clean tree) / v2 |
+| Code / question file | `a3f4c10` / v1 | `2e02fa9` (clean tree) / v2 |
 | Grader | first version; re-graded with the final grader: 0 grades changed (`eval/regrade.py`) | final (after the Phase 7 review) |
 
 | Metric (PRD §9) | Target | Run 1 | Run 2 |
@@ -68,7 +70,7 @@ off-topic question, and an update request were all refused before any SQL ran.
 **Run 3 — prompt v3 (`eval/results/20261105T081912Z`).** SQL prompt
 `2026-11-05.sql-v3` (process-duration rule 12, date columns in file order, unmapped datasets
 may use clearly named columns — changes made for a real user's questions, not for this set),
-code `78a18c0`, question file v2, final grader, gpt-6-luna:
+code `d7776d1`, question file v2, final grader, gpt-6-luna:
 
 | Metric | Run 3 |
 |---|---|
@@ -90,7 +92,7 @@ behaviour varies between runs, so rule 11 needed a narrower wording.
 `2026-11-05.sql-v4` narrows rule 11: the same span (year-to-date) only when named periods are
 compared; breakdowns per period use whole periods. **This change was made after seeing
 cpx-04 and dat-02 fail**, so those two questions are no longer unseen for this prompt; the
-score without them is given too. Code `35d3a47`, question file v2, final grader,
+score without them is given too. Code `37ff671`, question file v2, final grader,
 gpt-6-luna, one run:
 
 | Metric | Run 4 |

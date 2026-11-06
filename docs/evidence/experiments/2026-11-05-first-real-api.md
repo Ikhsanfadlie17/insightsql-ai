@@ -1,6 +1,6 @@
 # First run against the real OpenAI API
 
-- **Date:** 2026-11-05 · **LLM: real (gpt-6-luna, 2026-11-05)** · **Commit:** `f927d52`
+- **Date:** 2026-11-05 · **LLM: real (gpt-6-luna, 2026-11-05)** · **Commit:** `bfae325`
 - **Setup:** the user's local Windows run (`uvicorn backend.main:app --port 8000` +
   Streamlit), `OPENAI_MODEL=gpt-6-luna`, `LLM_MAX_OUTPUT_TOKENS=6000` (reasoning tokens
   count toward the cap), default reasoning effort, prices from the OpenAI pricing page in
@@ -44,7 +44,7 @@
 
 Not observed: refusals, cut-off answers, invalid structured output, retries, rate limits.
 
-## Rerun after the fixes (same day, same model; commits `7d6bf4f` and the follow-up)
+## Rerun after the fixes (same day, same model; commits `fd6d0df` and the follow-up)
 
 Fixes: years from the question / SQL filter and dates from engine notes may be named in the
 explanation; a `partial_period` warning (also passed to the explanation) when a result

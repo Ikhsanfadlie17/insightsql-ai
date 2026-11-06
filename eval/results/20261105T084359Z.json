@@ -5,7 +5,7 @@
     "model": "gpt-6-luna",
     "insight_model": "gpt-6-luna",
     "prompt_version": "2026-11-05.sql-v4",
-    "commit": "35d3a47",
+    "commit": "37ff671",
     "dirty": false,
     "questions_file": "eval\\questions.yaml"
   },

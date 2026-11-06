@@ -13,7 +13,7 @@
 
 | | Run 1 | Run 2 |
 |---|---|---|
-| Code · question file · grader | `de6db38` · v1 · first version | `638f484` · v2 · after the Phase 7 review |
+| Code · question file · grader | `a3f4c10` · v1 · first version | `2e02fa9` · v2 · after the Phase 7 review |
 | Correct, data questions | 39/40 (cpx-04 wrong) | 39/40 (new-05 not answered: clarification) |
 | Correct, clarify/reject | 10/10 | 10/10 |
 | SQL success after repair / first attempt | 30/30 / 29/30 | 30/30 / 29/30 |

@@ -13,7 +13,7 @@
   rows below. Dates were written with month names in three styles (`22/Jan/2025`,
   `22 Dec 2025`, `10-Feb-2025`), and amounts with thousands separators.
 
-| Step | Before (commit `2b48d76`) | After (`442fa83` month names, smart import commit) |
+| Step | Before (commit `4933c2d`) | After (`47c1175` month names, smart import commit) |
 |---|---|---|
 | Import as downloaded | "ready", but columns named `column_1…`, template rows counted as data, warning "Most columns have no header" | header found, named columns, side columns and template rows skipped |
 | Dates | all stayed **text, without any note** → "no date column", no period analysis | all converted, no failures |

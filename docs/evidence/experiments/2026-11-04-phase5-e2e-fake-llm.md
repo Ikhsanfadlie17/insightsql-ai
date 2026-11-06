@@ -1,6 +1,6 @@
 # Phase 5 — end-to-end run with the real backend and a scripted fake LLM
 
-- **Date:** 2026-11-04 · **Commits tested:** `1fe5e2f`/`38ca2d2`, re-run after the review fixes · **LLM: mock** (scripted
+- **Date:** 2026-11-04 · **Commits tested:** `4938f00`/`dbc31d5`, re-run after the review fixes · **LLM: mock** (scripted
   fake in `scripts/e2e/fake_llm_app.py`; OpenAI was never contacted)
 - **What is real:** Streamlit UI, FastAPI, SQL validator, sandboxed DuckDB worker, analytics
   templates, insight verification, SQLite history, usage records.

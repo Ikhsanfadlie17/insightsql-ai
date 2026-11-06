@@ -1,6 +1,6 @@
 # Phase 5 — independent recomputation of client-retention metrics
 
-- **Date:** 2026-11-04 · **Commit tested:** `38ca2d2` · **LLM:** none (deterministic)
+- **Date:** 2026-11-04 · **Commit tested:** `dbc31d5` · **LLM:** none (deterministic)
 - **Question:** do the analytics SQL templates produce the same numbers as an independent
   calculation from the raw file?
 - **Data:** `sample_data/client_services.csv` (synthetic; 795 rows, 150 client IDs,

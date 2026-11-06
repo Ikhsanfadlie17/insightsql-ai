@@ -5,7 +5,7 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 `docs/ARCHITECTURE.md`, `docs/plans/2026-11-04-insightsql-implementation-plan.md`,
 `docs/evidence/`.
 
-## 1. Status per 2026-11-04 (commit `3032c65` di `main`)
+## 1. Status per 2026-11-04 (commit `ac293fe` di `main`)
 
 | Fase | Status | Test (akhir fase) |
 |---|---|---|
@@ -80,7 +80,7 @@ Sesi 2026-11-05 (Windows lokal) — Task 21 sebagian besar selesai (full pytest 
 
 Sesi 2026-11-05 lanjutan: L5 (envelope error), M4 (cleanup berkala), polish UI +
 screenshot enam halaman (`scripts/e2e/all_pages.js`), review independen (0 Critical,
-1 High, 4 Low — semua diperbaiki, `090bacc`). Laporan: `docs/evidence/phase-log.md`
+1 High, 4 Low — semua diperbaiki, `a09739f`). Laporan: `docs/evidence/phase-log.md`
 bagian Phase 6. **Berikutnya: tunggu review user, lalu Phase 7** (Task 22 integration test,
 Task 23 benchmark Text-to-SQL — butuh API key + `OPENAI_MODEL` + jaringan, Task 24
 keamanan & performa 300k baris).
@@ -97,8 +97,8 @@ benchmark penuh hanya bila perlu (`python -m eval.run_eval --only ...` untuk sub
 
 ## 3c. Phase 8 (sesi 2026-11-05, terhenti karena batas pemakaian)
 
-Selesai dan di-commit: Task 25 Docker (`14b23b1`; build image BELUM diverifikasi karena
-Docker/WSL tidak terpasang — lihat DEPLOYMENT.md §3), Task 26 dokumentasi (`3d0e5ef`:
+Selesai dan di-commit: Task 25 Docker (`f84fa77`; build image BELUM diverifikasi karena
+Docker/WSL tidak terpasang — lihat DEPLOYMENT.md §3), Task 26 dokumentasi (`ca5d7ce`:
 README, ARCHITECTURE as-built, DATABASE, PROMPTS, DEPLOYMENT, screenshot, tests/test_docs.py).
 Semua perintah README terverifikasi di clone bersih kecuali Docker (995 test lulus).
 **Sisa:** review independen Phase 8 + checklist PRD §12 (review sempat dimulai lalu
@@ -108,12 +108,19 @@ dihentikan, belum ada hasil — jalankan ulang), perbaiki temuan, laporan Phase 
 ## 3f. Status 2026-11-06
 
 Review independen Phase 8 selesai; temuan Critical/High dan sebagian Medium/Low sudah
-diperbaiki di branch `phase8-review-fixes` (belum digabung ke `main`). Laporan: `phase-log.md` bagian Phase 8, termasuk daftar
-temuan yang ditunda (M1–M5, M10, L1, L3). **Riwayat commit lokal masih memuat jejak data
-kerja (lihat L11 di `phase-log.md`): tulis ulang sebelum push publik.** Dataset uji dari file kerja di app lokal sudah dihapus atas
-permintaan user. **Jangan memakai data kerja user untuk pengujian**: pakai data dummy atau
-dataset publik (mis. Kaggle). Berikutnya: tunggu review user. Butir 1 dan dataset lama di butir 4 pada §3e
+diperbaiki dan sudah ada di `main`. Laporan: `phase-log.md` bagian Phase 8, termasuk daftar
+temuan yang ditunda (M1–M5, M10, L1, L3). Dataset uji dari file kerja di app lokal sudah
+dihapus atas permintaan user. Berikutnya: tunggu review user. Butir 1 dan butir 4 pada §3e
 sudah selesai.
+
+**Riwayat ditulis ulang dan di-force push 2026-11-06** atas permintaan user: semua commit atas
+nama user, atribusi Claude dan jejak data kerja dihapus. Semua hash berubah, dan rujukan hash di
+dokumen sudah diperbarui. Clone lama harus diambil ulang. Semua commit sudah ada di GitHub.
+
+Aturan dari user:
+- **Jangan memakai data kerja user untuk pengujian**: pakai data dummy atau dataset publik
+  (mis. Kaggle).
+- **Jangan menambahkan atribusi Claude** di commit atau pull request.
 
 ## 3e. Lanjut besok (ditutup 2026-11-05 sore)
 
@@ -132,7 +139,7 @@ sudah selesai.
 
 User mencoba file Google Sheets asli (data kerja; berisi data pribadi, TIDAK
 masuk repo). Ditemukan dan diperbaiki: tanggal bernama bulan tidak terbaca tanpa peringatan
-(`442fa83`), dan sheet bertata letak "untuk manusia" (judul di atas header, tabel samping,
+(`47c1175`), dan sheet bertata letak "untuk manusia" (judul di atas header, tabel samping,
 baris template) tidak bisa diimpor tanpa dirapikan → **import pintar** (deteksi baris
 header yang bisa dikoreksi, tabel utama, baris template; dilaporkan di form & detail
 dataset). Bukti: `docs/evidence/experiments/2026-11-05-first-real-file.md`. Fitur ini perlu

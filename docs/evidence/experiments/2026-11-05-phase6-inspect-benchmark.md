@@ -8,12 +8,12 @@
   write-only). One run per version; not a benchmark, only an order-of-magnitude check.
 - **Command:** a throwaway script that times `list_sheets(path)` (the inspection cost before
   Phase 6) and `DatasetService.inspect_upload(...)`; the old version was run from a
-  temporary `git worktree` of `df17da2`, the new one from `090bacc`.
+  temporary `git worktree` of `f2951cf`, the new one from `a09739f`.
 
 | Version | `list_sheets` only | full inspection | detected types (sheet 1) |
 |---|---|---|---|
-| `df17da2` (before fix) | 2.1 s | 20.9 s | ID Klien text, Tanggal date, Nilai numeric, others text |
-| `090bacc` (after fix) | 1.9 s | 4.3 s | identical |
+| `f2951cf` (before fix) | 2.1 s | 20.9 s | ID Klien text, Tanggal date, Nilai numeric, others text |
+| `a09739f` (after fix) | 1.9 s | 4.3 s | identical |
 
 The fix samples every sheet with one `pandas.read_excel(sheet_name=None, nrows=501)` call.
 Inspection is still about 2× the pre-Phase-6 cost because calamine parses each sheet in full

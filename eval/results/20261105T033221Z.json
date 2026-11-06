@@ -5,7 +5,7 @@
     "model": "gpt-6-luna",
     "insight_model": "gpt-6-luna",
     "prompt_version": "2026-11-05.sql-v2",
-    "commit": "638f484",
+    "commit": "2e02fa9",
     "dirty": false,
     "questions_file": "eval\\questions.yaml",
     "summary_note": "Summary recomputed on 2026-11-05 from the stored records: data questions answered with a clarification are listed separately instead of being counted as model-SQL answers. Grades unchanged."

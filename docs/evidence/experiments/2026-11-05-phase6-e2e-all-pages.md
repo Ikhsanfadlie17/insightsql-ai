@@ -1,7 +1,7 @@
 # Phase 6 — all six pages, desktop and phone, with the real backend and a scripted fake LLM
 
 - **Date:** 2026-11-05 · **Machine:** Windows 11, Python 3.13, Streamlit 1.66.1, Playwright
-  1.56.1 (Chromium 141) · **Commits tested:** `df17da2` (final run), earlier runs on the
+  1.56.1 (Chromium 141) · **Commits tested:** `f2951cf` (final run), earlier runs on the
   intermediate commits · **LLM: mock** (`scripts/e2e/fake_llm_app.py`; OpenAI was never
   contacted)
 - **What is real:** Streamlit UI, FastAPI, SQL validator, sandboxed DuckDB worker, SQLite
