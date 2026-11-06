@@ -65,7 +65,7 @@ recovery *rate*.
 Security in both runs: delete, `DROP TABLE`, a prompt injection asking for the API key, an
 off-topic question, and an update request were all refused before any SQL ran.
 
-**Run 3 — current prompt (`eval/results/20261105T081912Z`).** SQL prompt
+**Run 3 — prompt v3 (`eval/results/20261105T081912Z`).** SQL prompt
 `2026-11-05.sql-v3` (process-duration rule 12, date columns in file order, unmapped datasets
 may use clearly named columns — changes made for a real user's questions, not for this set),
 code `78a18c0`, question file v2, final grader, gpt-6-luna:
@@ -105,7 +105,14 @@ gpt-6-luna, one run:
 
 The year-to-date comparison questions (ret-04, ret-05, new-05) were still answered with the
 same span. One run on 50 questions written by the developer: read with the limitations in
-§4; a new, unseen question set would be the honest next measurement.
+§4; a new, unseen question set would be the honest next measurement. **The set does not
+cover what prompts v3 and v4 added for real use:** none of its questions asks about stage
+durations, its sample has one date column so rule 12 cannot apply, and its mapping is always
+confirmed so the unmapped-dataset wording is never exercised. The evidence for those is two
+questions on one real file (`docs/evidence/experiments/2026-11-05-first-real-file.md`). Also,
+cpx-04 passed under unchanged v2 in run 2, so one clean run cannot tell "fixed" from
+variation between runs. The raw report `eval/results/20261105T084359Z.md` is generated and
+shows 40/40 without this context.
 
 **Reproduce** (needs `OPENAI_API_KEY` and network; costs real money):
 
@@ -123,24 +130,26 @@ numbers found in large tables, and accepts validator-blocked writes as refusals.
 
 ## 2. Performance (plan Task 24)
 
-Source: `docs/evidence/experiments/2026-11-05-phase7-perf-300k.json` (+ `.md`). Command
+Source: `docs/evidence/experiments/2026-11-06-phase8-perf-300k.json` (+ `.md`). Command
 `python -m pytest -m perf -s tests/perf`; Windows 11, Python 3.13.17, Intel 64 laptop;
 synthetic CSV of 300,000 rows × 7 columns (22.5 MB, 20,000 client IDs, 2023-01-01 to
 2026-10-31); one run through the real API and the sandboxed query worker. **LLM: none.**
 
 | Step | Seconds |
 |---|---|
-| Inspect upload (incl. column-type hints from 500 rows) | 0.27 |
-| Import: load, type inference, DuckDB write, profile | 10.56 |
-| Profile (recomputed in DuckDB) | 0.17 |
-| Confirm column mapping (incl. unique-client count) | 0.11 |
-| Retention comparison 2025 vs 2026 | 0.41 |
-| Client list (first 100 returning clients) | 0.35 |
-| Monthly trend | 0.45 |
+| Inspect upload (reads and scans the whole CSV) | 5.27 |
+| Import: load, type inference, DuckDB write, profile | 16.00 |
+| Profile (recomputed in DuckDB) | 0.13 |
+| Confirm column mapping (incl. unique-client count) | 0.09 |
+| Retention comparison 2025 vs 2026 | 0.39 |
+| Client list (first 100 returning clients) | 0.32 |
+| Monthly trend | 0.42 |
 | Group-by query in the sandbox worker | 0.25 |
 
-Import runs once per file, in the background. Analytics stay far below the 10-second query
-timeout at this size. Not measured: files near the 50 MB limit, multi-sheet workbooks of
+Before smart import, inspection took 0.27 s and import 10.56 s on the same file
+(`2026-11-05-phase7-perf-300k`); the layout scan is the price of reading sheets laid out for
+people. Import runs once per file, in the background. Analytics stay far below the 10-second
+query timeout at this size. Not measured: files near the 50 MB limit, multi-sheet workbooks of
 this size (an 8-sheet workbook is in
 `docs/evidence/experiments/2026-11-05-phase6-inspect-benchmark.md`), concurrent users,
 Linux or Docker.
@@ -157,7 +166,7 @@ Linux or Docker.
 - Upload names with path traversal (`../`, `..\`, absolute paths, encoded dots) stay inside
   the upload folder; oversized and disguised files (CSV named `.xlsx`, executables) are
   refused and not kept.
-- The API key never appears in any route's response (all 29 operations in the OpenAPI
+- The API key never appears in any route's response (every operation in the OpenAPI
   schema, with real and unknown IDs) or in the logs, including when an error message
   carries it. Configured secrets are redacted from log messages, tracebacks, stack info,
   error responses, analysis answers, usage records, and failed-import messages. The sweep

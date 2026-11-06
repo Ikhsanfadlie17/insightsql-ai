@@ -1,0 +1,17 @@
+{
+  "rows": 300000,
+  "csv_mb": 22.5,
+  "python": "3.13.17",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "timings_s": {
+    "inspect (incl. type hints)": 5.27,
+    "import: load + types + DuckDB + profile": 16.0,
+    "profile (recomputed)": 0.13,
+    "confirm mapping (incl. unique clients)": 0.09,
+    "retention compare 2025 vs 2026": 0.39,
+    "client list (first 100 returning)": 0.32,
+    "monthly trend": 0.42,
+    "AI-style query in the sandbox worker": 0.25
+  }
+}

@@ -12,7 +12,7 @@ dibuktikan dari isi repository, bukan dari ingatan atau percakapan.
 
 Sumber lain yang tidak diduplikasi di sini:
 - Masalah & kebutuhan: [`../PRD.md`](../PRD.md)
-- Arsitektur, model keamanan, definisi metrik, keputusan desain D1–D17, risiko:
+- Arsitektur, model keamanan, definisi metrik, keputusan desain, risiko:
   [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
 - Rencana, deviasi per fase, hasil review per fase:
   [`../plans/2026-11-04-insightsql-implementation-plan.md`](../plans/2026-11-04-insightsql-implementation-plan.md)
@@ -34,10 +34,8 @@ Sumber lain yang tidak diduplikasi di sini:
    dijalankan hanya demi dokumentasi.
 5. Bahasa: catatan internal boleh bahasa Indonesia; dokumentasi final nanti bahasa Inggris.
 
-## Status hal yang belum ada (direncanakan)
+## Evaluasi
 
-- Dataset evaluasi Text-to-SQL (Phase 7): `evaluation/questions.yaml` (pertanyaan, skema,
-  SQL referensi, hasil yang diharapkan, kategori valid/ambigu/berbahaya) dan hasil per run
-  `evaluation/results/<tanggal>-<mock|model>.jsonl`. Metrik: validitas SQL, akurasi
-  eksekusi, kebenaran semantik, ketahanan terhadap ambiguitas, keamanan, latency, biaya.
-- Uji dengan API OpenAI sungguhan: **belum pernah dijalankan** (jaringan diblokir, belum ada key).
+Dataset evaluasi Text-to-SQL ada di `eval/questions.yaml`, hasil per run di `eval/results/`,
+dan ringkasannya di [`../EVALUATION.md`](../EVALUATION.md). API OpenAI sungguhan pertama kali
+diuji 2026-11-05 ([`experiments/2026-11-05-first-real-api.md`](experiments/2026-11-05-first-real-api.md)).

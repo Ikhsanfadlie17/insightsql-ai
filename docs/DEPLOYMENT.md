@@ -58,7 +58,8 @@ docker compose ps                  # both services should become "healthy"
 
 - One image (`python:3.13-slim`, multi-stage, non-root user `app`, uid 10001) runs both
   services; [`docker-compose.yml`](../docker-compose.yml) starts the backend on 8000 and the
-  frontend on 8501. The frontend waits until the backend is healthy.
+  frontend on 8501, both published on `127.0.0.1` only (see §5). The frontend waits until
+  the backend is healthy. The optional `env_file` needs Docker Compose 2.24 or newer.
 - Health checks: backend `GET /health`, frontend `GET /_stcore/health`.
 - Data persists in the named volume `insightsql-data` (`/app/data`). `.env` is read by
   Compose (`env_file`, optional) and never copied into the image (`.dockerignore`).
@@ -66,6 +67,7 @@ docker compose ps                  # both services should become "healthy"
   `docker compose down -v`.
 - Backup: `docker compose stop backend`, then copy the volume, e.g.
   `docker run --rm -v insightsql-data:/data -v "$PWD":/backup python:3.13-slim tar czf /backup/insightsql-data.tgz -C /data .`
+  Restore into the same volume with `tar xzf /backup/insightsql-data.tgz -C /data`.
 
 **Verification status (2026-11-05): the image build and `docker compose up` have NOT been
 run** — Docker is not installed on the development machine. What was verified: every
@@ -88,9 +90,10 @@ non-root user, the build context exclusions, ports, volume, and health checks.
 ## 5. Security notes for a shared deployment
 
 The MVP is **single-tenant without login** (ARCHITECTURE D7): anyone who can reach port
-8501 or 8000 can see and delete every dataset and spend the API budget. Before exposing it
-beyond a trusted machine or network, put it behind authentication (a reverse proxy with
-login, or a VPN), serve it over HTTPS, and remove the backend's `ports:` entry from
+8501 or 8000 can see and delete every dataset and spend the API budget. Compose therefore
+publishes both ports on `127.0.0.1` only. Before exposing it beyond this machine, change the
+frontend's binding deliberately, put it behind authentication (a reverse proxy with login,
+or a VPN), serve it over HTTPS, and remove the backend's `ports:` entry from
 `docker-compose.yml` (it is published for local development only; the frontend reaches the
 backend inside the Compose network). Upload size is enforced after the body is
 received (Phase 2 review M1); a reverse-proxy body limit is advisable.

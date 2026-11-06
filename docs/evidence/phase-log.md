@@ -197,3 +197,57 @@ Jumlah test = hasil `pytest` penuh terakhir yang tercatat pada akhir fase.
   melihat hasil run 1; aturan prompt v2 #11 kadang diterapkan terlalu luas (cpx-04 run 1);
   new-05 v2 masih bisa ditafsirkan dua cara.
 - **Status:** disetujui user 2026-11-05.
+
+## Phase 8 — Deployment (Task 25–26) + import pintar
+
+- **Tanggal:** 2026-11-05 s.d. 2026-11-06, Windows lokal. **LLM:** none untuk perbaikan review
+  dan performa; mock (`fake_llm_app.py`) untuk e2e; real (gpt-6-luna, 2026-11-05) untuk run 3
+  dan 4 benchmark.
+- **Commit:** `14b23b1` (Docker), `3d0e5ef` (dokumentasi), `442fa83` (tanggal bernama bulan),
+  `5d31ef3` (import pintar), `78a18c0` (durasi tahap, role opsional), `35d3a47` (prompt v4),
+  `7c9c189` + `b354ebb` (run 3 dan 4). Perbaikan review 2026-11-06: branch `phase8-review-fixes`.
+- **Review independen:** 1 Critical, 2 High, 10 Medium, 11 Low. Prinsip keamanan PRD terjaga,
+  kecuali A2 dan L1 di bawah. Tidak ada data pribadi yang ter-commit.
+  | Temuan | Sebelum | Sesudah |
+  |---|---|---|
+  | A1 Critical | Baris asli yang hanya kosong di kolom opsional terhapus sebagai "template kosong" (100 baris → 90 tersimpan) | Baris template hanya berisi nomor urut, marker, atau nilai default berulang; nilai berbeda selalu data. Label tidak lagi menyebut "empty" |
+  | A2 High | Header `Kota, 2023, 2024` tidak dikenali; baris data jadi header, baris di atasnya hilang tanpa hitungan, nama orang terkirim ke LLM sebagai nama kolom | Label tahun, tanggal, atau ≥ 5 angka berurutan dikenali; baris di atas header dihitung; baris selebar tabel memunculkan peringatan |
+  | A3 High | Kutip tak tertutup menelan sisa file, status tetap `ready` | Parser ketat; import gagal dengan pesan yang menyebut kutip |
+  | M6 | Backup Docker yang didokumentasikan diduga menghasilkan arsip kosong | Nama volume tetap; ada perintah restore |
+  | M7 | Compose membuka app tanpa login ke semua interface | Port hanya di `127.0.0.1` |
+  | M8 | Angka performa dari sebelum import pintar | Diukur ulang (lihat bawah) |
+  | M9 | Benchmark tidak mencakup durasi tahap dan dataset tanpa mapping, tidak disebut jelas | Dinyatakan di README dan EVALUATION |
+  | L2, L4, L6, L7, L9 | Teks UI, header_row lewat batas, baris spasi, teks form basi, guard Docker lemah | Diperbaiki; L4, L6, dan L9 dengan test |
+  | L5 | Jumlah baris Excel di form salah | Tepat bila seluruh sheet masuk sampel (di bawah ±530 baris); sheet lebih besar tetap perkiraan |
+  | L8 | Dokumen basi | Diperbaiki, kecuali `docs/screenshots/data-sources.png` dan laporan mentah run 4 |
+  | L10 | Asumsi Compose | Syarat Compose 2.24 didokumentasikan; sisanya ditunda |
+- **Ditunda, keputusan user:** M1 (format tanggal bernama bulan lain tetap teks tanpa catatan),
+  M2 (kolom tanggal campuran), M3 (baris metadata di baris 1 jadi header), M4 (salah pilih
+  tabel, belum bisa dikoreksi di app), M5 (baris Total ikut jadi data), M10 (grafik durasi
+  mencampur hitungan dan hari), L1 (`DATE COLUMNS` di luar blok `<data>`; mengubah prompt
+  berarti biaya benchmark), L3 (teks tanpa role; belum terkonfirmasi).
+- **L11, dibersihkan 2026-11-06 atas permintaan user:** nama instansi, nama kolom, dan angka
+  dari file kerja dihapus dari dokumen, fixture test, dan satu contoh di teks prompt untuk
+  dataset tanpa mapping (bagian yang tidak diuji benchmark). Teks lamanya masih ada di riwayat
+  commit lokal, termasuk tiga pesan commit, dan perlu ditulis ulang sebelum push publik.
+- **Batas perbaikan A1 dan A2:** baris berisi nilai yang sama persis dan nomor urut masih
+  dianggap template; tiga baris atau lebih dengan nama klien sama di ekor sheet bisa terkena,
+  jumlahnya dilaporkan dan bisa dimatikan. Baris data yang mirip header masih bisa terpilih
+  bila header aslinya berisi angka biasa, jumlah baris yang dilewati kini terlihat.
+- **Uji perbaikan A1:** data dummy (`test_a_large_dummy_sheet_keeps_every_real_row`): 180 baris
+  asli yang sebagian kosong, 300 baris template, 2 catatan di bawahnya; 180 tersimpan. Percobaan
+  pertama perbaikan A1 keliru karena test belum punya catatan di bawah blok template. Atas
+  permintaan user, pengujian tidak memakai data kerja (dummy atau dataset publik saja).
+- **E2E (LLM: mock, 2026-11-06):** backend + Streamlit sungguhan, folder data sementara, panel
+  Browser bawaan. CSV sintetis 2 baris di atas header + 20 baris data (5 tanpa catatan):
+  peringatan muncul di form, tersimpan 20 baris, tidak ada error server. Tidak diuji: Playwright
+  (`scripts/e2e`, belum terpasang), Excel dan multi-sheet lewat browser.
+- **Performa (300.000 baris, satu run):** inspect 0,27 → 5,27 s, import 10,56 → 16,00 s; analitik
+  tetap 0,1–0,4 s ([experiments/2026-11-06-phase8-perf-300k.md](experiments/2026-11-06-phase8-perf-300k.md)).
+  Inspect melambat karena seluruh CSV dibaca untuk mencari layout.
+- **Belum terverifikasi:** build image dan `docker compose up` (Docker tidak terpasang), jadi
+  M6 dan M7 hanya dicek secara statis.
+- **Checklist PRD §12:** 10 terpenuhi; 2 sebagian: "AI generates correct SQL" (30/30 setelah
+  penyesuaian, satu run, soal buatan pengembang) dan "documented and runnable by others" (image
+  belum pernah dibangun).
+- **Status:** menunggu review user.

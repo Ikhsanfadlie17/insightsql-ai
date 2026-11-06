@@ -88,7 +88,7 @@ flowchart TD
 | Store | Technology | Contents | Why |
 |---|---|---|---|
 | Analytical data | DuckDB, `data/datasets/<dataset_id>.duckdb`, table `dataset` | One file per dataset (one Excel sheet = one dataset) | Isolation: a query can only see the one file it is opened on. Deleting a dataset deletes one file. |
-| Metadata | SQLite, `data/app.db` (stdlib `sqlite3`, no ORM) | datasets, profiles (JSON), column mappings, conversations, messages/analyses, llm_usage | Small, transactional, zero-ops. |
+| Metadata | SQLite, `data/app.db` (stdlib `sqlite3`, no ORM) | datasets, profiles (JSON), column mappings, conversations, analyses, llm_requests | Small, transactional, zero-ops. |
 | Raw uploads | `data/uploads/<upload_id>/<filename>` | Original file, kept for up to 24 h so several sheets of one workbook can be imported from a single upload; removed once older than 24 h, at startup and every `UPLOAD_CLEANUP_INTERVAL_MINUTES` (an upload whose import is unfinished is skipped) | Needed for two-step upload (inspect sheets → ingest chosen sheets). |
 
 SQLite tables: `datasets`, `dataset_columns`, `dataset_profiles`, `column_mappings`,
@@ -124,18 +124,26 @@ they are downloaded:
 
 - *Header row*: the first of the first 30 rows that is at least half as wide as the widest
   row there and whose cells are mostly text labels (not numbers or dates), at least half of
-  them distinct (duplicate headers are allowed). No such row → row 1. The user can choose
+  them distinct (duplicate headers are allowed), or text labels next to distinct years, dates,
+  or at least 5 running numbers ("Kota, 2023, 2024"). No such row → row 1. The user can choose
   another row in the import form (`header_row`), which re-reads headers and type hints
-  (`POST /datasets/uploads/{upload_id}/layout`).
+  (`POST /datasets/uploads/{upload_id}/layout`). Non-empty rows above the header are not
+  imported: they are counted, and rows about as wide as the header raise a warning in the form.
 - *Main table*: columns are split at runs of two or more fully empty columns; the block
   with the most header labels is the table, the others (side tables, helper columns) are
   ignored and named in the layout.
 - *Template rows*: a trailing block of at least 3 rows that hold at most 20% of what a full
   row holds, counting only columns that are not filled in (almost) every row and treating
-  NA markers ("-") and spreadsheet errors (`#REF!`) as no value. Never rows in the middle,
-  never every row; can be switched off (`skip_template_rows`).
+  NA markers ("-") and spreadsheet errors (`#REF!`) as no value, **and** that hold only
+  generated values in every column: one value repeated, or a running number. A value that
+  differs or appears once (a name, a date, an amount) makes the row data, however sparse it
+  is. Up to 5 rows of a single cell directly below such a block are notes outside the table
+  and are skipped with it. Never rows in the middle, never every row; can be switched off
+  (`skip_template_rows`). The count is shown before import when the whole sheet was read (a
+  CSV, or an Excel sheet within the inspection sample) and after import otherwise.
 - What was done is stored as `DatasetRecord.layout` and shown in Data Sources. A plain table
-  (header in row 1, one block, no template rows) is read exactly as before.
+  (header in row 1, one block, no template rows) is read as is. An unmatched quote in a CSV
+  is an upload error; it would otherwise swallow the rows after it.
 
 Type inference rules (`services/type_inference.py`, all covered by tests). **No value is
 changed silently:** every interpretation the user might disagree with produces a
@@ -278,7 +286,7 @@ errors add `details: [{field, message}]` (never the rejected input).
 | Method & path | Request | Response |
 |---|---|---|
 | `GET /health` | — | `{status, llm_configured: bool, model: str \| null}` |
-| `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count, columns, detected_types}]}` |
+| `POST /datasets/inspect` | multipart `file` | `UploadInspection{upload_id, filename, file_type, sheets: [{name, row_count, columns, detected_types, header_row, header_detected, ignored_columns, template_rows, rows_above_header, table_like_rows_above}]}` |
 | `POST /datasets` | `{upload_id, sheet, name, number_format: auto\|id\|en, date_order: auto\|day_first\|month_first, text_columns: [original headers], header_row: int \| null (null = detect), skip_template_rows: bool}` | `DatasetRecord` (status `processing`; `layout` filled in at ingest) |
 | `POST /datasets/uploads/{upload_id}/layout` | `{sheet, header_row}` | `SheetInfo` described with the header row chosen in the import form (smart import) |
 | `GET /datasets` | — | `DatasetRecord[]` |
@@ -611,7 +619,7 @@ Rules:
 - Without an API key the app still works for upload, profiling, column mapping, client
   analytics, history, and export; AI calls raise `llm_not_configured` without contacting anyone.
 - **Status of the real API:** first used on 2026-11-05 with `gpt-6-luna` (smoke test, then
-  the 50-question benchmark twice; see `EVALUATION.md`). The test suite still uses a fake
+  the 50-question benchmark four times; see `EVALUATION.md`). The test suite still uses a fake
   client or a fake HTTP transport and never needs a key or network.
 - **Reasoning models:** their reasoning tokens count toward `LLM_MAX_OUTPUT_TOKENS`; 6000
   was used with `gpt-6-luna` (the 1500 default can cut answers off).
@@ -643,7 +651,7 @@ Rules:
 | D18 | Exports are built when the download button is clicked; CSV neutralises formula prefixes; Excel text cells are never formulas. | No work on page load; spreadsheet formula injection from file content. |
 | D19 | Configured secrets are redacted centrally (log record factory + error text), not only by careful messages. | Defence in depth: a third-party exception could carry the key (found by the Phase 7 sweep). |
 | D20 | One Docker image for both services; non-root; data in a named volume. | One build, one dependency set; the frontend holds no secrets. |
-| D21 | SQL prompt v2 routes client-count comparisons to the retention engine and compares partial periods year-to-date. | Found with the real API (91 vs 103 full vs partial year); side effect documented in EVALUATION.md. |
+| D21 | SQL prompt v2 routes client-count comparisons to the retention engine and compares partial periods year-to-date. | Found with the real API (91 vs 103 full vs partial year); side effect documented in EVALUATION.md. v3 adds process-duration rule 12 and v4 narrows the year-to-date rule (PROMPTS.md, EVALUATION.md runs 3 and 4). |
 
 ## 11. Risks
 

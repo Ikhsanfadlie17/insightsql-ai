@@ -157,11 +157,12 @@ v3 (95.0%, 38/40), so this score is **after an adjustment**; v2 scored 97.5% twi
 
 These are one run of one model on a small synthetic set written by the same developer;
 EVALUATION.md lists the wrong answers, the overlap with an earlier smoke test, and other
-limitations. Performance (300,000 rows): import 10.6 s; retention comparison, trend, client
-list, and a group-by query 0.25–0.45 s each.
+limitations. The 40/40 says nothing about stage-duration questions or unmapped datasets: the
+set has none, and the evidence for those is two questions on one real file. Performance (300,000 rows, 2026-11-06): inspect 5.3 s, import 16 s; retention comparison,
+trend, client list, and a group-by query 0.25–0.42 s each.
 
 ```bash
-python -m pytest                   # ~960 tests, ~3 min; no API key or network needed
+python -m pytest                   # ~1,050 tests, ~3 min; no API key or network needed
 python -m pytest -m perf -s        # 300,000-row timing run
 ruff check backend frontend tests eval scripts
 python -m eval.run_eval --model "$OPENAI_MODEL"   # the benchmark: real API calls, real cost

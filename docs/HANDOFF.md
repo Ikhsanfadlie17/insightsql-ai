@@ -16,11 +16,10 @@ Claude Code baru. Sumber kebenaran tetap: `CLAUDE.md`, `docs/PRD.md`,
 | 5 Analytics (Task 14–18) | selesai, direview, disetujui user (2026-11-04) | 757 |
 | 6 Product Features (Task 19–21) | selesai, direview, disetujui user (2026-11-05) | 877 (+1 skip di Windows) |
 | 7 Quality (evaluasi Text-to-SQL, performa) | selesai, direview, disetujui user (2026-11-05) | 958 (+1 skip di Windows, +1 perf) |
-| 8 Deployment (Docker, README final) | **sedang dikerjakan** (mulai 2026-11-05) | — |
+| 8 Deployment (Docker, README final) | selesai direview, **menunggu review user** (2026-11-06) | lihat `phase-log.md` |
 
-- API OpenAI sungguhan **belum pernah diuji** (jaringan diblokir di lingkungan cloud, belum
-  ada key). Semua test AI memakai LLM palsu (`tests/llm_fakes.py`,
-  `scripts/e2e/fake_llm_app.py`).
+- API OpenAI sungguhan sudah diuji mulai 2026-11-05 (`gpt-6-luna`), saldo terbatas. Test AI
+  otomatis tetap memakai LLM palsu (`tests/llm_fakes.py`, `scripts/e2e/fake_llm_app.py`).
 - Laporan Phase 5 lengkap: `docs/evidence/phase-log.md` (bagian Phase 5).
 
 ## 2. Aturan kerja yang disepakati dengan user
@@ -106,6 +105,16 @@ Semua perintah README terverifikasi di clone bersih kecuali Docker (995 test lul
 dihentikan, belum ada hasil — jalankan ulang), perbaiki temuan, laporan Phase 8 di
 `phase-log.md`, tunggu review user. 25+ commit lokal belum di-push.
 
+## 3f. Status 2026-11-06
+
+Review independen Phase 8 selesai; temuan Critical/High dan sebagian Medium/Low sudah
+diperbaiki di branch `phase8-review-fixes` (belum digabung ke `main`). Laporan: `phase-log.md` bagian Phase 8, termasuk daftar
+temuan yang ditunda (M1–M5, M10, L1, L3). **Riwayat commit lokal masih memuat jejak data
+kerja (lihat L11 di `phase-log.md`): tulis ulang sebelum push publik.** Dataset uji dari file kerja di app lokal sudah dihapus atas
+permintaan user. **Jangan memakai data kerja user untuk pengujian**: pakai data dummy atau
+dataset publik (mis. Kaggle). Berikutnya: tunggu review user. Butir 1 dan dataset lama di butir 4 pada §3e
+sudah selesai.
+
 ## 3e. Lanjut besok (ditutup 2026-11-05 sore)
 
 1. Jalankan ulang **review independen Phase 8** (Docker, dokumentasi, checklist PRD §12),
@@ -173,7 +182,7 @@ python3.13 -m venv .venv
 source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 cp .env.example .env                 # isi OPENAI_API_KEY dan OPENAI_MODEL bila ingin uji AI
-python -m pytest -q                  # Linux/WSL: 757 passed; Windows/macOS: 756 passed, 1 skipped
+python -m pytest -q                  # semua lulus; di Windows/macOS 1 test watchdog memori di-skip
 ruff check backend tests frontend scripts
 ```
 
@@ -190,7 +199,7 @@ tab Column mapping → Confirm. Client Analytics bekerja tanpa API key; AI Analy
 
 E2E dengan LLM palsu (tanpa API key): lihat `scripts/e2e/README.md`.
 
-## 5. Uji API OpenAI sungguhan pertama kali (belum pernah dilakukan)
+## 5. Uji API OpenAI sungguhan (sudah dilakukan 2026-11-05; langkah untuk model baru)
 
 1. Isi `.env` (`OPENAI_API_KEY`, `OPENAI_MODEL`), opsional harga model di
    `config/pricing.json` agar biaya terestimasi.

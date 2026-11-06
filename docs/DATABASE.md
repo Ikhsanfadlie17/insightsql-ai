@@ -106,7 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_llm_requests_created ON llm_requests(created_at);
 
 | Table | Written by | Notes |
 |---|---|---|
-| `datasets` | `DatasetRepository` | `status`: processing → ready / failed; the import options (`number_format`, `date_order`, `text_columns_json`) are kept for transparency. |
+| `datasets` | `DatasetRepository` | `status`: processing → ready / failed; the import options (`number_format`, `date_order`, `text_columns_json`, `header_row`, `skip_template_rows`) are kept for transparency; `layout_json` records how the table was found. |
 | `dataset_columns` | ingest | SQL name, original header, logical type, unconverted-value count, notes. |
 | `dataset_profiles` | ingest (re-computed on request if missing) | `DatasetProfile` JSON. |
 | `column_mappings` | `PUT /datasets/{id}/column-mapping` | confirmed `ColumnMapping` JSON; suggestions are never stored. |
