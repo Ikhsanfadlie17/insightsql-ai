@@ -116,6 +116,8 @@ sudah selesai.
 **Riwayat ditulis ulang dan di-force push 2026-11-06** atas permintaan user: semua commit atas
 nama user, atribusi Claude dan jejak data kerja dihapus. Semua hash berubah, dan rujukan hash di
 dokumen sudah diperbarui. Clone lama harus diambil ulang. Semua commit sudah ada di GitHub.
+Hari itu juga repo pindah ke `Ikhsanfadlie17/insightsql-ai` karena sidebar contributors repo
+lama masih menampilkan Claude.
 
 Aturan dari user:
 - **Jangan memakai data kerja user untuk pengujian**: pakai data dummy atau dataset publik
@@ -183,8 +185,8 @@ Di Windows `cmd`: aktifkan venv dengan `.venv\Scripts\activate.bat`, set variabe
 `$env:BACKEND_URL = "http://localhost:8000"`. Pakai `py -3.13 -m venv .venv`.
 
 ```bash
-git clone https://github.com/Ikhsanfadlie17/AI-Powered-Data-Analytics-Business-Intelligence-Platform.git
-cd AI-Powered-Data-Analytics-Business-Intelligence-Platform
+git clone https://github.com/Ikhsanfadlie17/insightsql-ai.git
+cd insightsql-ai
 python3.13 -m venv .venv
 source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
