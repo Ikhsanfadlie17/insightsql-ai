@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 32" width="172" height="32" role="img" aria-label="InsightSQL AI">
+  <rect width="32" height="32" rx="7" fill="#1E40AF"/>
+  <rect x="8" y="17" width="4" height="8" rx="1" fill="#FFFFFF"/>
+  <rect x="14" y="12" width="4" height="13" rx="1" fill="#FFFFFF"/>
+  <rect x="20" y="7" width="4" height="18" rx="1" fill="#FFFFFF"/>
+  <text x="41" y="22" font-family="Fira Sans, Segoe UI, Arial, sans-serif" font-size="18" font-weight="600" fill="#0F172A">InsightSQL AI</text>
+</svg>

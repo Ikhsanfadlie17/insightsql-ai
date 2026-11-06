@@ -7,10 +7,10 @@ const { chromium } = require('playwright');
   const p = await b.newPage({ viewport: { width: 1440, height: 5200 } });
   const errors = []; p.on('pageerror', e => errors.push(String(e)));
   await p.goto('http://localhost:8501/client_analytics', { waitUntil: 'networkidle' });
-  await p.getByText('Retention rate').first().waitFor({ timeout: 30000 });
+  await p.getByText('Came back').first().waitFor({ timeout: 30000 });
   await p.waitForTimeout(2500);
   const t = await p.locator('body').innerText();
-  for (const s of ['Active in 2025', 'Active in 2026', 'Retention rate', 'Existing active', 'returning ÷', 'Year-to-date'])
+  for (const s of ['Active clients', 'Came back', 'New clients', 'Did not return', 'Change period or dataset', 'How it\'s counted'])
     console.log(s, t.includes(s));
   await p.screenshot({ path: `${out}/ca_full.png`, fullPage: true });
   await p.setViewportSize({ width: 420, height: 900 });

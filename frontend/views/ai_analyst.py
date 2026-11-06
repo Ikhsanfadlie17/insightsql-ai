@@ -16,14 +16,13 @@ from frontend.components.layout import empty_state, md_escape, page_header, show
 from frontend.components.suggested_questions import suggested_questions
 from frontend.state import (
     AA_CONVERSATIONS,
+    AA_PENDING,
     AA_SELECT,
     get_client,
     open_in_ai_analyst,
     resolve_active,
     set_active_dataset_id,
 )
-
-_PENDING = "aa_pending_question"
 
 
 def _conversation_for(dataset_id: str) -> str | None:
@@ -163,7 +162,7 @@ def main() -> None:
         st.markdown("**Try a question**")
         for n, question in enumerate(suggested_questions(mapping)):
             if st.button(question, key=f"aa_suggest_{n}", icon=":material/lightbulb:"):
-                st.session_state[_PENDING] = question
+                st.session_state[AA_PENDING] = question
 
     question = st.chat_input(
         "Ask about this dataset…" if configured else "AI is not configured",
@@ -171,7 +170,7 @@ def main() -> None:
         max_chars=1000,
         key="aa_input",
     )
-    pending = st.session_state.pop(_PENDING, None)
+    pending = st.session_state.pop(AA_PENDING, None)
     if configured and (question or pending):
         text = question or pending
         with st.chat_message("user"):

@@ -41,10 +41,50 @@ h1 {
 [data-testid="stMetricValue"] {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  color: var(--color-foreground);
 }
 
 [data-testid="stMetricLabel"] {
   color: var(--color-muted-foreground);
+}
+
+/* The conclusion of a page stands out; the question box is the one strong outline. */
+.st-key-summary_headline {
+  background: #DBEAFE;
+  border-radius: var(--radius);
+  padding: 14px var(--space-2);
+}
+
+.st-key-summary_headline p {
+  color: #1E3A8A;
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.st-key-overview_ask {
+  background: var(--color-card);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+}
+
+.st-key-overview_ask [data-baseweb="input"],
+.st-key-overview_ask [data-baseweb="base-input"],
+.st-key-overview_ask input {
+  background: var(--color-card) !important;
+  border-color: transparent !important;
+}
+
+/* Suggested questions: read in full rather than cut off. */
+[class*="st-key-ov_suggest"] button {
+  height: 100%;
+}
+
+[class*="st-key-ov_suggest"] button p {
+  overflow: visible;
+  text-overflow: clip;
+  text-align: left;
+  white-space: normal;
 }
 
 /* Bordered containers act as cards */
@@ -56,6 +96,15 @@ h1 {
 /* Sidebar */
 [data-testid="stSidebar"] {
   border-right: 1px solid var(--color-border);
+}
+
+[data-testid="stSidebarNavLink"][aria-current="page"] {
+  background: #DBEAFE;
+}
+
+[data-testid="stSidebarNavLink"][aria-current="page"] span {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 /* Visible keyboard focus (WCAG 2.4.7) */

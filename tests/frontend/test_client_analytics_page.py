@@ -70,24 +70,68 @@ def test_requires_confirmed_mapping() -> None:
     assert not api.compare_calls
 
 
-def test_kpis_use_indonesian_format_and_definitions() -> None:
+def test_kpis_use_plain_words_indonesian_format_and_definitions() -> None:
     at = _run(AnalyticsFakeApi())
     metrics = _metrics(at)
+    deltas = {m.label: m.delta for m in at.metric}
 
     assert not at.exception, at.exception
-    assert metrics["Retention rate"] == "66,7%"
-    assert metrics["New client rate"] == "25,0%"
-    assert metrics["Client growth"] == "+33,3%"
-    assert metrics["Active in 2025"] == "3" and metrics["Active in 2026"] == "4"
-    assert metrics["New"] == "1" and metrics["Returning"] == "2"
-    assert metrics["Reactivated"] == "1" and metrics["Not returned"] == "1"
-    assert metrics["Existing active"] == "3"
+    assert metrics["Active clients"] == "4" and deltas["Active clients"] == "+33,3% vs 2025"
+    assert metrics["Came back"] == "66,7%" and deltas["Came back"] == "2 of 3 clients"
+    assert metrics["New clients"] == "1" and deltas["New clients"] == "25,0% of active"
+    assert metrics["Did not return"] == "1" and deltas["Did not return"] == "of 3 clients in 2025"
+    assert metrics["Returning clients"] == "2" and metrics["Back after a break"] == "1"
+    assert metrics["Joined between periods"] == "0"
+    assert metrics["Existing clients"] == "3"
     help_texts = {m.label: m.help for m in at.metric}
-    assert "previous period" in help_texts["Retention rate"]
+    assert "previous period" in help_texts["Came back"]
     text = _text(at)
-    assert "2 returning ÷ 3 active in 2025" in text  # denominator visible
-    assert "overlaps" in text.lower()  # existing active is not part of the partition
-    assert "incomplete" in text.lower()  # warnings banner
+    assert "overlaps" in text.lower()  # existing clients are not part of the partition
+    assert "not proof" in text.lower()  # did not return is an observation
+    assert "incomplete" in text.lower()  # data notes
+
+
+def test_the_conclusion_comes_first_and_the_rest_is_in_tabs() -> None:
+    at = _run(AnalyticsFakeApi())
+
+    assert "Active clients grew from 3 to 4. Audit has the most clients." in _text(at)
+    assert [t.label for t in at.tabs] == [
+        "Summary", "Over time", "By department", "Client list", "How it's counted",
+    ]  # fmt: skip
+    labels = [e.label for e in at.expander]
+    assert "Change period or dataset" in labels
+    assert "2 notes about this data" in labels
+    assert at.radio(key="ca_mode") is not None  # the period is still there, one click away
+
+
+def test_no_department_role_has_no_department_tab() -> None:
+    api = AnalyticsFakeApi()
+    api.coverage["department_column"] = None
+
+    at = _run(api)
+
+    assert not at.exception, at.exception
+    assert "By department" not in [t.label for t in at.tabs]
+    assert "has the most clients" not in _text(at)
+
+
+def test_departments_failing_keeps_the_rest() -> None:
+    at = _run(AnalyticsFakeApi(failing={"analytics_departments"}))
+
+    assert not at.exception, at.exception
+    assert "analytics_departments failed" in _text(at)
+    assert _metrics(at)["Active clients"] == "4"
+
+
+def test_an_invalid_period_is_explained_outside_the_collapsed_panel() -> None:
+    at = _run(AnalyticsFakeApi())
+    at.radio(key="ca_mode").set_value("Custom ranges").run()
+
+    at.date_input(key="ca_prev_range").set_value((date(2025, 1, 1), date(2025, 12, 31)))
+    at.date_input(key="ca_cur_range").set_value((date(2025, 6, 1), date(2026, 5, 31))).run()
+
+    assert "Fix the period" in _text(at)
+    assert not at.metric
 
 
 def test_compare_defaults_to_the_last_two_years_to_date_when_the_year_is_incomplete() -> None:
@@ -118,10 +162,10 @@ def test_na_rates_are_shown_as_na() -> None:
                          retention_rate=None, growth_rate=None)
     )  # fmt: skip
 
-    metrics = _metrics(_run(api))
+    at = _run(api)
 
-    assert metrics["Retention rate"] == "N/A"
-    assert metrics["Client growth"] == "N/A"
+    assert _metrics(at)["Came back"] == "N/A"
+    assert not next(m for m in at.metric if m.label == "Active clients").delta
 
 
 def test_no_data_shows_no_charts() -> None:

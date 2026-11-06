@@ -7,6 +7,13 @@ secondaryBackgroundColor = "#F1F5F9"
 textColor = "#0F172A"
 font = "Fira Sans:https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap, sans-serif"
 codeFont = "Fira Code:https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap, monospace"
+borderColor = "#CBD5E1"
+showWidgetBorder = true
+baseRadius = "8px"
+
+[theme.sidebar]
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F5F9"
 
 [server]
 # Matches the backend MAX_UPLOAD_MB default; the backend enforces the real limit.

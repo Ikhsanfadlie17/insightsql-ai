@@ -61,6 +61,17 @@ def _range(value: Any) -> tuple[date, date] | None:
     return None
 
 
+def default_periods(coverage: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+    """The picker's first choice: the latest two years, cut at the same month and day when
+    the latest year is not complete in the data."""
+    data_end = date.fromisoformat(coverage["data_end"])
+    years: list[int] = coverage.get("years") or [data_end.year]
+    through = None if (data_end.month, data_end.day) == (12, 31) else data_end
+    earlier = [y for y in years if y < years[-1]]
+    previous_year = earlier[-1] if earlier else years[-1] - 1
+    return year_period(previous_year, through), year_period(years[-1], through)
+
+
 def period_picker(coverage: dict[str, Any]) -> tuple[dict, dict] | None:
     """Render the picker; return ``(previous, current)`` or ``None`` when invalid."""
     years: list[int] = coverage.get("years") or []

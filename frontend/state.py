@@ -16,7 +16,11 @@ DEFAULT_BACKEND_URL = "http://localhost:8000"
 # AI Analyst: the open conversation per dataset, and the one to select on the next run.
 AA_CONVERSATIONS = "aa_conversation_by_dataset"
 AA_SELECT = "aa_select_conversation"
-AI_ANALYST_PAGE = "views/ai_analyst.py"  # relative to the entrypoint (frontend/app.py)
+AA_PENDING = "aa_pending_question"  # asked as soon as the AI Analyst runs
+# Relative to the entrypoint (frontend/app.py).
+AI_ANALYST_PAGE = "views/ai_analyst.py"
+CLIENT_ANALYTICS_PAGE = "views/client_analytics.py"
+DATA_SOURCES_PAGE = "views/data_sources.py"
 
 
 def get_client() -> ApiClient:
@@ -47,6 +51,13 @@ def open_in_ai_analyst(dataset_id: str, conversation_id: str | None) -> None:
     set_active_dataset_id(dataset_id)
     st.session_state.setdefault(AA_CONVERSATIONS, {})[dataset_id] = conversation_id
     st.session_state[AA_SELECT] = (dataset_id, conversation_id)
+
+
+def ask_in_ai_analyst(dataset_id: str, question: str) -> None:
+    """Go to the AI Analyst and ask this question in a new conversation."""
+    open_in_ai_analyst(dataset_id, None)
+    st.session_state[AA_PENDING] = question
+    st.switch_page(AI_ANALYST_PAGE)
 
 
 def resolve_active(datasets: list[dict[str, Any]]) -> dict[str, Any] | None:

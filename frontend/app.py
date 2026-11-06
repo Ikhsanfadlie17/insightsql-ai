@@ -19,21 +19,19 @@ import streamlit as st  # noqa: E402
 # Not named "pages/": Streamlit would treat it as a legacy multipage folder and run
 # page files directly on deep links, bypassing this entrypoint.
 _PAGES = Path(__file__).resolve().parent / "views"
+_LOGO = Path(__file__).resolve().parent / "assets" / "logo.svg"
 
 st.set_page_config(page_title="InsightSQL AI", page_icon=":material/insights:", layout="wide")
-
-with st.sidebar:
-    st.markdown("### InsightSQL AI")
-    st.caption("AI data analyst · validated SQL on DuckDB")
+st.logo(str(_LOGO), size="large")
 
 navigation = st.navigation(
     [
         st.Page(
             _PAGES / "overview.py", title="Overview", icon=":material/dashboard:", default=True
         ),
-        st.Page(_PAGES / "data_sources.py", title="Data Sources", icon=":material/database:"),
         st.Page(_PAGES / "ai_analyst.py", title="AI Analyst", icon=":material/chat:"),
         st.Page(_PAGES / "client_analytics.py", title="Client Analytics", icon=":material/groups:"),
+        st.Page(_PAGES / "data_sources.py", title="Data Sources", icon=":material/database:"),
         st.Page(_PAGES / "query_history.py", title="Query History", icon=":material/history:"),
         st.Page(_PAGES / "settings.py", title="Settings", icon=":material/settings:"),
     ]

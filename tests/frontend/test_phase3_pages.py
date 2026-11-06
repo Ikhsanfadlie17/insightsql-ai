@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from tests.frontend.fakes import FAILED, READY, FakeApi
+from tests.frontend.fakes import FAILED, READY, AnalyticsFakeApi, FakeApi
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -29,7 +29,7 @@ def _text(at: AppTest) -> str:
 
 # ----------------------------------------------------------------- Overview
 def test_overview_unique_clients_after_confirmation() -> None:
-    at = _run("overview", FakeApi(confirmed=True))
+    at = _run("overview", AnalyticsFakeApi())
 
     metrics = {m.label: m.value for m in at.metric}
     assert not at.exception
@@ -60,9 +60,8 @@ def test_overview_survives_partial_backend_failures(endpoint: str) -> None:
 def test_overview_with_only_failed_datasets() -> None:
     at = _run("overview", FakeApi(datasets=[FAILED]))
 
-    metrics = {m.label: m.value for m in at.metric}
     assert not at.exception
-    assert metrics["Active dataset"] == "None"
+    assert "No dataset is ready yet" in _text(at)
 
 
 # ------------------------------------------------------------- Data Sources
