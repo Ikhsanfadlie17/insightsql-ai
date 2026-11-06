@@ -76,11 +76,13 @@ h1 {
 }
 
 /* Suggested questions: read in full rather than cut off. */
-[class*="st-key-ov_suggest"] button {
+[class*="st-key-ov_suggest"] button,
+[class*="st-key-aa_suggest"] button {
   height: 100%;
 }
 
-[class*="st-key-ov_suggest"] button p {
+[class*="st-key-ov_suggest"] button p,
+[class*="st-key-aa_suggest"] button p {
   overflow: visible;
   text-overflow: clip;
   text-align: left;

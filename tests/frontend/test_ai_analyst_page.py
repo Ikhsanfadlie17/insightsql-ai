@@ -6,7 +6,7 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from frontend.components.chat import format_kpi
+from frontend.components.chat import column_labels, format_kpi
 from frontend.components.suggested_questions import suggested_questions
 from tests.frontend.fakes import READY, AnalystFakeApi
 
@@ -45,7 +45,7 @@ def test_not_configured_disables_the_chat() -> None:
     at = _run(AnalystFakeApi(llm=False))
 
     assert not at.exception
-    assert "OPENAI_API_KEY" in _text(at)
+    assert "AI questions are not set up yet" in _text(at)
     assert at.chat_input(key="aa_input").disabled
 
 
@@ -59,9 +59,60 @@ def test_ask_renders_the_answer_sql_and_insight() -> None:
     assert api.ask_calls == [("d1", "Klien per departemen?", None)]
     text = _text(at)
     assert "Audit memiliki klien aktif terbanyak (34)." in text
-    assert "each number was checked" in text
+    assert "Every number was checked against your data" in text
     assert any("COUNT(DISTINCT id_klien)" in c.value for c in at.code)
     assert "2 AI request(s)" in text and "cost not available" in text
+
+
+def test_the_answer_comes_first_and_the_details_are_one_click_away() -> None:
+    at = _run(AnalystFakeApi())
+
+    at.chat_input(key="aa_input").set_value("Klien per departemen?").run()
+
+    labels = [e.label for e in at.expander]
+    assert "See the numbers (2 rows)" in labels
+    assert "Explanation and recommendations" in labels
+    assert "How this was answered" in labels
+    assert "Change dataset or conversation" in labels
+    how = next(e for e in at.expander if e.label == "How this was answered")
+    assert any("AI request(s)" in str(c.value) for c in how.caption)  # not beside the answer
+
+
+def test_assumptions_and_limitations_stay_visible_beside_the_answer() -> None:
+    """They change what the answer means, so they are not behind a click."""
+    api = AnalystFakeApi()
+    api.next_answer = {
+        "assumptions": ["Semua tahun."],
+        "insight": {"source": "llm", "language": "id", "summary": "Ringkasan.",
+                    "facts": ["Fakta."], "interpretations": [], "recommendations": [],
+                    "limitations": ["Histori terbatas."], "ungrounded_numbers": [],
+                    "fallback_reason": None, "llm_request_id": "r1"},
+    }  # fmt: skip
+    at = _run(api)
+
+    at.chat_input(key="aa_input").set_value("Klien?").run()
+
+    def hidden_in_details(text: str) -> bool:
+        return any(text in str(m.value) for e in at.expander for m in (*e.markdown, *e.caption))
+
+    assert "Semua tahun." in _text(at) and not hidden_in_details("Semua tahun.")
+    assert "Histori terbatas." in _text(at) and not hidden_in_details("Histori terbatas.")
+
+
+def test_column_names_read_as_words_in_charts_and_tables() -> None:
+    assert column_labels(["klien_unik", "departemen", "ID"]) == {
+        "klien_unik": "Klien unik",
+        "departemen": "Departemen",
+        "ID": "ID",
+    }
+
+
+def test_without_datasets_the_message_is_not_hidden_in_the_panel() -> None:
+    at = _run(AnalystFakeApi(datasets=[]))
+
+    assert not at.exception, at.exception
+    assert not at.expander
+    assert "Import a dataset in Data Sources" in _text(at)
 
 
 def test_follow_up_reuses_the_conversation_of_the_same_dataset() -> None:

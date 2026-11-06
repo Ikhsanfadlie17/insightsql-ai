@@ -38,13 +38,8 @@ def _select_next_run(dataset_id: str, conversation_id: str | None) -> None:
     open_in_ai_analyst(dataset_id, conversation_id)
 
 
-def _dataset(api: ApiClient) -> dict[str, Any] | None:
-    datasets = api.list_datasets()
-    active = resolve_active(datasets)
+def _dataset(datasets: list[dict[str, Any]], active: dict[str, Any]) -> dict[str, Any]:
     ready = [d for d in datasets if d["status"] == "ready"]
-    if not ready or active is None:
-        empty_state("Import a dataset in Data Sources to ask questions about it.")
-        return None
     names = {d["id"]: d["name"] for d in ready}
     chosen = st.selectbox(
         "Dataset",
@@ -67,7 +62,6 @@ def _conversation_picker(api: ApiClient, dataset_id: str) -> str | None:
     except ApiError as error:
         show_api_error(error)
         return current
-    left, right = st.columns([4, 1], vertical_alignment="bottom")
     widget = f"aa_conversation_{dataset_id}"
     if conversations:
         options = [None] + [c["id"] for c in conversations]
@@ -85,7 +79,7 @@ def _conversation_picker(api: ApiClient, dataset_id: str) -> str | None:
             st.session_state[widget] = current if current in options else None
         if widget not in st.session_state:
             st.session_state[widget] = current if current in options else None
-        chosen = left.selectbox(
+        chosen = st.selectbox(
             "Conversation",
             options,
             format_func=lambda i: "New conversation" if i is None else titles[i],
@@ -94,14 +88,11 @@ def _conversation_picker(api: ApiClient, dataset_id: str) -> str | None:
         if chosen != current:
             _set_conversation(dataset_id, chosen)
             current = chosen
-    if right.button("New conversation", icon=":material/add_comment:", key="aa_new"):
-        _select_next_run(dataset_id, None)
-        st.rerun()
     return current
 
 
 def _ask(api: ApiClient, dataset_id: str, question: str) -> None:
-    with st.spinner("Writing and checking the query…"):
+    with st.spinner("Working out the answer…"):
         try:
             result = api.ask(dataset_id, question, _conversation_for(dataset_id))
         except ApiError as error:
@@ -113,39 +104,49 @@ def _ask(api: ApiClient, dataset_id: str, question: str) -> None:
 
 def main() -> None:
     page_header(
-        "AI Analyst",
-        "Ask questions in Indonesian or English. Answers come from validated, read-only SQL.",
+        "AI Analyst", "Ask a question about your data in plain language, in Indonesian or English."
     )
     api = get_client()
     try:
         health = api.health()
-        active = _dataset(api)
+        datasets = api.list_datasets()
     except ApiError as error:
         show_api_error(error)
         return
+    active = resolve_active(datasets)
     if active is None:
+        empty_state("Import a dataset in Data Sources to ask questions about it.")
         return
     configured = bool(health.get("llm_configured"))
     if not configured:
         st.info(
-            "The AI Analyst needs an OpenAI API key and model on the backend (OPENAI_API_KEY "
-            "and OPENAI_MODEL). Client Analytics, profiling, and column mapping work without "
-            "AI.",
+            "AI questions are not set up yet, and Settings shows what is missing. Client "
+            "Analytics, the data profile, and column mapping work without AI.",
             icon=":material/key_off:",
         )
+    with st.expander("Change dataset or conversation", icon=":material/tune:"):
+        active = _dataset(datasets, active)
+        conversation_id = _conversation_picker(api, active["id"])
     try:
         mapping_state = api.column_mapping(active["id"])
     except ApiError:
         mapping_state = {}
     mapping = mapping_state.get("mapping")
-    if not mapping:
-        st.caption(
-            ":material/info: Every column can be used in your questions. Optional: "
-            "confirming client roles (Data Sources → Column mapping) tells the AI which "
-            "column means *client* or *revenue*."
+    left, right = st.columns([3, 1], vertical_alignment="center")
+    if mapping:
+        left.caption(md_escape(active["name"]))
+    else:
+        left.caption(
+            f"{md_escape(active['name'])} · Every column can be used in your questions. "
+            "Optional: confirming client roles (Data Sources → Column mapping) tells the AI "
+            "which column means *client* or *revenue*."
         )
+    if right.button(
+        "New conversation", icon=":material/add_comment:", key="aa_new", width="stretch"
+    ):
+        _select_next_run(active["id"], None)
+        st.rerun()
 
-    conversation_id = _conversation_picker(api, active["id"])
     analyses: list[dict[str, Any]] = []
     if conversation_id:
         try:

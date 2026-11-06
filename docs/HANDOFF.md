@@ -119,9 +119,10 @@ dokumen sudah diperbarui. Clone lama harus diambil ulang. Semua commit sudah ada
 Hari itu juga repo pindah ke `Ikhsanfadlie17/insightsql-ai` karena sidebar contributors repo
 lama masih menampilkan Claude.
 
-Tampilan: Overview dan Client Analytics dibangun ulang untuk pembaca non-teknis (kesimpulan satu
-kalimat, angka utama, detail di belakang), dengan tema terang dan menu samping putih. AI Analyst,
-Data Sources, Query History, dan Settings masih memakai tata letak lama.
+Tampilan: Overview, Client Analytics, dan AI Analyst dibangun ulang untuk pembaca non-teknis
+(kesimpulan dan angka utama dulu, detail di belakang), dengan tema terang dan menu samping putih.
+Query History memakai komponen jawaban yang sama. Data Sources, Settings, dan tata letak Query
+History masih yang lama.
 
 Aturan dari user:
 - **Jangan memakai data kerja user untuk pengujian**: pakai data dummy atau dataset publik

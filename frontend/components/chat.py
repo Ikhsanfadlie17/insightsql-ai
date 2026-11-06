@@ -61,28 +61,67 @@ def _list(title: str, items: list[str]) -> None:
         st.markdown("\n".join(f"- {md_escape(item)}" for item in items))
 
 
-def _insight(insight: dict[str, Any], retention: bool = False) -> None:
-    with st.container(border=True):
-        if insight["source"] == "llm" and retention:
-            st.caption(
-                ":material/verified: Facts from the analytics engine. The interpretation was "
-                "written by AI and checked: no numbers, no unproven causes, direction matches."
+def column_labels(columns: list[str]) -> dict[str, str]:
+    """Result columns as words for charts and tables: klien_unik -> Klien unik."""
+    return {c: c.replace("_", " ").capitalize() if c.islower() else c for c in columns}
+
+
+def _caveats(analysis: dict[str, Any], insight: dict[str, Any] | None) -> None:
+    """What the answer assumes or cannot show: visible, because it changes what it means."""
+    for item in analysis.get("assumptions") or []:
+        st.caption(f":material/info: Assumed: {md_escape(item)}")
+    for item in (insight or {}).get("limitations", []):
+        st.caption(f":material/info: {md_escape(item)}")
+
+
+def _check_line(insight: dict[str, Any], retention: bool) -> None:
+    """Say how far the written explanation can be trusted."""
+    if insight["source"] == "llm" and retention:
+        st.caption(
+            ":material/verified: Facts come from the analytics engine. The interpretation was "
+            "written by AI and checked: no numbers, no unproven causes, direction matches."
+        )
+    elif insight["source"] == "llm":
+        st.caption(
+            ":material/verified: Every number was checked against your data, and causes stated "
+            "as fact are rejected."
+        )
+    else:
+        reason = FALLBACK_REASONS.get(insight.get("fallback_reason") or "", "")
+        st.caption(
+            ":material/description: Summary built directly from the result"
+            + (f" ({reason})." if reason else ".")
+        )
+
+
+def _insight(insight: dict[str, Any]) -> None:
+    facts = insight.get("facts", [])
+    interpretations = insight.get("interpretations", [])
+    recommendations = insight.get("recommendations", [])
+    if facts or interpretations or recommendations:
+        with st.expander("Explanation and recommendations"):
+            _list("Facts", facts)
+            _list("Interpretation (not proven by the data)", interpretations)
+            _list("Recommendations", recommendations)
+
+
+def _how_answered(analysis: dict[str, Any]) -> None:
+    usage = analysis.get("usage") or {}
+    if not (analysis.get("sql") or analysis.get("explanation") or usage.get("requests")):
+        return
+    with st.expander("How this was answered"):
+        if analysis.get("explanation"):
+            st.markdown(md_escape(analysis["explanation"]))
+        if analysis.get("sql"):
+            label = (
+                "Fixed analytics template"
+                if analysis.get("retention")
+                else "The query that ran, checked before running"
             )
-        elif insight["source"] == "llm":
-            st.caption(
-                ":material/verified: AI explanation — each number was checked to exist in, or "
-                "be derived from, the query result; causes stated as fact are rejected."
-            )
-        else:
-            reason = FALLBACK_REASONS.get(insight.get("fallback_reason") or "", "")
-            st.caption(
-                ":material/description: Template summary built from the result"
-                + (f" ({reason})." if reason else ".")
-            )
-        _list("Facts", insight.get("facts", []))
-        _list("Interpretation (not proven by the data)", insight.get("interpretations", []))
-        _list("Recommendations", insight.get("recommendations", []))
-        _list("Limitations", insight.get("limitations", []))
+            st.caption(label)
+            st.code(analysis["sql"], language="sql")
+        if usage.get("requests"):
+            st.caption(_usage(usage))
 
 
 def _usage(usage: dict[str, Any]) -> str:
@@ -115,10 +154,14 @@ def _downloads(api: Any, analysis: dict[str, Any]) -> None:
 
 
 def render_analysis(analysis: dict[str, Any], api: Any | None = None) -> None:
-    """One question and its answer as chat messages; ``api`` enables download buttons."""
-    with st.chat_message("user"):
+    """One question and its answer as chat messages; ``api`` enables download buttons.
+
+    The answer and its chart come first. What changes its meaning (assumptions, limitations,
+    warnings) stays visible; the table, the explanation, and the SQL are one click away.
+    """
+    with st.chat_message("user", avatar=":material/person:"):
         st.markdown(md_escape(analysis["question"]))
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=":material/insights:"):
         status = analysis["status"]
         answer = md_escape(analysis.get("answer") or "")
         if status == "clarification":
@@ -132,33 +175,28 @@ def render_analysis(analysis: dict[str, Any], api: Any | None = None) -> None:
         if analysis.get("kpis"):
             _kpis(analysis["kpis"])
         table = analysis.get("table")
-        if status == "answered" and table:
-            if analysis.get("chart") and analysis["chart"]["type"] != "kpi":
-                render_chart(
-                    analysis["chart"],
-                    table["columns"],
-                    table["rows"],
-                    colors=CATEGORY_COLORS if analysis.get("retention") else None,
-                    key=f"chart_{analysis['analysis_id']}",
-                )
-            with st.expander(f"Result table ({fmt_int(table['row_count'])} row(s))"):
-                render_result(table)
+        insight = analysis.get("insight") if status == "answered" else None
+        labels = column_labels(table["columns"]) if table else {}
+        chart = analysis.get("chart")
+        if status == "answered" and table and chart and chart["type"] != "kpi":
+            render_chart(
+                chart,
+                table["columns"],
+                table["rows"],
+                labels=labels,
+                colors=CATEGORY_COLORS if analysis.get("retention") else None,
+                key=f"chart_{analysis['analysis_id']}",
+            )
+        if insight:
+            _check_line(insight, retention=bool(analysis.get("retention")))
+        _caveats(analysis, insight)
         render_notes(analysis.get("warnings") or [])
-        if analysis.get("insight") and status == "answered":
-            _insight(analysis["insight"], retention=bool(analysis.get("retention")))
-        if analysis.get("sql") or analysis.get("explanation") or analysis.get("assumptions"):
-            with st.expander("How this was answered"):
-                if analysis.get("explanation"):
-                    st.markdown(md_escape(analysis["explanation"]))
-                _list("Assumptions", analysis.get("assumptions", []))
-                if analysis.get("sql"):
-                    label = (
-                        "Analytics template (fixed SQL)"
-                        if analysis.get("retention")
-                        else ("Validated SQL")
-                    )
-                    st.caption(label)
-                    st.code(analysis["sql"], language="sql")
+        if status == "answered" and table:
+            rows = table["row_count"]
+            with st.expander(f"See the numbers ({fmt_int(rows)} row{'s' if rows != 1 else ''})"):
+                render_result(table, labels=labels)
+        if insight:
+            _insight(insight)
+        _how_answered(analysis)
         if api is not None and status == "answered":
             _downloads(api, analysis)
-        st.caption(_usage(analysis.get("usage") or {}))
